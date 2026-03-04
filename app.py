@@ -981,6 +981,7 @@ with aba4:
                                 data=b"{}",
                                 headers={
                                     "Authorization": f"Bearer {token}",
+                                    "apikey":         SUPABASE_KEY,
                                     "Content-Type":  "application/json",
                                 },
                                 method="POST",
@@ -993,8 +994,7 @@ with aba4:
                             else:
                                 st.error(f"Erro na Edge Function: {_body.get('error', _body)}")
                         except Exception as edge_err:
-                            st.error(f"❌ Não foi possível contactar a Edge Function: {edge_err}")
-                            st.caption("Certifica-te que a função 'delete-account' foi deployada no Supabase.")
+                            st.error(f"❌ Erro: {edge_err}")
 
                         # 3. Se Edge Function OK, faz logout
                         if edge_ok:
