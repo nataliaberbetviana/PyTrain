@@ -92,7 +92,6 @@ defaults = {
     "sessao_restaurada": False,
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
-    "novas_conquistas": [],
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -218,10 +217,6 @@ def desbloquear_conquista(conquista_id: str):
                 "user_id": user_id(), "conquista_id": conquista_id,
                 "desbloqueada_em": datetime.now(fuso).isoformat(),
             }).execute()
-            # Registra para exibir animação
-            defn = next((c for c in CONQUISTAS_DEF if c["id"] == conquista_id), None)
-            if defn and conquista_id not in st.session_state.novas_conquistas:
-                st.session_state.novas_conquistas.append(conquista_id)
     except Exception: pass
 
 def verificar_conquistas_treino(total_treinos: int, streak: int):
@@ -425,42 +420,6 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 # ═══════════════════════════════
 # ABA 1 — TREINO
 # ═══════════════════════════════
-
-# ── ANIMAÇÃO DE CONQUISTA ─────────────────────────────────────────────────────
-if st.session_state.novas_conquistas:
-    for cid in st.session_state.novas_conquistas:
-        defn = next((c for c in CONQUISTAS_DEF if c["id"] == cid), None)
-        if defn:
-            st.balloons()
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-                border: 2px solid #f0c040;
-                border-radius: 16px;
-                padding: 24px 28px;
-                margin: 12px 0;
-                text-align: center;
-                box-shadow: 0 0 30px rgba(240,192,64,0.35);
-                animation: pulse 1s ease-in-out;
-            ">
-                <div style="font-size: 3rem; margin-bottom: 8px;">{defn['emoji']}</div>
-                <div style="font-size: 1.1rem; color: #f0c040; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">
-                    🏆 Conquista desbloqueada!
-                </div>
-                <div style="font-size: 1.5rem; font-weight: 800; color: #fff; margin: 8px 0;">
-                    {defn['nome']}
-                </div>
-                <div style="color: #a0aec0; font-size: 0.95rem;">{defn['desc']}</div>
-            </div>
-            <style>
-            @keyframes pulse {{
-                0%   {{ transform: scale(0.92); opacity: 0; }}
-                60%  {{ transform: scale(1.03); opacity: 1; }}
-                100% {{ transform: scale(1);    opacity: 1; }}
-            }}
-            </style>
-            """, unsafe_allow_html=True)
-    st.session_state.novas_conquistas = []
 
 with aba1:
     st.info("✨ " + frase_aba("treino"))
@@ -1044,11 +1003,15 @@ with aba4:
                 c2.metric("📉 Mínimo",   f"{df_peso['peso_kg'].min()} kg")
                 c3.metric("📈 Variação", f"{sinal}{diff_p} kg")
 
-                df_tab_p = df_peso[["data","peso_kg","observacao"]].copy()
-                df_tab_p["data"] = df_tab_p["data"].dt.strftime("%d/%m/%Y")
-                st.dataframe(df_tab_p.rename(
-                    columns={"data":"Data","peso_kg":"Peso (kg)","observacao":"Obs"}
-                ).iloc[::-1], use_container_width=True, hide_index=True)
+                st.caption("Registros")
+                for _, row in df_peso.iloc[::-1].iterrows():
+                    c_data, c_peso, c_obs, c_del = st.columns([2, 1.5, 3, 0.7])
+                    c_data.write(row["data"].strftime("%d/%m/%Y"))
+                    c_peso.write(f"{row['peso_kg']} kg")
+                    c_obs.write(row["observacao"] or "—")
+                    if c_del.button("✕", key=f"del_peso_{row['id']}", help="Apagar registro"):
+                        supabase.table("peso_corporal").delete().eq("id", row["id"]).execute()
+                        st.rerun()
             else:
                 st.info("Nenhum registro de peso ainda.")
         except Exception as e:
