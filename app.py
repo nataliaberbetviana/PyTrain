@@ -87,47 +87,84 @@ with aba1:
 # --- ABA 2: CARDIO (SALVAMENTO NA INTERRUPÇÃO) ---
 with aba2:
     st.header("🏃 Controle de Esteira")
-    c1, c2 = st.columns(2)
-    t_anda = c1.number_input("Andando (min)", value=5, step=1)
-    v_anda = c1.number_input("Vel. Andando (km/h)", value=5.0, step=0.5)
-    t_corre = c2.number_input("Correndo (min)", value=0, step=1)
-    v_corre = c2.number_input("Vel. Correndo (km/h)", value=9.0, step=0.5)
 
+    # Escolha do tipo de meta
+    tipo_meta = st.radio("Definir meta por:", ["Tempo (minutos)", "Distância (km)"], horizontal=True)
+
+    col1, col2 = st.columns(2)
+
+    if tipo_meta == "Tempo (minutos)":
+        t_anda = col1.number_input("Minutos Andando", value=5.0, step=1.0)
+        v_anda = col1.number_input("Velocidade Andando (km/h)", value=5.0, step=0.5)
+        t_corre = col2.number_input("Minutos Correndo", value=2.0, step=1.0)
+        v_corre = col2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5)
+        # Cálculo da distância baseada no tempo
+        dist_por_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
+    else:
+        d_anda = col1.number_input("KM Andando", value=0.5, step=0.1)
+        v_anda = col1.number_input("Velocidade Andando (km/h)", value=5.0, step=0.5)
+        d_corre = col2.number_input("KM Correndo", value=1.0, step=0.1)
+        v_corre = col2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5)
+        # Cálculo do tempo baseado na distância (Tempo = Distância / Velocidade)
+        t_anda = (d_anda / v_anda) * 60 if v_anda > 0 else 0
+        t_corre = (d_corre / v_corre) * 60 if v_corre > 0 else 0
+        dist_por_ciclo = d_anda + d_corre
+
+    n_ciclos = st.number_input("Repetir este ciclo quantas vezes?", value=1, min_value=1)
+
+    # Métricas de Data Science
+    tempo_total_estimado = (t_anda + t_corre) * n_ciclos
+    distancia_total_estimada = dist_por_ciclo * n_ciclos
+
+    c1, c2 = st.columns(2)
+    c1.metric("⏱️ Tempo Total", f"{tempo_total_estimado:.1f} min")
+    c2.metric("📍 Distância Total", f"{distancia_total_estimada:.2f} km")
+
+    # --- Lógica de Execução ---
     if "cardio_ativo" not in st.session_state: st.session_state.cardio_ativo = False
     if "dist_real" not in st.session_state: st.session_state.dist_real = 0.0
 
-    c_start, c_stop = st.columns(2)
-    if c_start.button("🚀 INICIAR", use_container_width=True):
+    st.divider()
+    btn_start, btn_stop = st.columns(2)
+
+    if btn_start.button("🚀 INICIAR TREINO", use_container_width=True):
         st.session_state.cardio_ativo = True
         st.session_state.dist_real = 0.0
 
-    if c_stop.button("🛑 ENCERRAR AGORA", use_container_width=True):
+    if btn_stop.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
         if st.session_state.cardio_ativo:
             registrar_historico(None, f"Cardio Interrompido: {st.session_state.dist_real:.2f}km", tipo="cardio")
-            st.warning(f"Interrompido! Registrado: {st.session_state.dist_real:.2f} km")
         st.session_state.cardio_ativo = False
         st.rerun()
 
     if st.session_state.cardio_ativo:
         ph = st.empty()
         etapas = []
-        if t_anda > 0: etapas.append(("🚶 Caminhada", t_anda * 60, v_anda))
-        if t_corre > 0: etapas.append(("⚡ Corrida", t_corre * 60, v_corre))
+        # Monta os ciclos conforme solicitado
+        for i in range(n_ciclos):
+            if t_anda > 0: etapas.append((f"🚶 Caminhada (Ciclo {i + 1})", t_anda * 60, v_anda))
+            if t_corre > 0: etapas.append((f"⚡ Corrida (Ciclo {i + 1})", t_corre * 60, v_corre))
 
         for nome, segs, vel in etapas:
             while segs > 0 and st.session_state.cardio_ativo:
                 st.session_state.dist_real += vel / 3600
-                m, s = divmod(segs, 60)
-                ph.markdown(f'<div style="text-align:center;border:3px solid #e066ff;padding:20px;border-radius:15px;background:#1e1e1e;"><h2 style="color:#e066ff">{nome}</h2><h1 style="font-size:80px;color:white;">{m:02d}:{s:02d}</h1><h3>Distância: {st.session_state.dist_real:.2f} km</h3></div>', unsafe_allow_html=True)
+                m, s = divmod(int(segs), 60)
+                ph.markdown(f"""
+                    <div style="text-align:center;border:3px solid #e066ff;padding:20px;border-radius:15px;background:#1e1e1e;">
+                        <h2 style="color:#e066ff">{nome}</h2>
+                        <h1 style="font-size:80px;color:white;">{m:02d}:{s:02d}</h1>
+                        <h3 style="color:#66ffe0;">Distância Atual: {st.session_state.dist_real:.2f} km</h3>
+                        <p style="color:gray;">Meta: {distancia_total_estimada:.2f} km</p>
+                    </div>
+                """, unsafe_allow_html=True)
                 time.sleep(1)
                 segs -= 1
 
         if st.session_state.cardio_ativo:
             registrar_historico(None, f"Cardio Completo: {st.session_state.dist_real:.2f}km", tipo="cardio")
-            st.success(f"🎉 Finalizado: {st.session_state.dist_real:.2f} km")
+            st.success(f"🎉 Objetivo Alcançado! {st.session_state.dist_real:.2f} km percorridos.")
             st.session_state.cardio_ativo = False
 
-# --- ABA 3: HISTÓRICO CORRIGIDO ---
 # --- ABA 3: HISTÓRICO CORRIGIDO ---
 with aba3:
     st.header("📊 Desempenho Mensal")
@@ -172,8 +209,6 @@ with aba3:
             st.info("Ainda não há treinos registrados neste mês! Bora começar?")
     except Exception as e:
         st.error(f"Erro ao carregar dados: {e}")
-
-# --- ABA 4: MENU --- (Manteve igual à sua versão anterior)
 
 # --- ABA 4: CONFIGURAÇÕES ---
 with aba4:
