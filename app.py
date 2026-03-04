@@ -92,6 +92,7 @@ defaults = {
     "sessao_restaurada": False,
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
+    "form_livre_key": 0,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -430,7 +431,7 @@ with aba1:
     if modo_treino == "Treino Livre":
         st.caption("TREINO LIVRE — adicione exercícios na hora")
 
-        with st.form("form_livre"):
+        with st.form("form_livre_" + str(st.session_state.form_livre_key)):
             c1, c2, c3, c4 = st.columns([3,1,1,1])
             tl_nome   = c1.text_input("Exercício", placeholder="Ex: Agachamento")
             tl_peso   = c2.number_input("Kg", value=0, min_value=0)
@@ -443,6 +444,7 @@ with aba1:
                         "nome": tl_nome.strip(), "peso": tl_peso,
                         "series": tl_series, "reps": tl_reps, "nota": tl_nota.strip(),
                     })
+                    st.session_state.form_livre_key += 1
                     st.rerun()
 
         if st.session_state.treino_livre_exs:
