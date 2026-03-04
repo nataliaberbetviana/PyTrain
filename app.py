@@ -201,8 +201,7 @@ with aba2:
             st.session_state.cardio_ativo = False
             st.success("Objetivo de cardio alcançado!")
 
-# --- ABA 3: RENDIMENTO DETALHADO (DIÁRIO/SEMANAL/MENSAL) ---
-# --- ABA 3: PAINEL DE RENDIMENTO COM FILTRO ---
+# --- ABA 3: PAINEL DE RENDIMENTO COM FILTRO REORGANIZADO ---
 with aba3:
     st.header("📊 Performance & Histórico")
 
@@ -215,7 +214,7 @@ with aba3:
             df = pd.json_normalize(res_h.data)
             df['data_execucao'] = pd.to_datetime(df['data_execucao']).dt.tz_convert('America/Sao_Paulo')
 
-            # --- SELETOR DE MÊS/ANO ---
+            # --- 1. SELETOR DE MÊS/ANO ---
             st.subheader("📅 Filtrar Período")
             col_f1, col_f2 = st.columns(2)
 
@@ -228,10 +227,8 @@ with aba3:
                                        reverse=True)
             mes_sel = col_f2.selectbox("Mês", meses_disponiveis, format_func=lambda x: meses_nomes[x])
 
-            # --- FILTRAGEM DOS DADOS ---
+            # --- FILTRAGEM E CÁLCULOS ---
             df_filtrado = df[(df['data_execucao'].dt.month == mes_sel) & (df['data_execucao'].dt.year == ano_sel)]
-
-            # Hoje e Semana (fixos para referência rápida)
             df_hoje = df[df['data_execucao'].dt.date == hoje_agora.date()]
             inicio_semana = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0, minute=0)
             df_semana = df[df['data_execucao'] >= inicio_semana]
@@ -244,26 +241,33 @@ with aba3:
                 return (kms if not pd.isna(kms) else 0.0), (int(mins) if not pd.isna(mins) else 0)
 
 
-            # --- EXIBIÇÃO DE MÉTRICAS ---
+            # --- 2. RESUMO DO MÊS SELECIONADO ---
             st.markdown(f"#### 📈 Resumo de {meses_nomes[mes_sel]}/{ano_sel}")
             c1, c2, c3 = st.columns(3)
             km_f, min_f = extrair_stats(df_filtrado)
 
             c1.metric("Treinos", len(df_filtrado))
             c2.metric("Distância", f"{km_f:.2f} km")
-            c3.metric("Tempo", f"{min_f} min")
+            c3.metric("Tempo Total", f"{min_f} min")
 
-            # --- LISTA COMPLETA DO MÊS SELECIONADO ---
+            # --- 3. EXPANDER: HOJE E ESTA SEMANA (POSIÇÃO SOLICITADA) ---
+            with st.expander("📌 Ver Hoje e Esta Semana"):
+                km_h, min_h = extrair_stats(df_hoje)
+                km_s, min_s = extrair_stats(df_semana)
+                st.markdown(f"""
+                **Hoje:** {len(df_hoje)} atividades | {km_h:.2f}km | {min_h}min  
+                **Esta Semana:** {len(df_semana)} atividades | {km_s:.2f}km | {min_s}min
+                """)
+
+            # --- 4. LISTA COMPLETA DO MÊS SELECIONADO ---
             st.divider()
             st.subheader(f"📜 Atividades em {meses_nomes[mes_sel]}")
 
             if not df_filtrado.empty:
-                # Tratamento de nomes para a tabela
+                # Tratamento de nomes e formatação
                 if 'exercicios.nome' not in df_filtrado.columns:
                     df_filtrado['exercicios.nome'] = "🏃 Cardio"
                 df_filtrado['exercicios.nome'] = df_filtrado['exercicios.nome'].fillna("🏃 Cardio")
-
-                # Formata a data para leitura humana
                 df_filtrado['Data'] = df_filtrado['data_execucao'].dt.strftime('%d/%m/%Y %H:%M')
 
                 st.dataframe(
@@ -272,14 +276,7 @@ with aba3:
                     hide_index=True
                 )
             else:
-                st.info("Nenhum registro para este período.")
-
-            # Referência rápida de hoje/semana no final
-            with st.expander("📌 Ver Hoje e Esta Semana"):
-                km_h, min_h = extrair_stats(df_hoje)
-                km_s, min_s = extrair_stats(df_semana)
-                st.write(f"**Hoje:** {len(df_hoje)} atividades | {km_h:.2f}km | {min_h}min")
-                st.write(f"**Semana:** {len(df_semana)} atividades | {km_s:.2f}km | {min_s}min")
+                st.info(f"Nenhum registro encontrado para {meses_nomes[mes_sel]}.")
 
     except Exception as e:
         st.error(f"Erro ao carregar histórico: {e}")
