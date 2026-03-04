@@ -67,6 +67,7 @@ DEFAULTS = {
     "sessao_restaurada": False,
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
+    "ex_registrado": False,
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -239,11 +240,10 @@ try:
 except Exception:
     treinos_mes = 0
 
-if treinos_mes == 0:    msg_treinos = "Nenhum treino este mês ainda — bora começar! 💪"
-elif treinos_mes <= 8:  msg_treinos = str(treinos_mes) + " treino(s) este mês. Continue assim! 🔥"
-elif treinos_mes <= 16: msg_treinos = str(treinos_mes) + " treinos este mês. Você está em chamas! 🚀"
-elif treinos_mes <= 24: msg_treinos = str(treinos_mes) + " treinos este mês. Mandando muito bem! 💪"
-else:                   msg_treinos = str(treinos_mes) + " treinos este mês. Lendária! 🏆"
+if treinos_mes == 0:   msg_treinos = "Nenhum treino este mês ainda — bora começar! 💪"
+elif treinos_mes < 5:  msg_treinos = str(treinos_mes) + " treino(s) este mês. Continue assim! 🔥"
+elif treinos_mes < 10: msg_treinos = str(treinos_mes) + " treinos este mês. Você está em chamas! 🚀"
+else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Lendária! 🏆"
 
 col_titulo, col_sair = st.columns([5, 1])
 with col_titulo:
@@ -479,19 +479,22 @@ with aba1:
                 st.write("")
                 c_prox, c_cancel = st.columns(2)
                 if c_prox.button("✅  Próximo →", use_container_width=True):
-                    is_pr = _verificar_pr(ex["id"], p)
-                    det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
-                    if nota_ex:
-                        det += " | " + nota_ex
-                    if is_pr:
-                        det += " | 🏆 PR"
-                        _desbloquear("pr_primeiro")
-                        st.success("🏆 NOVO RECORDE PESSOAL!")
-                    _registrar(ex["id"], det)
-                    supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
-                    st.session_state.indice_ex += 1
-                    st.session_state.timer_descanso_ativo = False
-                    st.rerun()
+                    if not st.session_state.get("ex_registrado"):
+                        st.session_state.ex_registrado = True
+                        is_pr = _verificar_pr(ex["id"], p)
+                        det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
+                        if nota_ex:
+                            det += " | " + nota_ex
+                        if is_pr:
+                            det += " | 🏆 PR"
+                            _desbloquear("pr_primeiro")
+                            st.success("🏆 NOVO RECORDE PESSOAL!")
+                        _registrar(ex["id"], det)
+                        supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
+                        st.session_state.indice_ex += 1
+                        st.session_state.timer_descanso_ativo = False
+                        st.session_state.ex_registrado = False
+                        st.rerun()
                 if c_cancel.button("Cancelar treino", use_container_width=True):
                     st.session_state.treino_ativo = False; st.rerun()
 
