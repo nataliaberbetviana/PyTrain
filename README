@@ -1,47 +1,57 @@
-# 🏋️ PyTrain PRO — Gestão Inteligente de Treinos
+# 🏋️ PyTrain PRO
 
-O **PyTrain PRO** é um sistema de gerenciamento de rotinas de musculação e cardio desenvolvido em Python. O projeto utiliza o **Supabase (PostgreSQL)** para persistência de dados na nuvem e oferece duas interfaces: uma **web moderna com Streamlit** e uma **CLI interativa no terminal**.
+**Sistema de gerenciamento de treinos de musculação e cardio em Python.**
+
+Utiliza o **Supabase (PostgreSQL)** para persistência de dados na nuvem e oferece duas interfaces: uma **web com Streamlit** (`app.py`) e uma **CLI interativa no terminal** (`cardio.py`).
 
 > Este projeto faz parte da minha transição de carreira da Medicina Veterinária para a Tecnologia, aplicando conceitos de desenvolvimento de software e infraestrutura em nuvem.
 
 ---
 
-## 🚀 Funcionalidades (CRUD Completo)
+## Funcionalidades
 
-| Operação | Descrição |
-|---|---|
-| **Create** | Cadastro de novos exercícios com definição de séries, repetições e carga inicial |
-| **Read** | Visualização de histórico, calendário de frequência semanal e resumo de volume diário |
-| **Update** | Edição dinâmica do catálogo e atualização de cargas em tempo real durante o treino |
-| **Delete** | Reset seguro do histórico ou do catálogo completo |
-
-- **📊 Métricas de Performance** — Cálculo automático do Volume Total de Carga (Peso × Séries × Repetições).
-- **💾 Backup** — Exportação do histórico de treinos para formato CSV.
-- **🏃 Módulo Cardio** — Cronómetro com ciclos de corrida/caminhada configuráveis por distância ou número de ciclos.
+- **CRUD completo** de exercícios — cadastro, edição, listagem e remoção
+- **Gestão de séries A/B/C/D** com visualização prévia antes de iniciar
+- **Atualização de carga em tempo real** durante o treino
+- **Módulo de cardio** com cronómetro e ciclos corrida/caminhada configuráveis
+- **Painel de performance** com histórico filtrado por mês e métricas de volume
+- **Cálculo automático** de Volume Total de Carga (Peso × Séries × Repetições)
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## Tecnologias
 
 | Componente | Tecnologia |
-|---|---|
-| Linguagem | Python 3.x |
-| Base de Dados | Supabase (PostgreSQL) |
-| Interface Web | Streamlit (`app.py`) |
-| Interface Terminal | Python CLI (`cardio.py`) |
-| Cloud / Infra | Conceitos AWS para integração e segurança |
+| --- | --- |
+| Linguagem | Python 3.10+ |
+| Banco de Dados | Supabase (PostgreSQL) |
+| Interface Web | Streamlit — `app.py` |
+| Interface Terminal | Python CLI — `cardio.py` |
 | Conectividade | `supabase-py` |
 | Segurança | `python-dotenv` |
+| Cloud / Infra | AWS (conceitos aplicados) |
 
 ---
 
-## 🗄️ Configuração do Banco de Dados (Supabase)
+## Estrutura do Projeto
 
-> **Pré-requisito:** crie uma conta gratuita em [supabase.com](https://supabase.com) e crie um novo projeto.
+```
+PyTrain/
+├── app.py            # Interface web (Streamlit)
+├── cardio.py         # Módulo de cardio para terminal
+├── requirements.txt  # Dependências
+├── .env              # Credenciais — NÃO commitar
+├── .gitignore
+└── README.md
+```
 
-### 1. Criar as tabelas
+---
 
-No painel do Supabase, vá em **SQL Editor** e execute o script abaixo:
+## 1. Configurar o Banco de Dados (Supabase)
+
+Crie uma conta gratuita em [supabase.com](https://supabase.com) e um novo projeto.
+
+No painel, acesse **SQL Editor** e execute:
 
 ```sql
 -- Tabela de exercícios
@@ -63,7 +73,7 @@ CREATE TABLE historico_treinos (
     tipo           TEXT DEFAULT 'musculacao' CHECK (tipo IN ('musculacao', 'cardio'))
 );
 
--- Tabela de configurações do cardio (opcional)
+-- Tabela de configurações de cardio (opcional)
 CREATE TABLE configuracao_cardio (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome_setting  TEXT,
@@ -73,138 +83,138 @@ CREATE TABLE configuracao_cardio (
 );
 ```
 
-### 2. Obter as credenciais
+Após criar as tabelas, vá em **Project Settings → API** e copie:
 
-1. No painel do Supabase, vá em **Project Settings → API**
-2. Copie a **Project URL** e a **anon/public key**
-
-### 3. Criar o arquivo `.env`
-
-Na raiz do projeto, crie um arquivo chamado `.env`:
-
-```env
-SUPABASE_URL=https://xxxxxxxxxxx.supabase.co
-SUPABASE_KEY=sua_anon_key_aqui
-```
-
-> ⚠️ **Nunca** commite o `.env` no GitHub. Ele já está listado no `.gitignore`.
+- **Project URL**
+- **anon / public key**
 
 ---
 
-## 📋 Como Executar
+## 2. Instalar e Configurar
 
-### Pré-requisitos
-
-- Python 3.10+
-- Conta no [Supabase](https://supabase.com) configurada (ver secção acima)
-
-### 1. Clone o repositório
+Clone o repositório:
 
 ```bash
 git clone https://github.com/nataliaberbetviana/PyTrain.git
 cd PyTrain
 ```
 
-### 2. Crie o ambiente virtual
+Crie o ambiente virtual:
 
 ```bash
 python -m venv venv
-source venv/bin/activate   # Linux/macOS
-venv\Scripts\activate      # Windows
+source venv/bin/activate    # Linux/macOS
+venv\Scripts\activate       # Windows
 ```
 
-### 3. Instale as dependências
+Instale as dependências:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure o `.env`
+Crie o arquivo `.env` na raiz do projeto com as credenciais obtidas no passo anterior:
 
-Siga os passos da secção [Configuração do Banco de Dados](#️-configuração-do-banco-de-dados-supabase) acima.
+```env
+SUPABASE_URL=https://xxxxxxxxxxx.supabase.co
+SUPABASE_KEY=sua_anon_key_aqui
+```
+
+> ⚠️ O arquivo `.env` já está no `.gitignore`. Nunca o commite no GitHub.
 
 ---
 
-## 🖥️ Interface Web — Streamlit (`app.py`)
+## 3. Executar
 
-A interface web oferece todas as funcionalidades num dashboard visual e responsivo com 4 abas:
-
-| Aba | Função |
-|---|---|
-| 🚀 Treino | Selecione a série, veja o resumo dos exercícios e execute o treino com cronómetro |
-| 🏃 Cardio | Configure e execute sessões de esteira por distância ou número de ciclos |
-| 📊 Painel | Histórico filtrado por mês/ano, métricas de distância e tempo |
-| ⚙️ Menu | Cadastre, edite ou remova exercícios; reset do histórico e pesos |
-
-**Para iniciar:**
+### Interface Web — Streamlit
 
 ```bash
 streamlit run app.py
 ```
 
-Acesse no navegador em `http://localhost:8501`
+Acesse em `http://localhost:8501`. O dashboard possui 4 abas:
 
----
+| Aba | O que faz |
+| --- | --- |
+| 🚀 Treino | Seleciona a série, exibe prévia dos exercícios e executa o treino com cronómetro |
+| 🏃 Cardio | Configura e executa sessões de esteira por distância ou número de ciclos |
+| 📊 Painel | Histórico filtrado por mês/ano com métricas de distância e tempo |
+| ⚙️ Menu | Cadastra, edita e remove exercícios; reset de histórico e pesos |
 
-## 💻 Interface Terminal — CLI (`cardio.py`)
+### Interface Terminal — CLI
 
-Para quem prefere usar o terminal, o módulo `cardio.py` oferece o módulo de cardio de forma independente, com cronómetro interativo e alertas sonoros.
-
-**Para usar:**
+O módulo `cardio.py` funciona de forma independente, sem necessidade de Supabase:
 
 ```python
 from cardio import gerar_treino_esteira, formatar_cronograma, executar_cronometro_treino
 
 plano = gerar_treino_esteira(
-    t_total=40,       # tempo total em minutos
-    t_correr=3,       # minutos correndo por ciclo
-    t_descanso=2,     # minutos andando por ciclo
-    t_pre_pos=5,      # aquecimento e desaceleração (dentro do tempo total)
-    v_andar=5.5,      # velocidade de caminhada (km/h)
-    v_correr=9.0      # velocidade de corrida (km/h)
+    t_total=40,    # tempo total em minutos
+    t_correr=3,    # minutos correndo por ciclo
+    t_descanso=2,  # minutos andando por ciclo
+    t_pre_pos=5,   # aquecimento e desaceleração (dentro do tempo total)
+    v_andar=5.5,   # velocidade de caminhada km/h
+    v_correr=9.0   # velocidade de corrida km/h
 )
 
 print(formatar_cronograma(plano))
 executar_cronometro_treino(plano)
 ```
 
-O protocolo inclui automaticamente:
-- 🚶 **Aquecimento** no início
-- 🔥 Ciclos alternados de **corrida** e **caminhada**
-- 🧊 **Desaceleração** no final
+O protocolo gera automaticamente:
 
-Tudo calculado dentro do tempo total estipulado.
+- 🚶 Aquecimento no início
+- 🔥 Ciclos alternados de corrida e caminhada
+- 🧊 Desaceleração no final
+
+Tudo calculado dentro do tempo total estipulado, com alertas sonoros a cada mudança de ritmo.
 
 ---
 
-## 🗂️ Estrutura do Projeto
+## 4. Deploy no Streamlit Cloud (opcional)
+
+Queres deixar o app online sem precisar rodar no computador? O **Streamlit Community Cloud** é gratuito e conecta direto com o GitHub.
+
+**Passo a passo:**
+
+Acesse [share.streamlit.io](https://share.streamlit.io) e faça login com sua conta GitHub.
+
+Clique em **"New app"** e preencha os campos:
+
+| Campo | Valor |
+| --- | --- |
+| Repository | `nataliaberbetviana/PyTrain` |
+| Branch | `main` |
+| Main file path | `app.py` |
+
+Antes de clicar em **Deploy**, clique em **"Advanced settings"** e adicione as variáveis de ambiente:
 
 ```
-PyTrain/
-├── app.py                  # Interface web (Streamlit)
-├── cardio.py               # Módulo de cardio para terminal
-├── requirements.txt        # Dependências do projeto
-├── .env                    # Credenciais (NÃO commitar)
-├── .gitignore
-└── README.md
+SUPABASE_URL = https://xxxxxxxxxxx.supabase.co
+SUPABASE_KEY = sua_anon_key_aqui
 ```
 
----
+> ⚠️ Não use o arquivo `.env` no deploy — as variáveis devem ser configuradas diretamente no painel do Streamlit Cloud, nunca expostas no repositório.
 
-## 🛡️ Segurança
-
-As credenciais do Supabase são gerenciadas via variáveis de ambiente com `python-dotenv`. O arquivo `.env` e o ambiente virtual estão listados no `.gitignore`, garantindo que dados sensíveis nunca sejam expostos publicamente.
+Clique em **Deploy** e aguarde. O Streamlit vai instalar as dependências do `requirements.txt` automaticamente e gerar um link público no formato `https://seuapp.streamlit.app`.
 
 ---
 
-## 👤 Autora
+## Segurança
 
-**Natália Berbet Viana**  
-AWS Certified Cloud Practitioner & Developer  
-[GitHub Profile](https://github.com/nataliaberbetviana)
+As credenciais do Supabase são gerenciadas via variáveis de ambiente com `python-dotenv`. O arquivo `.env` e o ambiente virtual estão no `.gitignore`, garantindo que dados sensíveis nunca sejam expostos publicamente.
 
 ---
 
-## 📄 Licença
+## Autora
 
-Distribuído sob a licença MIT. Veja o ficheiro [LICENSE](LICENSE) para mais detalhes.
+**Natália Berbet Viana**
+AWS Certified Cloud Practitioner & Developer
+
+[GitHub](https://github.com/nataliaberbetviana) · [LinkedIn](https://www.linkedin.com/in/nataliaberbetviana/)
+
+---
+
+## Licença
+
+Distribuído sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
