@@ -170,21 +170,38 @@ def tela_login():
         </div>
     """, unsafe_allow_html=True)
 
-    # Centralizar formulário
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        with st.form("form_login"):
-            email = st.text_input("📧 Email", placeholder="seu@email.com")
-            senha = st.text_input("🔒 Senha", type="password", placeholder="••••••••")
-            entrar = st.form_submit_button("Entrar", use_container_width=True)
+        # Tabs: Entrar | Esqueci a Senha
+        tab_login, tab_reset = st.tabs(["🔑 Entrar", "🔓 Esqueci a Senha"])
 
-        if entrar:
-            if email and senha:
-                with st.spinner("Autenticando..."):
-                    if fazer_login(email, senha):
-                        st.rerun()
-            else:
-                st.warning("Preencha email e senha.")
+        with tab_login:
+            with st.form("form_login"):
+                email = st.text_input("📧 Email", placeholder="seu@email.com")
+                senha = st.text_input("🔒 Senha", type="password", placeholder="••••••••")
+                entrar = st.form_submit_button("Entrar", use_container_width=True)
+            if entrar:
+                if email and senha:
+                    with st.spinner("Autenticando..."):
+                        if fazer_login(email, senha):
+                            st.rerun()
+                else:
+                    st.warning("Preencha email e senha.")
+
+        with tab_reset:
+            st.caption("Insere o teu email e enviaremos um link para redefinir a senha.")
+            with st.form("form_reset"):
+                email_reset = st.text_input("📧 Email cadastrado", placeholder="seu@email.com")
+                enviar = st.form_submit_button("Enviar link de recuperação", use_container_width=True)
+            if enviar:
+                if email_reset and "@" in email_reset:
+                    try:
+                        supabase.auth.reset_password_email(email_reset.strip())
+                        st.success(f"✅ Link enviado para **{email_reset}**. Verifique a caixa de entrada.")
+                    except Exception as e:
+                        st.error(f"Erro ao enviar: {e}")
+                else:
+                    st.warning("Digite um email válido.")
 
 # ─────────────────────────────────────────────
 # FLUXO DE CONVITE — define senha pela primeira vez
@@ -296,33 +313,38 @@ elif treinos_mes < 10:
 else:
     msg_motivacao = f"Impressionante! **{treinos_mes} treinos** este mês. Você é uma máquina! 🏆"
 
-# ── Banner de saudação (largura total) ───────────────────────────
-st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #1e1e2e 0%, #2a1a3e 100%);
-        border: 2px solid #7d33ff;
-        border-radius: 14px;
-        padding: 18px 24px;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    ">
-        <div style="font-size:2.4em; line-height:1; flex-shrink:0;">{emoji_hora}</div>
-        <div>
-            <p style="margin:0; color:#a78bfa; font-size:0.8em; letter-spacing:1px; text-transform:uppercase;">
-                🏋️ PyTrain PRO
-            </p>
-            <h2 style="margin:3px 0 4px; color:#ffffff; font-size:1.35em;">
-                {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
-            </h2>
-            <p style="margin:0; color:#aaa; font-size:0.88em;">{msg_motivacao}</p>
+# ── Banner de saudação ───────────────────────────────────────────
+_c_banner, _c_sair = st.columns([5, 1])
+with _c_banner:
+    st.markdown(f"""
+        <div style="
+            background:linear-gradient(135deg,#1e1e2e 0%,#2a1a3e 100%);
+            border:2px solid #7d33ff;
+            border-radius:14px;
+            padding:16px 20px;
+            display:flex;
+            align-items:center;
+            gap:14px;
+            min-height:80px;
+            box-sizing:border-box;
+        ">
+            <div style="font-size:2em;line-height:1;flex-shrink:0;">{emoji_hora}</div>
+            <div style="min-width:0;">
+                <p style="margin:0;color:#a78bfa;font-size:0.75em;letter-spacing:1px;text-transform:uppercase;">
+                    🏋️ PyTrain PRO
+                </p>
+                <p style="margin:2px 0 3px;color:#fff;font-size:1.2em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
+                </p>
+                <p style="margin:0;color:#aaa;font-size:0.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    {msg_motivacao}
+                </p>
+            </div>
         </div>
-    </div>
-""", unsafe_allow_html=True)
-
-col_esp, col_sair = st.columns([6, 1])
-with col_sair:
+    """, unsafe_allow_html=True)
+with _c_sair:
+    # Alinha verticalmente com o banner
+    st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
     if st.button("🚪 Sair", use_container_width=True):
         fazer_logout()
 
@@ -665,34 +687,31 @@ with aba4:
 
         st.markdown("---")
 
-        # Alterar senha
+        # Alterar senha (exige senha antiga para confirmar identidade)
         with st.form("form_senha"):
             st.markdown("##### 🔒 Alterar Senha")
-            nova_senha  = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
-            conf_senha  = st.text_input("Confirmar senha", type="password", placeholder="repita a senha")
+            senha_antiga = st.text_input("Senha atual", type="password", placeholder="sua senha atual")
+            nova_senha   = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
+            conf_senha   = st.text_input("Confirmar nova senha", type="password", placeholder="repita a nova senha")
             if st.form_submit_button("Salvar Senha", use_container_width=True):
-                if not nova_senha or len(nova_senha) < 8:
-                    st.warning("A senha deve ter pelo menos 8 caracteres.")
+                if not senha_antiga:
+                    st.warning("Digite a senha atual.")
+                elif not nova_senha or len(nova_senha) < 8:
+                    st.warning("A nova senha deve ter pelo menos 8 caracteres.")
                 elif nova_senha != conf_senha:
                     st.error("As senhas não coincidem.")
                 else:
                     try:
+                        # Reautentica com a senha antiga para validar
+                        email_atual2 = st.session_state.usuario["email"]
+                        supabase.auth.sign_in_with_password({"email": email_atual2, "password": senha_antiga})
+                        # Se passou, atualiza para a nova
                         supabase.auth.update_user({"password": nova_senha})
                         st.success("✅ Senha alterada com sucesso!")
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
+                    except Exception:
+                        st.error("❌ Senha atual incorreta.")
 
-        st.markdown("---")
 
-        # Recuperar senha por email
-        st.markdown("##### 🔑 Esqueci a Senha")
-        st.caption("Envia um link de recuperação para o teu email de cadastro.")
-        if st.button("Enviar link de recuperação", use_container_width=True):
-            try:
-                supabase.auth.reset_password_email(email_atual)
-                st.success(f"✅ Link enviado para **{email_atual}**. Verifique a caixa de entrada.")
-            except Exception as e:
-                st.error(f"Erro: {e}")
 
     st.divider()
 
