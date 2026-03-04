@@ -51,11 +51,26 @@ defaults = {
     "cardio_ativo": False, "params_cardio": None, "dist_real": 0.0,
     "t_cardio_start": 0.0, "cardio_salvo": False,
     "confirmar_historico": False, "perfil_completo": None,
-    "sessao_restaurada": False, "frase_idx": 0,
+    "sessao_restaurada": False,
+    # índice global de frases — incrementa a cada troca de aba
+    "frase_idx": 0,
+    # controle de qual aba estava ativa para detectar troca
+    "aba_anterior": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+# ── helpers de frases ──────────────────────────────────────────────────────────
+
+def frase_aba(nome_aba: str) -> str:
+    """Retorna a frase atual e avança o índice se a aba mudou."""
+    if st.session_state.aba_anterior != nome_aba:
+        st.session_state.frase_idx = (st.session_state.frase_idx + 1) % len(FRASES)
+        st.session_state.aba_anterior = nome_aba
+    return FRASES[st.session_state.frase_idx]
+
+# ── cookie helpers ─────────────────────────────────────────────────────────────
 
 def _cookie_get(key):
     try:
@@ -70,6 +85,8 @@ def _cookie_set(key, val):
         cookies.save()
     except Exception:
         pass
+
+# ── auth ───────────────────────────────────────────────────────────────────────
 
 def fazer_login(email, senha):
     try:
@@ -141,6 +158,21 @@ def extrair_stats(df):
     km = df["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
     mn = df["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
     return (float(km) if not pd.isna(km) else 0.0), (int(mn) if not pd.isna(mn) else 0)
+
+def extrair_peso_total(df):
+    """Soma kg×séries×reps de todos os registros de musculação."""
+    if df.empty or "detalhes" not in df.columns:
+        return 0.0
+    df_musc = df[df.get("tipo", pd.Series(["musculacao"]*len(df))) != "cardio"] if "tipo" in df.columns else df
+    total = 0.0
+    for det in df_musc["detalhes"].dropna():
+        # formato: "75kg | 3x12 | 5min"  ou  "75kg | 3x12 | ..."
+        import re
+        m_kg   = re.search(r"([\d.]+)kg", det)
+        m_sets = re.search(r"(\d+)x(\d+)", det)
+        if m_kg and m_sets:
+            total += float(m_kg.group(1)) * int(m_sets.group(1)) * int(m_sets.group(2))
+    return total
 
 def rodape():
     st.divider()
@@ -316,9 +348,7 @@ aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "
 with aba1:
     if not st.session_state.treino_ativo:
 
-        # Frase motivadora
-        frase = FRASES[hoje_agora.day % len(FRASES)]
-        st.info("✨ " + frase)
+        st.info("✨ " + frase_aba("treino"))
 
         serie = st.radio("Série", ["A", "B", "C", "D"], horizontal=True, label_visibility="collapsed")
 
@@ -416,7 +446,6 @@ with aba1:
             c_t3.metric("📋 Série", st.session_state.serie_atual)
             st.divider()
 
-            # Frase motivadora durante o treino
             if idx > 0:
                 st.caption("💬 " + FRASES[(hoje_agora.day + idx) % len(FRASES)])
 
@@ -443,7 +472,7 @@ with aba1:
 with aba2:
     if not st.session_state.cardio_ativo:
 
-        st.info("🏃 " + FRASES[(hoje_agora.day + 3) % len(FRASES)])
+        st.info("🏃 " + frase_aba("cardio"))
         st.caption("CONFIGURAR ESTEIRA")
 
         modo = st.radio("Modo", ["Distância (km)", "Número de ciclos"], horizontal=True, label_visibility="collapsed")
@@ -538,6 +567,7 @@ with aba2:
 # ═══════════════════════════════
 
 with aba3:
+    st.info("📊 " + frase_aba("painel"))
     try:
         res_h = supabase.table("historico_treinos").select("*,exercicios(nome)")\
             .eq("user_id", user_id()).order("data_execucao", desc=True).execute()
@@ -548,6 +578,69 @@ with aba3:
             df = pd.json_normalize(res_h.data)
             df["data_execucao"] = pd.to_datetime(df["data_execucao"]).dt.tz_convert("America/Sao_Paulo")
 
+            # ── COMPARAÇÃO SEMANAL ────────────────────────────────────────────────────
+            ini_sem_atual = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            ini_sem_ant   = ini_sem_atual - timedelta(weeks=1)
+
+            df_sem_atual = df[df["data_execucao"] >= ini_sem_atual]
+            df_sem_ant   = df[(df["data_execucao"] >= ini_sem_ant) & (df["data_execucao"] < ini_sem_atual)]
+
+            km_a,  min_a  = extrair_stats(df_sem_atual)
+            km_ant, min_ant = extrair_stats(df_sem_ant)
+            kg_a   = extrair_peso_total(df_sem_atual)
+            kg_ant = extrair_peso_total(df_sem_ant)
+
+            def delta_str(atual, anterior, fmt="{:.0f}"):
+                if anterior == 0:
+                    return None
+                diff = atual - anterior
+                sinal = "+" if diff >= 0 else ""
+                return sinal + fmt.format(diff)
+
+            st.caption("⚡ COMPARAÇÃO — ESTA SEMANA vs SEMANA ANTERIOR")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("🏋️ Treinos",       len(df_sem_atual), delta_str(len(df_sem_atual), len(df_sem_ant), "{:.0f}"))
+            c2.metric("🏋️ Peso Total (kg)", f"{kg_a:,.0f}", delta_str(kg_a, kg_ant, "{:.0f}"))
+            c3.metric("🛣️ Distância (km)",  f"{km_a:.1f}",  delta_str(km_a, km_ant, "{:.1f}"))
+            c4.metric("⏱ Esteira (min)",    min_a,           delta_str(min_a, min_ant))
+
+            st.divider()
+
+            # ── GRÁFICOS SEMANAIS ─────────────────────────────────────────────────────
+            with st.expander("📈 Evolução semanal (últimas 8 semanas)", expanded=True):
+                # montar série de 8 semanas
+                semanas = []
+                for i in range(7, -1, -1):
+                    ini = ini_sem_atual - timedelta(weeks=i)
+                    fim = ini + timedelta(weeks=1)
+                    df_s = df[(df["data_execucao"] >= ini) & (df["data_execucao"] < fim)]
+                    km_s, min_s = extrair_stats(df_s)
+                    kg_s = extrair_peso_total(df_s)
+                    label = ini.strftime("%d/%m")
+                    semanas.append({"Semana": label, "Treinos": len(df_s),
+                                    "Peso Total (kg)": round(kg_s), "Distância (km)": round(km_s, 1),
+                                    "Esteira (min)": min_s})
+
+                df_graf = pd.DataFrame(semanas)
+
+                tab_g1, tab_g2, tab_g3 = st.tabs(["🏋️ Peso Total", "🛣️ Distância", "⏱ Esteira"])
+
+                with tab_g1:
+                    st.bar_chart(df_graf.set_index("Semana")["Peso Total (kg)"], use_container_width=True)
+                    st.caption("Soma de kg×séries×reps de todos os exercícios da semana.")
+
+                with tab_g2:
+                    st.bar_chart(df_graf.set_index("Semana")["Distância (km)"], use_container_width=True)
+                    st.caption("Distância total percorrida no cardio por semana.")
+
+                with tab_g3:
+                    st.bar_chart(df_graf.set_index("Semana")["Esteira (min)"], use_container_width=True)
+                    st.caption("Tempo total de esteira/cardio por semana.")
+
+            st.divider()
+
+            # ── FILTRO MENSAL ─────────────────────────────────────────────────────────
             anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
             c1, c2 = st.columns(2)
             ano_sel = c1.selectbox("Ano", anos)
@@ -566,14 +659,12 @@ with aba3:
             c3.metric("⏱ Tempo", str(min_f) + " min")
 
             df_h = df[df["data_execucao"].dt.date == hoje_agora.date()]
-            ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
-            df_s = df[df["data_execucao"] >= ini_sem]
 
             with st.expander("📅 Hoje e esta semana"):
                 km_h, min_h = extrair_stats(df_h)
-                km_s, min_s = extrair_stats(df_s)
+                km_sw, min_sw = extrair_stats(df_sem_atual)
                 st.metric("Hoje", str(len(df_h)) + " atividade(s)  ·  " + str(round(km_h,1)) + " km  ·  " + str(min_h) + " min")
-                st.metric("Esta semana", str(len(df_s)) + " atividade(s)  ·  " + str(round(km_s,1)) + " km  ·  " + str(min_s) + " min")
+                st.metric("Esta semana", str(len(df_sem_atual)) + " atividade(s)  ·  " + str(round(km_sw,1)) + " km  ·  " + str(min_sw) + " min")
 
             st.caption("ATIVIDADES — " + meses_n[mes_sel].upper())
             if df_f.empty:
@@ -613,6 +704,8 @@ with aba3:
 # ═══════════════════════════════
 
 with aba4:
+    st.info("⚙️ " + frase_aba("perfil"))
+
     email_atual = st.session_state.usuario["email"]
     nome_atual  = st.session_state.usuario["nome"]
 
@@ -624,11 +717,51 @@ with aba4:
 
     st.subheader("⚙️ Meu Perfil")
 
-    # Perfil em coluna única — fluido no mobile
-    st.metric("👤 Nome", dp.get("nome", nome_atual))
-    st.metric("📧 Email", email_atual)
-    st.metric("📱 Telefone", dp.get("telefone", "—"))
-    st.metric("📍 Cidade", dp.get("cidade","—") + " — " + dp.get("estado","—"))
+    # ── Card compacto para mobile — substitui st.metric (fonte grande) ──────────
+    st.markdown("""
+    <style>
+    .perfil-card {
+        background: #13131f;
+        border: 1px solid #2d2d45;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.92rem;
+    }
+    .perfil-label {
+        color: #888;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 2px;
+    }
+    .perfil-valor {
+        color: #e2e8f0;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+    .perfil-icon { font-size: 1.2rem; flex-shrink: 0; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    def card_perfil(icon, label, valor):
+        st.markdown(f"""
+        <div class="perfil-card">
+            <span class="perfil-icon">{icon}</span>
+            <div>
+                <div class="perfil-label">{label}</div>
+                <div class="perfil-valor">{valor}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    card_perfil("👤", "Nome",     dp.get("nome", nome_atual))
+    card_perfil("📧", "Email",    email_atual)
+    card_perfil("📱", "Telefone", dp.get("telefone", "—"))
+    card_perfil("📍", "Cidade",   dp.get("cidade","—") + " — " + dp.get("estado","—"))
 
     st.divider()
 
