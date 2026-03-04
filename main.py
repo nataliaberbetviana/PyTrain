@@ -1,354 +1,292 @@
 import os
-from cardio import gerar_treino_esteira, formatar_cronograma
-from supabase import create_client, Client
-from datetime import datetime
-from dotenv import load_dotenv
+import csv
+from datetime import datetime, timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# Componentes de estética Rich
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich import print as rprint
+
+console = Console()
+
+# --- CONFIGURAÇÃO ---
+env_path = Path('.') / '.env'
+load_dotenv(dotenv_path=env_path)
+
+URL = os.getenv("SUPABASE_URL")
+KEY = os.getenv("SUPABASE_KEY")
+
+try:
+    supabase: Client = create_client(URL, KEY)
+    rprint("[bold green]🚀 PyTrain API: Sistema Online![/bold green]")
+except Exception as e:
+    rprint(f"[bold red]❌ Conexão falhou: {e}[/bold red]")
+
+
+# --- MÓDULO DE DADOS ---
 
 def registrar_no_historico(ex_id, detalhes, tipo="musculacao"):
-    """Salva a execução no banco de dados."""
     try:
-        agora = datetime.now().isoformat()
         dados = {
             "exercicio_id": ex_id,
-            "data_execucao": agora,
+            "data_execucao": datetime.now().isoformat(),
             "detalhes": detalhes,
             "tipo": tipo
         }
         supabase.table("historico_treinos").insert(dados).execute()
     except Exception as e:
-        print(f"⚠️ Erro ao salvar histórico: {e}")
+        console.print(f"[red]⚠️ Erro ao salvar histórico: {e}[/red]")
 
 
-def visualizar_historico():
-    print("\n--- 📜 MEU HISTÓRICO RECENTE ---")
-    # Busca os últimos 15 treinos fazendo um 'join' com a tabela de exercícios para pegar o nome
-    res = supabase.table("historico_treinos").select("data_execucao, detalhes, exercicios(nome)").order("data_execucao",
-                                                                                                        desc=True).limit(
-        15).execute()
-
-    if not res.data:
-        print("Nenhum treino registrado ainda.")
-        return
-
-    for item in res.data:
-        data = datetime.fromisoformat(item['data_execucao']).strftime("%d/%m %H:%M")
-        # Trata o caso de cardio que pode não ter um link direto com a tabela 'exercicios' dependendo de como você salvou
-        nome = item['exercicios']['nome'] if item['exercicios'] else "Cardio/Config Salva"
-        print(f"[{data}] {nome}: {item['detalhes']}")
-
-
-def menu_zerar_dados():
-    print("\n--- 🧹 ZERAR DADOS (CUIDADO!) ---")
-    print("1. Apagar APENAS o Histórico")
-    print("2. Zerar todos os Pesos (Mantém os nomes)")
-    print("3. Apagar TUDO (Exercícios, Cardio e Histórico)")
-    print("4. Voltar")
-
-    escolha = input("O que deseja zerar? ")
-    confirmar = input(f"Tem certeza? Digite 'ZERA' para confirmar: ")
-
-    # Esta string é o formato que o banco espera para um ID do tipo UUID
-    UUID_ZERO = "00000000-0000-0000-0000-000000000000"
-
-    if confirmar.upper() != "ZERA":
-        print("Operação cancelada.")
-        return
-
-    try:
-        if escolha == "1":
-            # Deleta histórico comparando com o formato UUID correto
-            supabase.table("historico_treinos").delete().neq("id", UUID_ZERO).execute()
-            print("✅ Histórico limpo!")
-
-        elif escolha == "2":
-            # Reseta pesos: Onde o ID for diferente do UUID de zeros (ou seja, todos)
-            supabase.table("exercicios").update({"peso_kg": 0}).neq("id", UUID_ZERO).execute()
-            print("✅ Todos os pesos resetados para 0kg!")
-
-        elif escolha == "3":
-            # Apaga tudo usando a comparação de UUID em todas as tabelas
-            supabase.table("historico_treinos").delete().neq("id", UUID_ZERO).execute()
-            supabase.table("exercicios").delete().neq("id", UUID_ZERO).execute()
-            supabase.table("configuracao_cardio").delete().neq("id", UUID_ZERO).execute()
-            print("✅ Sistema resetado com sucesso!")
-
-    except Exception as e:
-        print(f"❌ Erro ao zerar: {e}")
-
-# Configurações de Conexão
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
-
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
-
-try:
-    supabase: Client = create_client(url, key)
-    print("🚀 PyTrain API: Sistema Online!")
-except Exception as e:
-    print(f"❌ Conexão falhou: {e}")
-
-
-# --- AUXILIARES ---
-
-def exercicio_existe(nome_teste):
-    """Verifica se o nome já existe no banco (ignora maiúsculas/minúsculas)."""
-    res = supabase.table("exercicios").select("nome").execute()
-    nomes_no_banco = [ex['nome'].strip().lower() for ex in res.data]
-    return nome_teste.strip().lower() in nomes_no_banco
-
-
-# --- MÓDULO DE GERENCIAMENTO ---
-
-def cadastrar_novo_exercicio():
-    print("\n--- ✨ CADASTRAR NOVO EXERCÍCIO ---")
-    nome_input = input("Nome do exercício: ").strip()
-
-    if exercicio_existe(nome_input):
-        print(f"⚠️ Erve: O exercício '{nome_input}' já existe no seu catálogo!")
-        return None
-
-    try:
-        peso = int(input("Peso inicial (kg): ") or 0)
-        series = int(input("Séries: ") or 3)
-        reps = int(input("Repetições: ") or 12)
-
-        novo = {
-            "nome": nome_input,
-            "peso_kg": peso,
-            "series": series,
-            "repeticoes": reps,
-            "tipo_repeticao": "movimento"
-        }
-        res = supabase.table("exercicios").insert(novo).execute()
-        print(f"✅ '{nome_input}' adicionado com sucesso!")
-        return res.data[0]
-    except Exception as e:
-        print(f"❌ Erro ao cadastrar: {e}")
-        return None
-
-
-def editar_exercicio_api(id_ex, novos_dados):
-    # Se estiver tentando mudar o nome, verifica se o novo nome já existe
-    if "nome" in novos_dados and exercicio_existe(novos_dados["nome"]):
-        print(f"⚠️ Erro: Não é possível mudar para '{novos_dados['nome']}' porque esse nome já existe!")
-        return
-
-    try:
-        supabase.table("exercicios").update(novos_dados).eq("id", id_ex).execute()
-        print(f"✅ Alteração concluída!")
-    except Exception as e:
-        print(f"❌ Erro na edição: {e}")
-
-
-def listar_serie(letra):
-    res = supabase.table("exercicios").select("*").eq("serie_tipo", letra.upper()).execute()
-    return res.data
-
-
-# --- MÓDULO DE EXECUÇÃO ---
-
-def atualizar_peso_manual(id_ex, novo_peso):
-    try:
-        supabase.table("exercicios").update({"peso_kg": novo_peso}).eq("id", id_ex).execute()
-        return True
-    except:
-        return False
-
-
-def resumo_do_dia():
-    print("\n--- 🏁 RESUMO DO TREINO DE HOJE ---")
+def resumo_do_dia_visual():
     hoje = datetime.now().date().isoformat()
     volume_total = 0
-
     try:
         res = supabase.table("historico_treinos") \
             .select("detalhes, exercicios(nome, series, repeticoes)") \
             .gte("data_execucao", hoje).execute()
 
         if not res.data:
-            print("Nenhum registro hoje.")
             return
+
+        table = Table(title=f"🏁 Resumo de Hoje - {datetime.now().strftime('%d/%m/%Y')}", header_style="bold magenta")
+        table.add_column("Exercício", style="cyan")
+        table.add_column("Detalhes", justify="center")
+        table.add_column("Volume Est.", style="green")
 
         for item in res.data:
             nome = item['exercicios']['nome'] if item['exercicios'] else "Cardio"
-            print(f"✅ {nome}: {item['detalhes']}")
-
-            # Cálculo de Volume (apenas se for musculação)
-            if item['exercicios']:
-                # Extraímos o peso do texto "80kg | 3x12" ou usamos os campos da tabela
-                peso = int(item['detalhes'].split('kg')[0])
-                volume_ex = peso * item['exercicios']['series'] * item['exercicios']['repeticoes']
-                volume_total += volume_ex
-
-        print("-" * 30)
-        print(f"📊 VOLUME TOTAL MOVIDO: {volume_total} kg")
-        print("Parabéns, Natália! 🚀")
-    except Exception as e:
-        print(f"❌ Erro no resumo: {e}")
-
-
-def calendario_semanal():
-    import datetime as dt
-    print("\n--- 📅 FREQUÊNCIA NA SEMANA ---")
-
-    hoje = dt.date.today()
-    inicio_semana = hoje - dt.timedelta(days=hoje.weekday())  # Segunda-feira
-
-    res = supabase.table("historico_treinos") \
-        .select("data_execucao") \
-        .gte("data_execucao", inicio_semana.isoformat()) \
-        .execute()
-
-    # Dias que tiveram treino
-    dias_treinados = {datetime.fromisoformat(treino['data_execucao']).date() for treino in res.data}
-
-    dias_nome = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
-    display = ""
-
-    for i in range(7):
-        dia_foco = inicio_semana + dt.timedelta(days=i)
-        status = "✅" if dia_foco in dias_treinados else "❌"
-        display += f"{dias_nome[i]}: {status}  "
-
-    print(display)
-
-
-def exportar_dados_csv():
-    import csv
-    print("⏳ Gerando ficheiro de backup...")
-
-    try:
-        res = supabase.table("historico_treinos").select("data_execucao, detalhes, tipo, exercicios(nome)").execute()
-
-        filename = f"treinos_natalia_{datetime.now().strftime('%Y%m%d')}.csv"
-
-        with open(filename, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(["Data", "Exercicio", "Detalhes", "Tipo"])
-
-            for linha in res.data:
-                data = datetime.fromisoformat(linha['data_execucao']).strftime("%d/%m/%Y %H:%M")
-                nome = linha['exercicios']['nome'] if linha['exercicios'] else "Cardio"
-                writer.writerow([data, nome, linha['detalhes'], linha['tipo']])
-
-        print(f"✅ Sucesso! Ficheiro '{filename}' criado na pasta do projeto.")
-    except Exception as e:
-        print(f"❌ Erro ao exportar: {e}")
-
-def calcular_volume_treino():
-    print("\n--- 📊 MÉTRICAS DE HOJE ---")
-    hoje = datetime.now().date().isoformat()
-    volume_total = 0
-
-    try:
-        # Busca o que foi feito hoje
-        res = supabase.table("historico_treinos")\
-            .select("detalhes, exercicios(series, repeticoes)")\
-            .gte("data_execucao", hoje).execute()
-
-        if not res.data:
-            print("Sem dados para calcular o volume hoje.")
-            return
-
-        for item in res.data:
-            # Se for musculação (tem link com a tabela exercicios)
+            detalhes = item['detalhes']
+            vol_ex = 0
             if item['exercicios']:
                 try:
-                    # Pega o peso da string "80kg | 3x12"
-                    peso = int(item['detalhes'].split('kg')[0])
-                    # Volume = Peso * Séries * Repetições
+                    peso = int(detalhes.split('kg')[0])
                     vol_ex = peso * item['exercicios']['series'] * item['exercicios']['repeticoes']
                     volume_total += vol_ex
                 except:
-                    continue
+                    pass
+            table.add_row(nome, detalhes, f"{vol_ex} kg" if vol_ex > 0 else "-")
 
-        print(f"💪 Volume Total Movido: {volume_total} kg")
-        print("------------------------------")
+        console.print(table)
+        console.print(Panel(f"[bold green]📊 VOLUME TOTAL MOVIDO: {volume_total} kg[/bold green]", expand=False))
     except Exception as e:
-        print(f"⚠️ Erro ao calcular volume: {e}")
+        console.print(f"[red]❌ Erro no resumo: {e}[/red]")
 
-# --- MENU ---
+
+def exibir_calendario_semanal():
+    hoje = datetime.now().date()
+    inicio_semana = hoje - timedelta(days=hoje.weekday())
+    try:
+        res = supabase.table("historico_treinos").select("data_execucao").gte("data_execucao",
+                                                                              inicio_semana.isoformat()).execute()
+        dias_treinados = {datetime.fromisoformat(t['data_execucao']).date() for t in res.data}
+        dias_nome = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+
+        cal_str = ""
+        for i, nome in enumerate(dias_nome):
+            dia_foco = inicio_semana + timedelta(days=i)
+            status = "[green]✅[/green]" if dia_foco in dias_treinados else "[red]⚪[/red]"
+            cal_str += f"{nome} {status}   "
+
+        console.print(Panel(cal_str, title="📅 Frequência Semanal", border_style="blue", expand=False))
+    except Exception as e:
+        console.print(f"[red]❌ Erro no calendário: {e}[/red]")
+
+
+# --- MÓDULO DE GERENCIAMENTO ---
+
+def cadastrar_novo_exercicio():
+    console.print("\n[bold cyan]--- ✨ CADASTRAR NOVO EXERCÍCIO ---[/bold cyan]")
+    nome = Prompt.ask("Nome do exercício")
+
+    # Validação simples
+    res = supabase.table("exercicios").select("nome").execute()
+    if any(ex['nome'].lower() == nome.lower() for ex in res.data):
+        rprint(f"[yellow]⚠️ O exercício '{nome}' já existe![/yellow]")
+        return
+
+    try:
+        peso = int(Prompt.ask("Peso inicial (kg)", default="0"))
+        series = int(Prompt.ask("Séries", default="3"))
+        reps = int(Prompt.ask("Repetições", default="12"))
+        serie_tipo = Prompt.ask("Série", choices=["A", "B", "C"]).upper()
+
+        novo = {"nome": nome, "peso_kg": peso, "series": series, "repeticoes": reps, "serie_tipo": serie_tipo}
+        supabase.table("exercicios").insert(novo).execute()
+        rprint(f"[bold green]✅ '{nome}' adicionado à Série {serie_tipo}![/bold green]")
+    except Exception as e:
+        rprint(f"[red]❌ Erro: {e}[/red]")
+
+
+def exportar_backup():
+    try:
+        res = supabase.table("historico_treinos").select("data_execucao, detalhes, exercicios(nome)").execute()
+        filename = f"backup_treinos_{datetime.now().strftime('%Y%m%d')}.csv"
+        with open(filename, mode='w', newline='', encoding='utf-8') as f:
+            w = csv.writer(f)
+            w.writerow(["Data", "Exercicio", "Detalhes"])
+            for r in res.data:
+                nome = r['exercicios']['nome'] if r['exercicios'] else "Cardio"
+                w.writerow([r['data_execucao'], nome, r['detalhes']])
+        rprint(f"[bold green]✅ Backup salvo: {filename}[/bold green]")
+    except Exception as e:
+        rprint(f"[red]❌ Erro no backup: {e}[/red]")
+
+
+def menu_zerar_dados():
+    console.print(Panel("[bold red]⚠️ ZONA DE PERIGO[/bold red]\n1. Zerar Histórico\n2. Zerar Pesos\n3. Apagar TUDO",
+                        border_style="red"))
+    escolha = Prompt.ask("Escolha", choices=["1", "2", "3", "4"], default="4")
+    if escolha == "4": return
+
+    confirmar = Prompt.ask("Digite [bold red]ZERA[/bold red] para confirmar")
+    if confirmar != "ZERA": return
+
+    UUID_ZERO = "00000000-0000-0000-0000-000000000000"
+    try:
+        if escolha == "1":
+            supabase.table("historico_treinos").delete().neq("id", UUID_ZERO).execute()
+        elif escolha == "2":
+            supabase.table("exercicios").update({"peso_kg": 0}).neq("id", UUID_ZERO).execute()
+        elif escolha == "3":
+            supabase.table("historico_treinos").delete().neq("id", UUID_ZERO).execute()
+            supabase.table("exercicios").delete().neq("id", UUID_ZERO).execute()
+        rprint("[bold green]✅ Operação concluída![/bold green]")
+    except Exception as e:
+        rprint(f"[red]❌ Erro: {e}[/red]")
+
+
+def editar_catalogo_visual():
+    console.print("\n[bold cyan]📝 EDITAR CATÁLOGO DE EXERCÍCIOS[/bold cyan]")
+
+    try:
+        # Busca todos os exercícios ordenados por série e nome
+        res = supabase.table("exercicios").select("id, nome, serie_tipo, peso_kg, series, repeticoes").order(
+            "serie_tipo").execute()
+
+        if not res.data:
+            rprint("[yellow]Nenhum exercício encontrado para editar.[/yellow]")
+            return
+
+        # Tabela para seleção
+        table = Table(title="Selecione o Exercício", header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Nome", style="cyan")
+        table.add_column("Série", justify="center")
+        table.add_column("Config Atual", justify="right")
+
+        for i, ex in enumerate(res.data):
+            table.add_row(str(i), ex['nome'], ex['serie_tipo'],
+                          f"{ex['series']}x{ex['repeticoes']} - {ex['peso_kg']}kg")
+
+        console.print(table)
+
+        idx = int(Prompt.ask("\nDigite o número do exercício que deseja editar (ou '99' para cancelar)"))
+        if idx == 99: return
+
+        ex_selecionado = res.data[idx]
+
+        rprint(f"\n[yellow]Editando: {ex_selecionado['nome']}[/yellow]")
+        rprint("[gray](Pressione Enter para manter o valor atual)[/gray]\n")
+
+        novo_nome = Prompt.ask("Novo nome", default=ex_selecionado['nome'])
+        nova_serie = Prompt.ask("Nova Série", choices=["A", "B", "C"], default=ex_selecionado['serie_tipo']).upper()
+        novas_series = int(Prompt.ask("Novas Séries", default=str(ex_selecionado['series'])))
+        novas_reps = int(Prompt.ask("Novas Repetições", default=str(ex_selecionado['repeticoes'])))
+
+        dados_atualizados = {
+            "nome": novo_nome,
+            "serie_tipo": nova_serie,
+            "series": novas_series,
+            "repeticoes": novas_reps
+        }
+
+        supabase.table("exercicios").update(dados_atualizados).eq("id", ex_selecionado['id']).execute()
+        rprint(f"\n[bold green]✅ '{novo_nome}' atualizado com sucesso![/bold green]")
+
+    except Exception as e:
+        rprint(f"[red]❌ Erro na edição: {e}[/red]")
+
+# --- MAIN LOOP ---
 
 if __name__ == "__main__":
     while True:
-        print("\n--- 📱 MENU PYTRAIN ---")
-        print("1. Treinar (Série A/B/C)")
-        print("2. Gerenciar Catálogo")
-        print("3. Editar Exercício")
-        print("4. Cardio (Esteira)")
-        print("5. Ver Histórico e Frequência")
-        print("6. Exportar Backup (CSV)")
-        print("7. Configurações (Zerar Dados)")
-        print("8. Sair")
+        os.system('cls' if os.name == 'nt' else 'clear')
+        console.print(Panel.fit(
+            "[bold magenta]🏋️ PYTRAIN PRO[/bold magenta]",
+            subtitle="Natália Berbet Viana",
+            border_style="cyan"
+        ))
 
-        opcao = input("Escolha uma opção: ")
+        exibir_calendario_semanal()
+
+        table = Table(show_header=False, box=None)
+        # Seção de Treino
+        table.add_row("[bold yellow]1[/bold yellow]", "🚀 Iniciar Treino (Série A/B/C)")
+        table.add_row("[bold yellow]2[/bold yellow]", "✨ Novo Exercício (Catálogo)")
+
+        # Seção de Consulta e Relatórios
+        table.add_row("[bold yellow]3[/bold yellow]", "📜 Ver Histórico de Treinos")
+        table.add_row("[bold yellow]4[/bold yellow]", "📝 Editar Catálogo (Nomes/Séries)")
+        table.add_row("[bold yellow]5[/bold yellow]", "📊 Resumo de Hoje (Volume Total)")
+
+        # Seção de Utilidades
+        table.add_row("[bold yellow]6[/bold yellow]", "📦 Exportar Backup (CSV)")
+        table.add_row("[bold yellow]7[/bold yellow]", "🧹 Configurações (Zerar Dados)")
+        table.add_row("[bold red]0[/bold red]", "❌ Sair")
+
+        console.print(table)
+
+        opcao = Prompt.ask("\nEscolha uma opção", choices=["1", "2", "3", "4", "5", "6", "7", "0"])
 
         if opcao == "1":
-            letra = input("Qual série hoje? ").upper()
-            treino = listar_serie(letra)
-            if not treino:
-                print(f"⚠️ Ninguém na Série {letra}.")
+            letra = Prompt.ask("Série", choices=["A", "B", "C"]).upper()
+            res = supabase.table("exercicios").select("*").eq("serie_tipo", letra).execute()
+            if not res.data:
+                rprint("[yellow]Nenhum exercício nesta série.[/yellow]")
             else:
-                for ex in treino:
-                    print(f"\n🏋️ {ex['nome']} | Último: {ex['peso_kg']}kg")
-                    nova_carga = input(f"Peso hoje (Enter para manter {ex['peso_kg']}kg): ")
-                    peso_atual = int(nova_carga) if nova_carga.strip() else ex['peso_kg']
+                for ex in res.data:
+                    console.print(f"\n[bold cyan]▶ {ex['nome']}[/bold cyan] [white]({ex['peso_kg']}kg)[/white]")
+                    nova_carga = console.input("[gray]Nova carga (ou Enter): [/gray]")
+                    peso = int(nova_carga) if nova_carga.strip() else ex['peso_kg']
 
                     if nova_carga.strip():
-                        atualizar_peso_manual(ex['id'], peso_atual)
+                        supabase.table("exercicios").update({"peso_kg": peso}).eq("id", ex['id']).execute()
 
-                    # REGISTRA NO HISTÓRICO
-                    registrar_no_historico(ex['id'], f"{peso_atual}kg | {ex['series']}x{ex['repeticoes']}")
+                    registrar_no_historico(ex['id'], f"{peso}kg | {ex['series']}x{ex['repeticoes']}")
 
-                print("\n🏆 Treino Concluído!")
-                resumo_do_dia()  # Mostra o que você fez
-                calcular_volume_treino()  # Mostra o peso total movido
+                resumo_do_dia_visual()
+            input("\nPressione Enter para continuar...")
 
         elif opcao == "2":
             cadastrar_novo_exercicio()
+            input("\nEnter...")
 
         elif opcao == "3":
-            # Listagem para edição
-            res = supabase.table("exercicios").select("id, nome").execute()
-            for i, ex in enumerate(res.data):
-                print(f"[{i}] {ex['nome']}")
-
-            try:
-                idx = int(input("Número do exercício para editar: "))
-                id_edit = res.data[idx]['id']
-                print("\nO que deseja mudar?")
-                novo_nome = input("Novo nome (Enter para manter): ").strip()
-                nova_serie = input("Nova Série (A/B/C) (Enter para manter): ").upper()
-                dados = {}
-                if novo_nome: dados["nome"] = novo_nome
-                if nova_serie: dados["serie_tipo"] = nova_serie
-                if dados: editar_exercicio_api(id_edit, dados)
-            except:
-                print("❌ Seleção inválida.")
+            visualizar_historico()  # Chamada da função que estava faltando no menu
+            input("\nPressione Enter para voltar...")
 
         elif opcao == "4":
-            print("\n--- 🏃 MÓDULO ESTEIRA ---")
-            print("1. Usar um Setting Salvo")
-            print("2. Criar Novo Treino")
-            sub_opcao = input("Escolha: ")
-
-            # ... seu código de cardio aqui ...
-            # Lembre-se de adicionar ao final da execução do cardio:
-            # registrar_no_historico(None, f"{t_total}min de Esteira", tipo="cardio")
-
+            editar_catalogo_visual()  # Agora na sua própria opção
+            input("\nPressione Enter para voltar...")
 
         elif opcao == "5":
-
-            visualizar_historico()
-
-            calendario_semanal()
+            resumo_do_dia_visual()  # Caso queira ver o volume sem precisar treinar
+            input("\nEnter...")
 
         elif opcao == "6":
-
-            exportar_dados_csv()
+            exportar_backup()
+            input("\nEnter...")
 
         elif opcao == "7":
-
             menu_zerar_dados()
+            input("\nEnter...")
+
+        elif opcao == "0":
+            rprint("[bold red]👋 Tchau, Natália![/bold red]")
+            break

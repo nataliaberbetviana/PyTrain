@@ -1,24 +1,22 @@
-# 🏋️ PyTrain — O Teu Assistente de Treino Inteligente
+# 🏋️ PyTrain PRO — Gestão Inteligente de Treinos
 
-O **PyTrain** é um sistema completo de gestão de treinos desenvolvido para optimizar a rotina de musculação e cardio. O projecto combina a flexibilidade do Python com a robustez do Supabase (PostgreSQL), permitindo o controlo total de cargas, séries e cronogramas de corrida.
+O **PyTrain PRO** é um sistema de gerenciamento de rotinas de musculação e cardio desenvolvido em Python. O projeto utiliza o **Supabase (PostgreSQL)** para persistência de dados na nuvem e a biblioteca **Rich** para proporcionar uma interface de linha de comando (CLI) intuitiva e moderna.
+
+> Este projeto faz parte da minha transição de carreira da Medicina Veterinária para a Tecnologia, aplicando conceitos de desenvolvimento de software e infraestrutura em nuvem.
 
 ---
 
-## 🚀 Funcionalidades Principais
+## 🚀 Funcionalidades (CRUD Completo)
 
-### 🔹 Módulo de Musculação
+| Operação | Descrição |
+|---|---|
+| **Create** | Cadastro de novos exercícios com definição de séries, repetições e carga inicial |
+| **Read** | Visualização de histórico, calendário de frequência semanal e resumo de volume diário |
+| **Update** | Edição dinâmica do catálogo e atualização de cargas em tempo real durante o treino |
+| **Delete** | Reset seguro do histórico ou do catálogo completo |
 
-- **Catálogo Inteligente** — Cadastro de exercícios com trava de duplicidade (case-insensitive) para manter a base de dados limpa.
-- **Gestão de Séries** — Organização de treinos em Séries A, B, C ou montagem de treinos personalizados de forma dinâmica.
-- **Evolução de Carga** — Interface intuitiva para actualizar o peso levantado em cada exercício e acompanhar a progressão real.
-- **CRUD Completo** — Funções para Adicionar, Editar, Listar e Organizar exercícios directamente no Supabase.
-
-### 🏃 Módulo de Cardio (Esteira)
-
-- **Escalonamento Automático** — Cálculo dinâmico de ciclos de corrida e descanso baseados num tempo total fixo.
-- **Protocolo de Segurança** — Inclusão automática de períodos de Aquecimento (Warm-up) e Desaceleração (Cool-down) integrados no tempo estipulado.
-- **Configurações Persistentes** — Guarda definições favoritas (velocidades de caminhada/corrida e tempos) para início rápido.
-- **Cronómetro Interativo** — Execução em tempo real no terminal com contagem regressiva e alertas sonoros (beeps) para mudança de ritmo.
+- **📊 Métricas de Performance** — Cálculo automático do Volume Total de Carga (Peso × Séries × Repetições).
+- **💾 Backup** — Exportação do histórico de treinos para formato CSV.
 
 ---
 
@@ -26,43 +24,85 @@ O **PyTrain** é um sistema completo de gestão de treinos desenvolvido para opt
 
 | Componente | Tecnologia |
 |---|---|
-| Linguagem | Python 3 |
+| Linguagem | Python 3.x |
 | Base de Dados | Supabase (PostgreSQL) |
-| Ambiente | EndeavourOS (Linux) |
-| Bibliotecas | `supabase-py`, `time`, `sys`, `os` |
+| Cloud / Infra | Conceitos AWS para integração e segurança |
+| Conectividade | `supabase-py` |
+| Segurança | `python-dotenv` |
+| Interface CLI | `rich` |
 
 ---
 
-## ☁️ Arquitectura & Mentalidade Cloud
+## 📋 Como Executar
 
-Como **AWS Certified Cloud Practitioner**, este projecto foi construído seguindo boas práticas de engenharia de software:
-
-- **Separação de Responsabilidades (Decoupling)** — A lógica de cálculo do cardio (`cardio.py`) é independente da lógica de persistência da musculação (`test_db.py`).
-- **Integridade de Dados** — Verificações prévias antes de operações de `INSERT` e `UPDATE` para evitar redundâncias.
-- **Arquitectura Modular** — Desenhado para ser escalável, permitindo a adição de novos serviços (monitorização de dieta, gráficos de evolução, etc.) sem impacto nos módulos existentes.
-
----
-
-## 📖 Como Executar
-
-1. **Clonar o repositório:**
+1. **Clone o repositório:**
    ```bash
    git clone https://github.com/nataliaberbetviana/PyTrain.git
    cd PyTrain
    ```
 
-2. **Instalar as dependências:**
+2. **Crie o ambiente virtual:**
    ```bash
-   pip install supabase
+   python -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   venv\Scripts\activate     # Windows
    ```
 
-3. **Configurar as credenciais:**  
-   Insere a tua `URL` e `KEY` do Supabase no ficheiro `test_db.py`.
-
-4. **Correr o programa:**
+3. **Instale as dependências:**
    ```bash
-   python test_db.py
+   pip install -r requirements.txt
    ```
+
+4. **Configure as variáveis de ambiente** — crie um arquivo `.env` na raiz do projeto:
+   ```env
+   SUPABASE_URL=seu_url_aqui
+   SUPABASE_KEY=sua_key_aqui
+   ```
+
+5. **Inicie a aplicação:**
+   ```bash
+   python main.py
+   ```
+---
+
+## 🗄️ Arquitetura do Banco de Dados
+
+Este projeto utiliza o **Supabase (PostgreSQL)** com a seguinte estrutura de Tabelas e Relacionamentos:
+
+```mermaid
+erDiagram
+    exercicios {
+        uuid id PK
+        text nome
+        int peso_kg
+        int series
+        int repeticoes
+        text tipo_repeticao "movimento/tempo"
+        text serie_tipo "A/B/C"
+    }
+    historico_treinos {
+        uuid id PK
+        uuid exercicio_id FK
+        timestamp data_execucao
+        text detalhes "80kg | 3x12"
+        text tipo "musculacao/cardio"
+    }
+    configuracao_cardio {
+        uuid id PK
+        text nome_setting "ex: Aquecimento"
+        int inclinacao
+        float velocidade
+        int duracao_min
+    }
+
+    exercicios ||--o{ historico_treinos : "possui"
+    historico_treinos }o--|| exercicios : "refere-se a"
+
+---
+
+## 🛡️ Segurança
+
+As credenciais do Supabase são gerenciadas via variáveis de ambiente com `python-dotenv`. O arquivo `.env` e o ambiente virtual estão listados no `.gitignore`, garantindo que dados sensíveis nunca sejam expostos publicamente.
 
 ---
 
