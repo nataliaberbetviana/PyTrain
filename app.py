@@ -639,7 +639,8 @@ with aba3:
 
             else:  # Intervalo
                 c1, c2 = st.columns(2)
-                ini_sel = c1.date_input("De", value=data_max - timedelta(days=6),
+                ini_default = max(data_min, data_max - timedelta(days=6))
+                ini_sel = c1.date_input("De", value=ini_default,
                                         min_value=data_min, max_value=data_max, key="dt_ini")
                 fim_sel = c2.date_input("Até", value=data_max,
                                         min_value=data_min, max_value=data_max, key="dt_fim")
