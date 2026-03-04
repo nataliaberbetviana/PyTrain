@@ -20,31 +20,142 @@ hoje_agora = datetime.now(fuso)
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-.stApp { background-color: #0e1117; color: #ffffff; font-size: 16px; }
+
+/* ── BASE ─────────────────────────────────────────────────────── */
+.stApp, .stApp * { color: #ffffff; }
+.stApp { background-color: #0e1117 !important; }
 .block-container { padding-top: 1rem !important; }
 
-/* Inputs e labels com tamanho legível */
-.stTextInput label, .stNumberInput label,
+/* ── ESCONDE TOOLBAR ──────────────────────────────────────────── */
+header[data-testid="stHeader"] { display: none !important; }
+#MainMenu { display: none !important; }
+footer { display: none !important; }
+
+/* ── TODOS OS LABELS ──────────────────────────────────────────── */
+label, .stTextInput label, .stNumberInput label,
 .stSelectbox label, .stTextArea label,
-.stRadio label, p, .stMarkdown p {
-    font-size: 1rem !important;
+.stRadio label, .stCheckbox label,
+[data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] p,
+.stFormLabel, .stFormLabel p {
     color: #e2e2e2 !important;
-}
-input, textarea, select {
     font-size: 1rem !important;
-    color: #ffffff !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
 }
 
-div.stButton > button {
-    background-color: #7d33ff;
-    color: white;
-    border-radius: 12px;
-    height: 3.5em;
-    width: 100%;
-    font-weight: bold;
-    border: none;
+/* ── INPUTS ───────────────────────────────────────────────────── */
+input[type="text"], input[type="password"], input[type="email"],
+input[type="number"], textarea,
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea {
+    background-color: #1e1e2e !important;
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    border: 1px solid #4a4a6a !important;
+    border-radius: 8px !important;
+}
+[data-baseweb="input"], [data-baseweb="base-input"],
+[data-testid="stTextInput"] > div,
+[data-testid="stNumberInput"] > div > div {
+    background-color: #1e1e2e !important;
+    border: 1px solid #4a4a6a !important;
+}
+
+/* ── NUMBER INPUT especial ────────────────────────────────────── */
+.stNumberInput div div input {
+    background-color: #1e1e2e !important;
+    color: #e066ff !important;
+    font-size: 1.4rem !important;
+}
+[data-testid="stNumberInput"] button {
+    background-color: #2a2a3e !important;
+    color: #ffffff !important;
+    border: 1px solid #4a4a6a !important;
+}
+
+/* ── SELECTBOX ────────────────────────────────────────────────── */
+[data-baseweb="select"] > div,
+[data-baseweb="select"] input {
+    background-color: #1e1e2e !important;
+    color: #ffffff !important;
+    border: 1px solid #4a4a6a !important;
+}
+
+/* ── BOTÕES ───────────────────────────────────────────────────── */
+div.stButton > button,
+button[kind="primary"],
+button[kind="formSubmit"] {
+    background-color: #7d33ff !important;
+    color: #ffffff !important;
+    border-radius: 12px !important;
+    height: 3.5em !important;
+    width: 100% !important;
+    font-weight: bold !important;
+    font-size: 1rem !important;
+    border: none !important;
+    opacity: 1 !important;
+}
+div.stButton > button:hover { background-color: #9b55ff !important; }
+
+/* Botão Sair — secundário */
+button[kind="secondary"] {
+    background-color: transparent !important;
+    border: 1px solid #7d33ff !important;
+    color: #d0b8ff !important;
+    height: 2.4em !important;
+    font-size: 0.95rem !important;
+}
+
+/* ── EXPANDERS ────────────────────────────────────────────────── */
+.streamlit-expanderHeader,
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary p,
+details summary, details summary span {
+    background-color: #1e1e2e !important;
+    color: #e2e2e2 !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+}
+[data-testid="stExpander"],
+details {
+    background-color: #1a1a2e !important;
+    border: 1px solid #3a3a5a !important;
+    border-radius: 10px !important;
+}
+
+/* ── INFO / WARNING / ERROR ──────────────────────────────────── */
+[data-testid="stInfo"],
+[data-testid="stInfo"] p,
+.stAlert p, .stAlert {
+    color: #ffffff !important;
     font-size: 1rem !important;
 }
+[data-testid="stInfo"] { background-color: #1a2a3a !important; border-left: 4px solid #4a9eff !important; }
+[data-testid="stWarning"] { background-color: #2a1f00 !important; border-left: 4px solid #ffaa00 !important; }
+[data-testid="stError"] { background-color: #2a0a0a !important; border-left: 4px solid #ff4444 !important; }
+[data-testid="stSuccess"] { background-color: #0a2a0a !important; border-left: 4px solid #44ff88 !important; }
+
+/* ── TABS ─────────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] { gap: 5px; }
+.stTabs [data-baseweb="tab"] {
+    background-color: #1e1e2e !important;
+    border-radius: 8px 8px 0 0 !important;
+    color: #e2e2e2 !important;
+    font-size: 0.95rem !important;
+}
+.stTabs [aria-selected="true"] { background-color: #7d33ff !important; color: #ffffff !important; }
+
+/* ── RADIO ────────────────────────────────────────────────────── */
+.stRadio > div > label { color: #e2e2e2 !important; font-size: 1rem !important; }
+
+/* ── DATAFRAME ────────────────────────────────────────────────── */
+[data-testid="stDataFrame"] { color: #ffffff !important; }
+
+/* ── MÉTRICAS ─────────────────────────────────────────────────── */
+[data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #ffffff !important; }
+[data-testid="stMetricLabel"] { font-size: 0.9rem !important; color: #cccccc !important; }
+
+/* ── LAYOUT ───────────────────────────────────────────────────── */
 .foco-container {
     background-color: #1e1e2e;
     padding: 20px;
@@ -61,43 +172,6 @@ div.stButton > button {
     border-radius: 16px;
     padding: 32px 24px;
 }
-.stNumberInput div div input {
-    background-color: #1e1e2e !important;
-    color: #e066ff !important;
-    font-size: 1.4rem !important;
-}
-.stTabs [data-baseweb="tab-list"] { gap: 5px; }
-.stTabs [data-baseweb="tab"] {
-    background-color: #1e1e2e;
-    border-radius: 8px 8px 0 0;
-    color: #e2e2e2 !important;
-    font-size: 0.95rem !important;
-}
-.stTabs [aria-selected="true"] { background-color: #7d33ff !important; }
-
-/* Esconde toolbar do Streamlit Cloud que cobre o topo */
-header[data-testid="stHeader"] { display: none !important; }
-#MainMenu { display: none !important; }
-footer { display: none !important; }
-
-/* Botão Sair */
-div[data-testid="stButton"] button[kind="secondary"] {
-    background-color: transparent !important;
-    border: 1px solid #7d33ff !important;
-    color: #d0b8ff !important;
-    height: 2.4em !important;
-    font-size: 0.95rem !important;
-}
-
-/* Expanders com texto legível */
-.streamlit-expanderHeader {
-    font-size: 1rem !important;
-    color: #e2e2e2 !important;
-}
-
-/* Métricas */
-[data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #ffffff !important; }
-[data-testid="stMetricLabel"] { font-size: 0.9rem !important; color: #cccccc !important; }
 </style>
 """, unsafe_allow_html=True)
 
