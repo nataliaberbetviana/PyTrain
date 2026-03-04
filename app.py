@@ -598,14 +598,7 @@ with aba3:
                 sinal = "+" if diff >= 0 else ""
                 return sinal + fmt.format(diff)
 
-            st.caption("⚡ COMPARAÇÃO — ESTA SEMANA vs SEMANA ANTERIOR")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("🏋️ Treinos",       len(df_sem_atual), delta_str(len(df_sem_atual), len(df_sem_ant), "{:.0f}"))
-            c2.metric("🏋️ Peso Total (kg)", f"{kg_a:,.0f}", delta_str(kg_a, kg_ant, "{:.0f}"))
-            c3.metric("🛣️ Distância (km)",  f"{km_a:.1f}",  delta_str(km_a, km_ant, "{:.1f}"))
-            c4.metric("⏱ Esteira (min)",    min_a,           delta_str(min_a, min_ant))
 
-            st.divider()
 
             # ── MENSAGEM DE COMPARAÇÃO SEMANAL ───────────────────────────────────────
             if kg_ant == 0 and km_ant == 0 and min_ant == 0:
