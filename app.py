@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from streamlit_cookies_manager import EncryptedCookieManager
 
 # ─────────────────────────────────────────────
 # CONFIGURAÇÃO DA PÁGINA
@@ -14,6 +15,12 @@ st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
 
 fuso = pytz.timezone("America/Sao_Paulo")
 hoje_agora = datetime.now(fuso)
+
+# ── Cookie manager (deve ser inicializado logo após set_page_config) ─
+COOKIE_PASSWORD = os.getenv("COOKIE_PASSWORD", "pytrain-secret-key-2024")
+cookies = EncryptedCookieManager(prefix="pytrain_", password=COOKIE_PASSWORD)
+if not cookies.ready():
+    st.stop()
 
 # ─────────────────────────────────────────────
 # CSS
@@ -365,50 +372,58 @@ def fazer_login(email: str, senha: str) -> bool:
 
 
 def salvar_sessao_local(access_token: str, refresh_token: str):
-    """Salva tokens no localStorage via HTML/JS."""
-    st.markdown(f"""
-        <script>
-        localStorage.setItem('pytrain_access', '{access_token}');
-        localStorage.setItem('pytrain_refresh', '{refresh_token}');
-        </script>
-    """, unsafe_allow_html=True)
+    """Salva tokens em cookies criptografados."""
+    try:
+        cookies["access_token"] = access_token
+        cookies["refresh_token"] = refresh_token
+        cookies.save()
+    except Exception:
+        pass
 
 
 def limpar_sessao_local():
-    """Remove tokens do localStorage."""
-    st.markdown("""
-        <script>
-        localStorage.removeItem('pytrain_access');
-        localStorage.removeItem('pytrain_refresh');
-        </script>
-    """, unsafe_allow_html=True)
+    """Remove cookies de sessão."""
+    try:
+        cookies["access_token"] = ""
+        cookies["refresh_token"] = ""
+        cookies.save()
+    except Exception:
+        pass
 
 
 def restaurar_sessao() -> bool:
-    """Tenta restaurar sessão a partir do refresh_token guardado no localStorage.
-    Usa query_params como ponte entre JS e Python."""
+    """Tenta restaurar sessão a partir dos cookies."""
     if st.session_state.sessao_restaurada:
-        return False  # já tentou
-
-    # JS lê localStorage e injeta na URL como query param
-    st.markdown("""
-        <script>
-        (function() {
-            const access  = localStorage.getItem('pytrain_access');
-            const refresh = localStorage.getItem('pytrain_refresh');
-            if (access && refresh) {
-                const url = new URL(window.location.href);
-                if (!url.searchParams.get('_rt')) {
-                    url.searchParams.set('_at', access);
-                    url.searchParams.set('_rt', refresh);
-                    window.location.replace(url.toString());
-                }
-            }
-        })();
-        </script>
-    """, unsafe_allow_html=True)
+        return False
     st.session_state.sessao_restaurada = True
-    return False
+    try:
+        at = cookies.get("access_token", "")
+        rt = cookies.get("refresh_token", "")
+        if not at or not rt:
+            return False
+        res = supabase.auth.set_session(at, rt)
+        if not res or not res.user:
+            limpar_sessao_local()
+            return False
+        # Renova tokens
+        try:
+            res2 = supabase.auth.refresh_session(rt)
+            novo_at = res2.session.access_token
+            novo_rt = res2.session.refresh_token
+        except Exception:
+            novo_at, novo_rt = at, rt
+        st.session_state.access_token = novo_at
+        st.session_state.refresh_token = novo_rt
+        st.session_state.usuario = {
+            "id": res.user.id,
+            "email": res.user.email,
+            "nome": res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
+        }
+        salvar_sessao_local(novo_at, novo_rt)
+        return True
+    except Exception:
+        limpar_sessao_local()
+        return False
 
 
 def fazer_logout():
@@ -625,44 +640,18 @@ def tela_definir_senha(access_token: str, refresh_token: str):
 qp = st.query_params
 url_token = qp.get("access_token")
 url_refresh = qp.get("refresh_token")
-_at = qp.get("_at")  # token de sessão persistente
-_rt = qp.get("_rt")  # refresh token de sessão persistente
 
 # Convite / recuperação de senha vindo do GitHub Pages
 if url_token and url_refresh and not st.session_state.usuario:
     tela_definir_senha(url_token, url_refresh)
     st.stop()
 
-# Restaurar sessão salva no localStorage
-if _at and _rt and not st.session_state.usuario:
-    try:
-        res = supabase.auth.set_session(_at, _rt)
-        if res and res.user:
-            # Renova o access_token com o refresh_token
-            res2 = supabase.auth.refresh_session(_rt)
-            novo_at = res2.session.access_token if res2 and res2.session else _at
-            novo_rt = res2.session.refresh_token if res2 and res2.session else _rt
-            st.session_state.access_token = novo_at
-            st.session_state.refresh_token = novo_rt
-            st.session_state.usuario = {
-                "id": res.user.id,
-                "email": res.user.email,
-                "nome": res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
-            }
-            # Atualiza localStorage com tokens renovados e limpa URL
-            salvar_sessao_local(novo_at, novo_rt)
-            del st.query_params["_at"]
-            del st.query_params["_rt"]
-            st.rerun()
-    except Exception:
-        # Token expirado ou inválido — limpa e pede login
-        limpar_sessao_local()
-        for p in ["_at", "_rt"]:
-            if p in st.query_params:
-                del st.query_params[p]
+# Tenta restaurar sessão via cookie (só uma vez por sessão Python)
+if not st.session_state.usuario and not st.session_state.sessao_restaurada:
+    if restaurar_sessao():
+        st.rerun()
 
 if not st.session_state.usuario:
-    restaurar_sessao()
     tela_login()
     st.stop()
 
