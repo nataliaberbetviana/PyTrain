@@ -181,6 +181,13 @@ def extrair_peso_total(df):
     _, _, kg = extrair_stats(df)
     return kg
 
+def fmt_tempo(minutos: int) -> str:
+    """Formata minutos: se >= 60 mostra 'Xh Ym', senão 'Xmin'."""
+    if minutos >= 60:
+        h, m = divmod(minutos, 60)
+        return f"{h}h {m}min" if m else f"{h}h"
+    return f"{minutos}min"
+
 def rodape():
     st.divider()
     st.caption("Dúvidas: nabevia@gmail.com")
@@ -504,7 +511,7 @@ with aba2:
 
         km_est  = dist_ciclo * n_ciclos
         min_est = int(n_ciclos * (t_anda + t_corre))
-        st.info("📊  " + str(n_ciclos) + " ciclos  ·  ~" + str(round(km_est,2)) + " km  ·  ~" + str(min_est) + " min")
+        st.info("📊  " + str(n_ciclos) + " ciclos  ·  ~" + str(round(km_est,2)) + " km  ·  ~" + fmt_tempo(min_est))
 
         st.write("")
         if st.button("🏃  Iniciar cardio", use_container_width=True):
@@ -619,7 +626,7 @@ with aba3:
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("🏋️ Treinos", len(df_f))
             c2.metric("🏋️ Vol. Total", f"{kg_f:,.0f} kg")
-            c3.metric("⏱ Tempo", str(min_f) + " min")
+            c3.metric("⏱ Tempo", fmt_tempo(min_f))
             c4.metric("🛣️ Distância", str(round(km_f,1)) + " km")
 
             # ── MENSAGEM DE COMPARAÇÃO SEMANAL ───────────────────────────────────────
@@ -636,9 +643,9 @@ with aba3:
                 if min_ant > 0:
                     diff_min = min_ant - min_a
                     if diff_min > 0:
-                        partes.append(f"**{diff_min} min** de tempo ativo")
+                        partes.append(f"**{fmt_tempo(diff_min)}** de tempo ativo")
                     elif diff_min < 0:
-                        partes.append(f"~~tempo~~ já superou em **{abs(diff_min)} min** 🔥")
+                        partes.append(f"~~tempo~~ já superou em **{fmt_tempo(abs(diff_min))}** 🔥")
                 if km_ant > 0:
                     diff_km = round(km_ant - km_a, 1)
                     if diff_km > 0:
@@ -665,8 +672,8 @@ with aba3:
             with st.expander("📅 Hoje e esta semana"):
                 km_h, min_h, kg_h = extrair_stats(df_h)
                 km_sw, min_sw, kg_sw = extrair_stats(df_sem_atual)
-                st.metric("Hoje", str(len(df_h)) + " atividade(s)  ·  " + str(round(km_h,1)) + " km  ·  " + str(min_h) + " min")
-                st.metric("Esta semana", str(len(df_sem_atual)) + " atividade(s)  ·  " + str(round(km_sw,1)) + " km  ·  " + str(min_sw) + " min")
+                st.metric("Hoje", str(len(df_h)) + " atividade(s)  ·  " + str(round(km_h,1)) + " km  ·  " + fmt_tempo(min_h))
+                st.metric("Esta semana", str(len(df_sem_atual)) + " atividade(s)  ·  " + str(round(km_sw,1)) + " km  ·  " + fmt_tempo(min_sw))
 
             st.caption("ATIVIDADES — " + meses_n[mes_sel].upper())
             if df_f.empty:
