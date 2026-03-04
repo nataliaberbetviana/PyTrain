@@ -181,18 +181,21 @@ h1,h2,h3,h4,h5,h6,p,span,div,label,
     background: #13131f !important;
     border: 1px solid #1e1e30 !important;
     border-radius: 14px !important;
-    overflow: hidden !important;
     margin-bottom: 0.5rem !important;
+}
+[data-testid="stExpander"] details {
+    border-radius: 14px !important;
 }
 [data-testid="stExpander"] summary {
     background: #13131f !important;
-    color: #c4b5fd !important;
+    border-radius: 14px !important;
     font-weight: 600 !important;
     font-size: 0.9rem !important;
     padding: 0.85rem 1rem !important;
+    list-style: none !important;
 }
-[data-testid="stExpander"] summary p { color: #c4b5fd !important; }
-[data-testid="stExpander"] summary:hover { background: #1a1a2e !important; }
+[data-testid="stExpander"] summary * { color: #c4b5fd !important; }
+[data-testid="stExpander"] summary:hover { background: #1a1a2e !important; border-radius: 14px !important; }
 
 /* Alertas */
 [data-testid="stInfo"]    { background: #0d1b2e !important; border-left: 3px solid #3b82f6 !important; border-radius: 10px !important; }
@@ -543,12 +546,11 @@ elif treinos_mes < 10:
 else:
     msg = str(treinos_mes) + " treinos este mes. Lendaria! 🏆"
 
-col_header, col_sair = st.columns([4, 1])
-with col_header:
-    st.title("🏋️ PyTrain PRO")
-    st.markdown("**" + saudacao + ", " + nome_usuario + "!** " + emoji_hora + "  \n" + msg)
+st.title("🏋️ PyTrain PRO")
+st.markdown("**" + saudacao + ", " + nome_usuario + "!** " + emoji_hora + "  \n" + msg)
+
+col_sair, _ = st.columns([1, 3])
 with col_sair:
-    st.markdown("###")
     if st.button("Sair →", key="btn_sair", use_container_width=True):
         fazer_logout()
 
