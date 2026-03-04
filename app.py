@@ -67,7 +67,7 @@ DEFAULTS = {
     "sessao_restaurada": False,
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
-    "ex_registrado": False,
+    "ultimo_idx_registrado": -1,
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -479,8 +479,8 @@ with aba1:
                 st.write("")
                 c_prox, c_cancel = st.columns(2)
                 if c_prox.button("✅  Próximo →", use_container_width=True):
-                    if not st.session_state.get("ex_registrado"):
-                        st.session_state.ex_registrado = True
+                    if st.session_state.get("ultimo_idx_registrado") != idx:
+                        st.session_state.ultimo_idx_registrado = idx
                         is_pr = _verificar_pr(ex["id"], p)
                         det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
                         if nota_ex:
@@ -493,7 +493,6 @@ with aba1:
                         supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
                         st.session_state.indice_ex += 1
                         st.session_state.timer_descanso_ativo = False
-                        st.session_state.ex_registrado = False
                         st.rerun()
                 if c_cancel.button("Cancelar treino", use_container_width=True):
                     st.session_state.treino_ativo = False; st.rerun()
