@@ -131,7 +131,29 @@ with aba1:
         st.subheader("Escolha sua Série")
         serie = st.radio("Selecione:", ["A", "B", "C", "D"], horizontal=True)
 
-        if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True):
+        # ── Resumo da série seleccionada ──────────────────────────────
+        preview = supabase.table("exercicios").select("nome, series, repeticoes, peso_kg").eq("serie_tipo", serie).execute()
+        if preview.data:
+            st.markdown(f"#### 📋 Série {serie} — {len(preview.data)} exercícios")
+            for i, ex in enumerate(preview.data, 1):
+                st.markdown(
+                    f"""<div style="
+                        background:#1e1e2e;border-left:3px solid #7d33ff;
+                        border-radius:8px;padding:10px 16px;margin:6px 0;
+                        display:flex;justify-content:space-between;align-items:center;">
+                        <span style="color:white;font-weight:bold;">{i}. {ex['nome']}</span>
+                        <span style="color:#a78bfa;font-size:0.85em;">
+                            {ex['series']}x{ex['repeticoes']} &nbsp;|&nbsp; {ex['peso_kg']} kg
+                        </span>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+            pode_iniciar = True
+        else:
+            st.warning(f"Nenhum exercício cadastrado na Série {serie}. Adicione exercícios no Menu ⚙️.")
+            pode_iniciar = False
+
+        if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
             st.session_state.serie_atual = serie
             st.session_state.indice_ex = 0
