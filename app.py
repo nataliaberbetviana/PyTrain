@@ -59,6 +59,20 @@ div.stButton > button {
     color: white;
 }
 .stTabs [aria-selected="true"] { background-color: #7d33ff !important; }
+
+/* Esconde toolbar do Streamlit Cloud que cobre o topo */
+header[data-testid="stHeader"] { display: none !important; }
+#MainMenu { display: none !important; }
+footer { display: none !important; }
+
+/* Botão Sair pequeno */
+div[data-testid="stButton"] button[kind="secondary"] {
+    background-color: transparent !important;
+    border: 1px solid #7d33ff !important;
+    color: #a78bfa !important;
+    height: 2.2em !important;
+    font-size: 0.85em !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -314,39 +328,40 @@ else:
     msg_motivacao = f"Impressionante! **{treinos_mes} treinos** este mês. Você é uma máquina! 🏆"
 
 # ── Banner de saudação ───────────────────────────────────────────
-_c_banner, _c_sair = st.columns([5, 1])
-with _c_banner:
-    st.markdown(f"""
-        <div style="
-            background:linear-gradient(135deg,#1e1e2e 0%,#2a1a3e 100%);
-            border:2px solid #7d33ff;
-            border-radius:14px;
-            padding:16px 20px;
-            display:flex;
-            align-items:center;
-            gap:14px;
-            min-height:80px;
-            box-sizing:border-box;
-        ">
+# Botão Sair como link HTML dentro do banner para evitar corte em mobile
+st.markdown(f"""
+    <div style="
+        background:linear-gradient(135deg,#1e1e2e 0%,#2a1a3e 100%);
+        border:2px solid #7d33ff;
+        border-radius:14px;
+        padding:16px 20px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        box-sizing:border-box;
+        margin-bottom:8px;
+    ">
+        <div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1;">
             <div style="font-size:2em;line-height:1;flex-shrink:0;">{emoji_hora}</div>
             <div style="min-width:0;">
-                <p style="margin:0;color:#a78bfa;font-size:0.75em;letter-spacing:1px;text-transform:uppercase;">
+                <p style="margin:0;color:#a78bfa;font-size:0.72em;letter-spacing:1px;text-transform:uppercase;">
                     🏋️ PyTrain PRO
                 </p>
-                <p style="margin:2px 0 3px;color:#fff;font-size:1.2em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                <p style="margin:2px 0 3px;color:#fff;font-size:1.15em;font-weight:700;">
                     {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
                 </p>
-                <p style="margin:0;color:#aaa;font-size:0.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                <p style="margin:0;color:#aaa;font-size:0.82em;">
                     {msg_motivacao}
                 </p>
             </div>
         </div>
-    """, unsafe_allow_html=True)
-with _c_sair:
-    # Alinha verticalmente com o banner
-    st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
-    if st.button("🚪 Sair", use_container_width=True):
-        fazer_logout()
+    </div>
+""", unsafe_allow_html=True)
+
+# Botão Sair separado, abaixo do banner — único jeito confiável no Streamlit
+if st.button("🚪 Sair", key="btn_sair"):
+    fazer_logout()
 
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
 
