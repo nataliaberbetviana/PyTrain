@@ -14,44 +14,50 @@ st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
 fuso = pytz.timezone('America/Sao_Paulo')
 hoje_agora = datetime.now(fuso)
 
-# --- CSS AVANÇADO PARA MOBILE ---
+# --- CSS AVANÇADO PARA MOBILE (TEMA ROXO/PRETO) ---
 st.markdown("""
     <style>
-    /* Força colunas lado a lado no celular (Checklist) */
-    [data-testid="column"] {
-        display: flex !important;
-        flex-direction: row !important;
-        min-width: 0px !important;
-        flex-basis: 0 !important;
-        flex-grow: 1 !important;
-    }
-
-    /* Ajusta o espaçamento do checkbox no mobile */
-    .stCheckbox { margin-bottom: 0px; }
-    .stCheckbox label p { font-size: 12px !important; }
-
-    /* Estilo Roxo/Preto */
     .stApp { background-color: #0e1117; color: #ffffff; }
 
-    /* Botões de Ação ocupando a tela toda */
+    /* Remove espaços inúteis no topo */
+    .block-container { padding-top: 1rem !important; }
+
+    /* Botões Grandes e Roxos */
     div.stButton > button {
         background-color: #7d33ff;
         color: white;
         border-radius: 12px;
-        height: 3em;
+        height: 3.5em;
+        width: 100%;
         font-weight: bold;
         border: none;
     }
 
-    /* Container de Foco (Exercício/Cardio) no topo */
+    /* Container de Exercício no Topo */
     .foco-container {
         background-color: #1e1e2e;
-        padding: 15px;
+        padding: 20px;
         border-radius: 15px;
         border: 2px solid #7d33ff;
         text-align: center;
-        margin-top: -20px;
+        margin-bottom: 20px;
     }
+
+    /* Inputs Estilizados */
+    .stNumberInput div div input {
+        background-color: #1e1e2e !important;
+        color: #e066ff !important;
+        font-size: 22px !important;
+    }
+
+    /* Estilização das Abas */
+    .stTabs [data-baseweb="tab-list"] { gap: 5px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1e1e2e;
+        border-radius: 8px 8px 0 0;
+        color: white;
+    }
+    .stTabs [aria-selected="true"] { background-color: #7d33ff !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -72,54 +78,53 @@ def registrar_historico(ex_id, detalhes, tipo="musculacao"):
 st.title("🏋️ PyTrain PRO")
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
 
-# --- ABA 1: TREINO ---
+# --- ABA 1: TREINO (MODO FOCO TOTAL) ---
 with aba1:
-    # Se o treino NÃO estiver ativo, mostra o checklist e a seleção
     if not st.session_state.get("treino_ativo"):
-        st.subheader("🗓️ Checklist Semanal")
-        dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
-        cols = st.columns(7)
-        for i, dia in enumerate(dias):
-            st.session_state[f"manual_{dia}"] = cols[i].checkbox(dia, key=f"c_{dia}")
+        st.subheader("Escolha sua Série")
+        serie = st.radio("Selecione:", ["A", "B", "C", "D"], horizontal=True)
 
-        st.divider()
-        serie = st.radio("Série:", ["A", "B", "C", "D"], horizontal=True)
-
-        if st.button(f"🚀 INICIAR SÉRIE {serie}"):
+        if st.button(f"🚀 INICIAR TREINO - SÉRIE {serie}", use_container_width=True):
             st.session_state.treino_ativo = True
             st.session_state.serie_atual = serie
             st.session_state.indice_ex = 0
             st.session_state.inicio_timer = time.time()
             st.rerun()
 
-    # Se o treino ESTIVER ativo, mostra apenas o exercício (Modo Foco)
     else:
+        # TUDO O QUE ESTÁ AQUI APARECE NO TOPO QUANDO O TREINO INICIA
         res = supabase.table("exercicios").select("*").eq("serie_tipo", st.session_state.serie_atual).execute()
         if res.data:
             ex_atual = res.data[st.session_state.indice_ex]
 
+            # Cabeçalho de Progresso
             st.markdown(f"""
                 <div class="foco-container">
-                    <h4 style="color:gray;">{st.session_state.serie_atual} - {st.session_state.indice_ex + 1}/{len(res.data)}</h4>
-                    <h2 style="color:#e066ff; margin-bottom:10px;">{ex_atual['nome']}</h2>
+                    <h4 style="color:gray; margin:0;">Série {st.session_state.serie_atual} | {st.session_state.indice_ex + 1} de {len(res.data)}</h4>
+                    <h1 style="color:#e066ff; margin:10px 0; font-size: 28px;">{ex_atual['nome']}</h1>
                 </div>
             """, unsafe_allow_html=True)
 
             c1, c2, c3 = st.columns(3)
             p = c1.number_input("Kg", value=int(ex_atual['peso_kg']), step=1, key=f"p_{st.session_state.indice_ex}")
-            s = c2.number_input("Séries", value=int(ex_atual['series']), step=1, key=f"s_{st.session_state.indice_ex}")
+            s = c2.number_input("Sets", value=int(ex_atual['series']), step=1, key=f"s_{st.session_state.indice_ex}")
             r = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1,
                                 key=f"r_{st.session_state.indice_ex}")
 
-            # Cronômetro fixo no topo da visão
+            # Cronômetro da Sessão (Contínuo)
             tempo_total_seg = int(time.time() - st.session_state.inicio_timer)
             m, seg = divmod(tempo_total_seg, 60)
-            st.metric("⏱️ Tempo de Sessão", f"{m:02d}:{seg:02d}")
+            st.markdown(f"""
+                <div style='text-align:center; padding:15px; border:1px solid #7d33ff; border-radius:12px; margin: 15px 0;'>
+                    <small style='color:gray;'>TEMPO TOTAL</small><br>
+                    <span style='font-size:35px; font-weight:bold; color:white;'>{m:02d}:{seg:02d}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
-            col_btn1, col_btn2 = st.columns([2, 1])
-            if col_btn1.button("PRÓXIMO ➡️", use_container_width=True):
+            if st.button("PRÓXIMO EXERCÍCIO ➡️", use_container_width=True):
                 registrar_historico(ex_atual['id'], f"{p}kg | {s}x{r} | {tempo_total_seg // 60}min")
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual['id']).execute()
+
                 if st.session_state.indice_ex + 1 < len(res.data):
                     st.session_state.indice_ex += 1
                 else:
@@ -127,18 +132,18 @@ with aba1:
                     st.balloons()
                 st.rerun()
 
-            if col_btn2.button("🛑 PARAR", type="secondary"):
+            if st.button("🛑 CANCELAR TREINO", type="secondary"):
                 st.session_state.treino_ativo = False
                 st.rerun()
 
             time.sleep(1)
             st.rerun()
 
-# --- ABA 2: CARDIO ---
+# --- ABA 2: CARDIO (MODO FOCO TOTAL) ---
 with aba2:
     if not st.session_state.get("cardio_ativo"):
-        st.header("🏃 Configurar Esteira")
-        modo = st.radio("Objetivo:", ["KM Total", "Ciclos"], horizontal=True)
+        st.subheader("Configurar Esteira")
+        modo = st.radio("Objetivo:", ["Distância Alvo (km)", "Número de Ciclos"], horizontal=True)
 
         c1, c2 = st.columns(2)
         t_anda = c1.number_input("Minutos Andando", 5.0, step=1.0)
@@ -148,14 +153,12 @@ with aba2:
 
         dist_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
 
-        if modo == "KM Total":
+        if modo == "Distância Alvo (km)":
             dist_alvo = st.number_input("Meta (km)", 5.0, step=0.5)
             n_ciclos = int(dist_alvo / dist_ciclo) + (1 if dist_alvo % dist_ciclo > 0.05 else 0)
         else:
             n_ciclos = st.number_input("Ciclos", 1, min_value=1, step=1)
             dist_alvo = dist_ciclo * n_ciclos
-
-        st.info(f"📋 {n_ciclos} ciclos | Tempo Est: {int((t_anda + t_corre) * n_ciclos)} min")
 
         if st.button("🚀 INICIAR CARDIO", use_container_width=True):
             st.session_state.cardio_ativo = True
@@ -165,16 +168,16 @@ with aba2:
             st.rerun()
 
     else:
-        # Modo Foco Cardio
+        # TUDO O QUE ESTÁ AQUI APARECE NO TOPO QUANDO O CARDIO INICIA
         n_ciclos, t_anda, v_anda, t_corre, v_corre, dist_alvo = st.session_state.params_cardio
-        ph = st.empty()
 
         if st.button("🛑 ENCERRAR E SALVAR"):
             t_final = int((time.time() - st.session_state.t_cardio_start) // 60)
-            registrar_historico(None, f"Cardio: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+            registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
             st.session_state.cardio_ativo = False
             st.rerun()
 
+        ph = st.empty()
         etapas = []
         for i in range(n_ciclos):
             etapas.append((f"🚶 Caminhada ({i + 1}/{n_ciclos})", t_anda * 60, v_anda))
@@ -185,24 +188,21 @@ with aba2:
                 st.session_state.dist_real += vel / 3600
                 m, s = divmod(int(segs), 60)
                 ph.markdown(f"""
-                    <div class="foco-container" style="border-color:#e066ff;">
+                    <div class="foco-container" style="border-color:#e066ff; background: black;">
                         <h2 style="color:#e066ff; margin:0;">{nome}</h2>
-                        <h1 style="font-size:60px; margin:10px 0;">{m:02d}:{s:02d}</h1>
+                        <h1 style="font-size:70px; margin:10px 0;">{m:02d}:{s:02d}</h1>
                         <h3 style="color:#66ffe0;">{st.session_state.dist_real:.2f} / {dist_alvo:.2f} km</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
                 segs -= 1
 
-        # Finalização automática
+        # Salvamento automático no fim
         t_final = int((time.time() - st.session_state.t_cardio_start) // 60)
         registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
         st.session_state.cardio_ativo = False
         st.success("Objetivo concluído!")
         st.rerun()
-
-# --- ABA 3: PAINEL (CÓDIGO ANTERIOR MANTIDO) ---
-# ... (Insira aqui o código da Aba 3 que você já tem)
 
 # --- ABA 3: PAINEL DE RENDIMENTO COM FILTRO REORGANIZADO ---
 with aba3:
