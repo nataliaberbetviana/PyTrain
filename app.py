@@ -349,22 +349,37 @@ with aba1:
                     else:
                         st.warning("Série vazia, nada a clonar.")
 
+            # Checa delete via query param
+            _qp = st.query_params
+            _del_id = _qp.get("del_ex", "")
+            if _del_id:
+                supabase.table("exercicios").delete().eq("id", _del_id).execute()
+                st.query_params.clear(); st.rerun()
+
             if exs.data:
-                st.caption("SÉRIE " + serie + "  ·  " + str(len(exs.data)) + " exercícios")
-                # Checa delete via query param
-                _qp = st.query_params
-                _del_id = _qp.get("del_ex", "")
-                if _del_id:
-                    supabase.table("exercicios").delete().eq("id", _del_id).execute()
-                    st.query_params.clear(); st.rerun()
-                for i, ex in enumerate(exs.data, 1):
-                    ult_det, ult_data = _ultima_carga(ex["id"])
-                    ult_txt = f"<div style='font-size:0.75rem;color:#a78bfa;margin-top:4px'>📌 {ult_data}: {ult_det}</div>" if ult_det else ""
-                    st.markdown(f"""
-<div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:12px 14px;margin-bottom:8px;position:relative">
-  <a href="?del_ex={ex['id']}" style="position:absolute;top:8px;right:10px;color:#666;font-size:1rem;text-decoration:none;line-height:1">✕</a>
-  <div style="font-size:0.95rem;font-weight:700;color:#90caf9;padding-right:24px">{i}. {ex['nome']}</div>
-  <div style="font-size:0.8rem;color:#aaa;margin-top:2px">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg</div>
+                n_exs = len(exs.data)
+                nomes_resumo = " · ".join(e["nome"] for e in exs.data[:3])
+                if n_exs > 3: nomes_resumo += f" +{n_exs-3}"
+
+                # Botão iniciar ANTES da lista
+                if st.button(f"🚀 Iniciar Série {serie} — {n_exs} exercícios", use_container_width=True):
+                    st.session_state.treino_ativo = True
+                    st.session_state.serie_atual  = serie
+                    st.session_state.indice_ex    = 0
+                    st.session_state.inicio_timer = time.time()
+                    st.session_state.timer_descanso_ativo = False
+                    st.session_state.ordem_exercicios = [e["id"] for e in exs.data]
+                    st.rerun()
+
+                with st.expander(f"👁 Ver {n_exs} exercícios da Série {serie}", expanded=False):
+                    for i, ex in enumerate(exs.data, 1):
+                        ult_det, ult_data = _ultima_carga(ex["id"])
+                        ult_txt = f"<div style='font-size:0.72rem;color:#a78bfa;margin-top:3px'>📌 {ult_data}: {ult_det}</div>" if ult_det else ""
+                        st.markdown(f"""
+<div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:10px 14px;margin-bottom:6px;position:relative">
+  <a href="?del_ex={ex['id']}" style="position:absolute;top:8px;right:10px;color:#555;font-size:0.9rem;text-decoration:none">✕</a>
+  <div style="font-size:0.9rem;font-weight:700;color:#90caf9;padding-right:20px">{i}. {ex['nome']}</div>
+  <div style="font-size:0.78rem;color:#aaa;margin-top:1px">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg</div>
   {ult_txt}
 </div>""", unsafe_allow_html=True)
                 pode_iniciar = True
@@ -400,15 +415,6 @@ with aba1:
                         else:
                             st.warning("Digite o nome do exercício.")
 
-            st.write("")
-            if st.button("🚀  Iniciar Série " + serie, use_container_width=True, disabled=not pode_iniciar):
-                st.session_state.treino_ativo = True
-                st.session_state.serie_atual  = serie
-                st.session_state.indice_ex    = 0
-                st.session_state.inicio_timer = time.time()
-                st.session_state.timer_descanso_ativo = False
-                st.session_state.ordem_exercicios = [e["id"] for e in exs.data]
-                st.rerun()
 
         else:
             # Busca todos e reordena conforme ordem_exercicios (permite pular)
