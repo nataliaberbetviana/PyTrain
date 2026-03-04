@@ -749,27 +749,45 @@ with aba2:
             st.info("💜 " + random.choice(FRASES))
             st.rerun()
 
-        nome_et, _, vel_et = et[idx]
-        seg = p["seg_restantes"]; m, s = divmod(seg, 60)
-        pct = int((st.session_state.dist_real / da) * 100) if da > 0 else 0
+        nome_et, dur_et, vel_et = et[idx]
+
+        # Timer baseado em tempo real, não em contagem de reruns
+        if "etapa_start" not in p:
+            p["etapa_start"] = time.time()
+
+        agora = time.time()
+        decorrido_etapa = agora - p["etapa_start"]
+        seg = max(0, int(dur_et - decorrido_etapa))
+        m, s = divmod(seg, 60)
+
+        # Distância real calculada com base no tempo decorrido por etapa
+        dist_calc = 0.0
+        for i_e, (_, dur_e, vel_e) in enumerate(et):
+            if i_e < idx:
+                dist_calc += vel_e * (dur_e / 3600)
+            else:
+                frac = min(decorrido_etapa, dur_e)
+                dist_calc += vel_e * (frac / 3600)
+                break
+        st.session_state.dist_real = dist_calc
+
+        pct = int((dist_calc / da) * 100) if da > 0 else 0
 
         st.subheader("🏃 " + nome_et)
         st.progress(min(pct, 100))
         st.divider()
         c1, c2 = st.columns(2)
         c1.metric("⏱ Restante", str(m).zfill(2) + ":" + str(s).zfill(2))
-        c2.metric("📍 Distância", str(round(st.session_state.dist_real, 2)) + " / " + str(round(da, 2)) + " km")
+        c2.metric("📍 Distância", str(round(dist_calc, 2)) + " / " + str(round(da, 2)) + " km")
         st.divider()
 
-        time.sleep(1)
-        st.session_state.dist_real += vel_et / 3600
-        if seg <= 1:
+        # Avança etapa quando o tempo real se esgotou
+        if decorrido_etapa >= dur_et:
             p["etapa_idx"] += 1
-            ni = p["etapa_idx"]
-            p["seg_restantes"] = et[ni][1] if ni < len(et) else 0
-        else:
-            p["seg_restantes"] -= 1
+            p["etapa_start"] = time.time()
+
         st.session_state.params_cardio = p
+        time.sleep(1)
         st.rerun()
 
     rodape()
