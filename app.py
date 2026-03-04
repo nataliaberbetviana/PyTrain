@@ -92,7 +92,6 @@ defaults = {
     "sessao_restaurada": False,
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
-    "form_livre_key": 0,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -231,17 +230,165 @@ def verificar_conquistas_treino(total_treinos: int, streak: int):
     if streak >= 7:  desbloquear_conquista("streak_7")
     if streak >= 30: desbloquear_conquista("streak_30")
 
+def get_perfil_cidade_estado():
+    """Retorna (cidade_lower, estado_upper) do perfil do usuário logado."""
+    try:
+        res = supabase.table("perfis").select("cidade,estado").eq("user_id", user_id()).execute()
+        if res.data:
+            cidade = (res.data[0].get("cidade") or "").strip().lower()
+            estado = (res.data[0].get("estado") or "").strip().upper()
+            return cidade, estado
+    except Exception:
+        pass
+    return "", ""
+
+# Feriados municipais por (cidade_lower, estado_upper) → lista de (mês, dia)
+_FERIADOS_MUNICIPAIS = {
+    # Espírito Santo
+    ("cachoeiro de itapemirim", "ES"): [(9, 26)],
+    ("vitoria",                  "ES"): [(9,  8)],
+    ("vila velha",               "ES"): [(5, 23)],
+    ("cariacica",                "ES"): [(8, 15)],
+    ("serra",                    "ES"): [(8, 15)],
+    ("linhares",                 "ES"): [(9, 28)],
+    ("colatina",                 "ES"): [(6, 29)],
+    # Rio de Janeiro
+    ("rio de janeiro",           "RJ"): [(1, 20), (11, 2), (11, 20)],
+    # São Paulo
+    ("sao paulo",                "SP"): [(1, 25), (7,  9)],
+    # Belo Horizonte
+    ("belo horizonte",           "MG"): [(8, 15)],
+    # Salvador
+    ("salvador",                 "BA"): [(1, 1), (11, 1)],
+    # Fortaleza
+    ("fortaleza",                "CE"): [(3, 19)],
+    # Manaus
+    ("manaus",                   "AM"): [(9, 5)],
+    # Curitiba
+    ("curitiba",                 "PR"): [(3, 26)],
+    # Porto Alegre
+    ("porto alegre",             "RS"): [(9, 20)],
+    # Recife
+    ("recife",                   "PE"): [(3, 16)],
+    # Goiânia
+    ("goiania",                  "GO"): [(10, 24)],
+}
+
+# Feriados estaduais fixos por estado_upper → lista de (mês, dia)
+_FERIADOS_ESTADUAIS = {
+    "ES": [(10, 28)],
+    "SP": [(7,  9)],
+    "RJ": [(4, 23)],
+    "MG": [(12, 8)],
+    "BA": [(7,  2)],
+    "AM": [(9,  5)],
+    "PR": [(3, 26)],
+    "RS": [(9, 20)],
+    "PE": [(3, 16)],
+    "CE": [(3, 25)],
+    "GO": [(10, 24)],
+    "PA": [(8, 15)],
+    "MT": [(11, 8)],
+    "MS": [(10, 11)],
+    "AC": [(6, 15), (11, 17)],
+    "RO": [(1,  4)],
+    "RR": [(10,  5)],
+    "AP": [(3, 19)],
+    "TO": [(10,  5)],
+    "MA": [(7,  28)],
+    "PI": [(10, 19)],
+    "AL": [(9, 16)],
+    "SE": [(7, 8)],
+    "PB": [(8,  5)],
+    "RN": [(10,  3)],
+    "DF": [(4, 21)],
+    "SC": [(8, 11)],
+}
+
+def _feriados(ano: int, cidade: str = "", estado: str = "") -> set:
+    """Retorna conjunto de datas de feriados para o ano/cidade/estado."""
+    from datetime import date as _date
+
+    # Páscoa — algoritmo de Butcher
+    a = ano % 19; b = ano // 100; c = ano % 100
+    d = b // 4;   e = b % 4;      f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4;   k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes_p = (h + l - 7 * m + 114) // 31
+    dia_p = ((h + l - 7 * m + 114) % 31) + 1
+    pascoa = _date(ano, mes_p, dia_p)
+
+    feriados = set()
+
+    # Nacionais fixos
+    feriados.update([
+        _date(ano,  1,  1),   # Confraternização Universal
+        _date(ano,  4, 21),   # Tiradentes
+        _date(ano,  5,  1),   # Dia do Trabalho
+        _date(ano,  9,  7),   # Independência
+        _date(ano, 10, 12),   # Nossa Sra. Aparecida
+        _date(ano, 11,  2),   # Finados
+        _date(ano, 11, 15),   # Proclamação da República
+        _date(ano, 11, 20),   # Consciência Negra
+        _date(ano, 12, 25),   # Natal
+    ])
+
+    # Nacionais móveis
+    feriados.update([
+        pascoa - timedelta(days=48),  # Segunda de Carnaval
+        pascoa - timedelta(days=47),  # Terça de Carnaval
+        pascoa - timedelta(days=2),   # Sexta-Feira Santa
+        pascoa,
+        pascoa + timedelta(days=60),  # Corpus Christi
+    ])
+
+    # Estaduais
+    for mes, dia in _FERIADOS_ESTADUAIS.get(estado, []):
+        feriados.add(_date(ano, mes, dia))
+
+    # Municipais — tenta com e sem acento via cidade_lower
+    import unicodedata
+    def _norm(s):
+        return unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode().lower()
+
+    for (cid, est), datas in _FERIADOS_MUNICIPAIS.items():
+        if est == estado and _norm(cid) == _norm(cidade):
+            for mes, dia in datas:
+                feriados.add(_date(ano, mes, dia))
+            break
+
+    return feriados
+
+def _dia_util(d, cidade: str = "", estado: str = "") -> bool:
+    if d.weekday() >= 5:
+        return False
+    if d in _feriados(d.year, cidade, estado):
+        return False
+    return True
+
+def _prev_dia_util(d, cidade: str = "", estado: str = ""):
+    prev = d - timedelta(days=1)
+    while not _dia_util(prev, cidade, estado):
+        prev -= timedelta(days=1)
+    return prev
+
 def calcular_streak(df_hist):
     if df_hist.empty: return 0
-    datas = sorted(df_hist["data_execucao"].dt.date.unique(), reverse=True)
-    streak = 0
+    cidade, estado = get_perfil_cidade_estado()
+    datas = set(df_hist["data_execucao"].dt.date.unique())
+
     ref = hoje_agora.date()
-    for d in datas:
-        if d == ref or d == ref - timedelta(days=1):
-            streak += 1
-            ref = d
-        else:
-            break
+    while not _dia_util(ref, cidade, estado):
+        ref -= timedelta(days=1)
+
+    streak = 0
+    while ref in datas:
+        streak += 1
+        ref = _prev_dia_util(ref, cidade, estado)
+
     return streak
 
 # ── PR ─────────────────────────────────────────────────────────────────────────
@@ -431,7 +578,7 @@ with aba1:
     if modo_treino == "Treino Livre":
         st.caption("TREINO LIVRE — adicione exercícios na hora")
 
-        with st.form("form_livre_" + str(st.session_state.form_livre_key)):
+        with st.form("form_livre"):
             c1, c2, c3, c4 = st.columns([3,1,1,1])
             tl_nome   = c1.text_input("Exercício", placeholder="Ex: Agachamento")
             tl_peso   = c2.number_input("Kg", value=0, min_value=0)
@@ -444,7 +591,6 @@ with aba1:
                         "nome": tl_nome.strip(), "peso": tl_peso,
                         "series": tl_series, "reps": tl_reps, "nota": tl_nota.strip(),
                     })
-                    st.session_state.form_livre_key += 1
                     st.rerun()
 
         if st.session_state.treino_livre_exs:
