@@ -104,11 +104,18 @@ def rodape():
 # ═══════════════════════════════
 
 def tela_login():
+    st.markdown("""
+    <style>
+    .block-container { max-width:420px !important; margin:0 auto !important;
+        padding-left:1rem !important; padding-right:1rem !important; }
+    input { font-size:16px !important; min-height:44px !important; }
+    button, [role="button"] { min-height:44px !important; }
+    #MainMenu, header, footer { display:none !important; }
+    </style>""", unsafe_allow_html=True)
     st.title("🏋️ PyTrain PRO")
     st.caption("Seu treino, sua evolução.")
     st.divider()
-    col_l, col_c, col_r = st.columns([1, 2, 1])
-    with col_c:
+    with st.container():
         tab_login, tab_reset = st.tabs(["Entrar", "Recuperar senha"])
         with tab_login:
             with st.form("form_login"):
@@ -139,8 +146,15 @@ def tela_login():
 
 
 def tela_definir_senha(access_token, refresh_token):
-    col_l, col_c, col_r = st.columns([1, 2, 1])
-    with col_c:
+    st.markdown("""
+    <style>
+    .block-container { max-width:420px !important; margin:0 auto !important;
+        padding-left:1rem !important; padding-right:1rem !important; }
+    input { font-size:16px !important; min-height:44px !important; }
+    button, [role="button"] { min-height:44px !important; }
+    #MainMenu, header, footer { display:none !important; }
+    </style>""", unsafe_allow_html=True)
+    with st.container():
         st.title("🏋️ Ativar conta")
         st.caption("Crie sua senha para começar.")
         with st.form("form_definir_senha"):
@@ -173,8 +187,15 @@ def tela_definir_senha(access_token, refresh_token):
 
 
 def tela_completar_perfil():
-    col_l, col_c, col_r = st.columns([1, 2, 1])
-    with col_c:
+    st.markdown("""
+    <style>
+    .block-container { max-width:420px !important; margin:0 auto !important;
+        padding-left:1rem !important; padding-right:1rem !important; }
+    input, select { font-size:16px !important; min-height:44px !important; }
+    button, [role="button"] { min-height:44px !important; }
+    #MainMenu, header, footer { display:none !important; }
+    </style>""", unsafe_allow_html=True)
+    with st.container():
         st.title("👋 Bem-vinda!")
         st.caption("Complete seu perfil para continuar.")
         with st.form("form_perfil"):
@@ -249,11 +270,100 @@ else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Len
 
 st.markdown("""
 <style>
+/* ── Viewport meta para mobile ── */
+@viewport { width: device-width; }
+
+/* ── Reset e base ── */
 #MainMenu, header, footer { display: none !important; }
-.block-container { padding-top: 0.1rem !important; padding-bottom: 1rem !important; max-width:480px !important; }
 section[data-testid="stSidebar"] { display: none; }
-div[data-testid="stSelectbox"] > div { min-height: 32px !important; }
-div[data-testid="stSelectbox"] > div > div { padding: 2px 8px !important; font-size:0.8rem !important; }
+
+/* ── Container responsivo ── */
+.block-container {
+    padding-top: 0.5rem !important;
+    padding-bottom: 1rem !important;
+    max-width: 480px !important;
+    margin: 0 auto !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+/* ── Selectbox compacto (nav) ── */
+div[data-testid="stSelectbox"] > div { min-height: 38px !important; }
+div[data-testid="stSelectbox"] > div > div {
+    padding: 4px 10px !important;
+    font-size: 0.85rem !important;
+}
+
+/* ── Touch targets mínimos 44px ── */
+button, a, [role="button"],
+div[data-testid="stButton"] > button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+}
+
+/* ── Inputs mobile-friendly ── */
+input, textarea, select,
+div[data-testid="stTextInput"] input,
+div[data-testid="stNumberInput"] input {
+    font-size: 16px !important;   /* evita zoom no iOS */
+    min-height: 44px !important;
+    border-radius: 8px !important;
+}
+
+/* ── Botões com cantos arredondados e espaçamento ── */
+div[data-testid="stButton"] > button {
+    border-radius: 12px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 600 !important;
+}
+
+/* ── Tabs responsivos ── */
+div[data-testid="stTabs"] button {
+    font-size: 0.82rem !important;
+    padding: 8px 12px !important;
+    min-height: 44px !important;
+}
+
+/* ── Expanders ── */
+details[data-testid="stExpander"] summary {
+    min-height: 44px !important;
+    font-size: 0.9rem !important;
+    padding: 8px 12px !important;
+}
+
+/* ── Métricas compactas ── */
+div[data-testid="stMetric"] {
+    padding: 6px !important;
+}
+div[data-testid="stMetric"] label {
+    font-size: 0.7rem !important;
+}
+div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+    font-size: 1.2rem !important;
+}
+
+/* ── DataFrames scroll horizontal ── */
+div[data-testid="stDataFrame"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+/* ── Espaçamento entre colunas mobile ── */
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.5rem !important;
+    flex-wrap: wrap !important;
+}
+
+/* ── Responsividade extra para telas < 480px ── */
+@media (max-width: 480px) {
+    .block-container {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div {
+        min-width: 0 !important;
+    }
+}
 </style>""", unsafe_allow_html=True)
 
 # ── Navegação ────────────────────────────────────────────────────────────────
@@ -306,10 +416,42 @@ aba6 = _FakeCtx(_a == "perfil")
 # ═══════════════════════════════
 
 if aba0.ativa:
-    # Reutiliza dados já buscados no header
+    # Calcula dados para o painel Home
     _treinos_mes = treinos_mes
-    _streak      = _streak_home
     _frase_home  = FRASES[(hoje_agora.day + hoje_agora.month) % len(FRASES)]
+
+    # Streak e dados de hoje
+    try:
+        _res_all = supabase.table("historico_treinos").select("data_execucao")\
+            .eq("user_id", uid()).execute()
+        _df_all = pd.json_normalize(_res_all.data) if _res_all.data else pd.DataFrame()
+        if not _df_all.empty:
+            _df_all["data_execucao"] = pd.to_datetime(_df_all["data_execucao"])
+        _streak = calcular_streak(_df_all, hoje_agora.date())
+        _hoje_dt = hoje_agora.replace(hour=0, minute=0, second=0, microsecond=0)
+        _df_hoje = _df_all[_df_all["data_execucao"] >= _hoje_dt] if not _df_all.empty else pd.DataFrame()
+        _n_hoje = len(_df_hoje)
+        if not _df_all.empty:
+            _ult_data = _df_all["data_execucao"].max().astimezone(fuso).strftime("%d/%m %H:%M")
+        else:
+            _ult_data = ""
+    except Exception:
+        _streak = 0
+        _n_hoje = 0
+        _ult_data = ""
+
+    # Meta semanal
+    try:
+        _ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        _res_sem = supabase.table("historico_treinos").select("data_execucao")\
+            .eq("user_id", uid()).gte("data_execucao", _ini_sem.isoformat()).execute()
+        _treinos_sem = len(_res_sem.data) if _res_sem.data else 0
+    except Exception:
+        _treinos_sem = 0
+    _meta_sem = 5
+    _pct_meta = min(int((_treinos_sem / _meta_sem) * 100), 100)
+
     streak_cor   = "#4ade80" if _streak >= 3 else "#facc15" if _streak >= 1 else "#888"
     hoje_txt     = f"✅ {_n_hoje} exercício(s) hoje" if _n_hoje > 0 else "Nenhum treino hoje ainda"
     ult_txt      = f"Último: {_ult_data}" if _ult_data else ""
@@ -502,7 +644,9 @@ if aba1.ativa:
                 if st.button("Clonar", key="btn_clone"):
                     if exs.data:
                         for ex in exs.data:
-                            dup = supabase.table("exercicios").select("id")                                .ilike("nome", ex["nome"]).eq("serie_tipo", dest)                                .eq("user_id", uid()).execute()
+                            dup = supabase.table("exercicios").select("id")\
+                                .ilike("nome", ex["nome"]).eq("serie_tipo", dest)\
+                                .eq("user_id", uid()).execute()
                             if not dup.data:
                                 supabase.table("exercicios").insert({
                                     "user_id":    uid(), "nome": ex["nome"],
@@ -586,7 +730,8 @@ if aba1.ativa:
                     st.query_params.clear()
                     is_pr = _verificar_pr(ex["id"], p)
                     det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
-                    if nota_ex: det += " | " + nota_ex
+                    _nota_qp = st.session_state.get("nota_" + str(idx), "")
+                    if _nota_qp: det += " | " + _nota_qp
                     if is_pr:
                         det += " | 🏆 PR"; _desbloquear("pr_primeiro")
                         st.success("🏆 NOVO RECORDE PESSOAL!")
