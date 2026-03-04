@@ -329,26 +329,6 @@ with aba1:
             exs   = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
                 .eq("serie_tipo", serie).eq("user_id", uid()).order("id").execute()
 
-            with st.expander("📋 Clonar esta série em outra"):
-                outras = [s for s in ["A","B","C","D"] if s != serie]
-                dest = st.selectbox("Clonar Série " + serie + " para →", outras, key="clone_dest")
-                if st.button("Clonar", key="btn_clone"):
-                    if exs.data:
-                        for ex in exs.data:
-                            dup = supabase.table("exercicios").select("id")\
-                                .ilike("nome", ex["nome"]).eq("serie_tipo", dest)\
-                                .eq("user_id", uid()).execute()
-                            if not dup.data:
-                                supabase.table("exercicios").insert({
-                                    "user_id":    uid(), "nome": ex["nome"],
-                                    "serie_tipo": dest,  "peso_kg": ex["peso_kg"],
-                                    "series":     ex["series"], "repeticoes": ex["repeticoes"],
-                                }).execute()
-                        st.success(f"✅ Série {serie} clonada para Série {dest}!")
-                        st.rerun()
-                    else:
-                        st.warning("Série vazia, nada a clonar.")
-
             # Checa delete via query param
             _qp = st.query_params
             _del_id = _qp.get("del_ex", "")
@@ -415,6 +395,26 @@ with aba1:
                         else:
                             st.warning("Digite o nome do exercício.")
 
+
+
+            # 4. Clonar (por último)
+            with st.expander("📋 Clonar esta série em outra"):
+                outras = [s for s in ["A","B","C","D"] if s != serie]
+                dest = st.selectbox("Clonar Série " + serie + " para →", outras, key="clone_dest")
+                if st.button("Clonar", key="btn_clone"):
+                    if exs.data:
+                        for ex in exs.data:
+                            dup = supabase.table("exercicios").select("id")                                .ilike("nome", ex["nome"]).eq("serie_tipo", dest)                                .eq("user_id", uid()).execute()
+                            if not dup.data:
+                                supabase.table("exercicios").insert({
+                                    "user_id":    uid(), "nome": ex["nome"],
+                                    "serie_tipo": dest,  "peso_kg": ex["peso_kg"],
+                                    "series":     ex["series"], "repeticoes": ex["repeticoes"],
+                                }).execute()
+                        st.success(f"✅ Série {serie} clonada para Série {dest}!")
+                        st.rerun()
+                    else:
+                        st.warning("Série vazia, nada a clonar.")
 
         else:
             # Busca todos e reordena conforme ordem_exercicios (permite pular)
