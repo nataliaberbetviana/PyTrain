@@ -10,6 +10,273 @@ from streamlit_cookies_manager import EncryptedCookieManager
 
 st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
 
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+/* Base */
+html, body, .stApp {
+    background-color: #0b0b12 !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+.block-container {
+    max-width: 700px !important;
+    padding: 1.5rem 1.2rem 3rem !important;
+    margin: 0 auto !important;
+}
+header[data-testid="stHeader"], #MainMenu, footer { display: none !important; }
+
+/* Texto geral */
+h1,h2,h3,h4,h5,h6,p,span,div,label,
+.stMarkdown, [data-testid="stText"] {
+    color: #e2e8f0 !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+.stApp .stCaption > div,
+.stApp .stCaption p,
+[data-testid="stCaptionContainer"] p {
+    color: #64748b !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+
+/* Métricas */
+[data-testid="stMetric"] {
+    background: #13131f !important;
+    border: 1px solid #1e1e30 !important;
+    border-radius: 14px !important;
+    padding: 0.9rem 1.1rem !important;
+}
+[data-testid="stMetricLabel"] > div {
+    color: #64748b !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+}
+[data-testid="stMetricValue"] > div {
+    color: #e2e8f0 !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 1.15rem !important;
+    font-weight: 500 !important;
+}
+
+/* Inputs */
+.stApp input, .stApp textarea,
+[data-baseweb="input"] input,
+[data-baseweb="base-input"] input {
+    background: #13131f !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #2a2a3d !important;
+    border-radius: 10px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.95rem !important;
+}
+[data-baseweb="input"], [data-baseweb="base-input"] {
+    background: #13131f !important;
+    border: 1px solid #2a2a3d !important;
+    border-radius: 10px !important;
+}
+.stApp input:focus, [data-baseweb="input"]:focus-within {
+    border-color: #7c3aed !important;
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+}
+
+/* Labels dos inputs */
+.stApp label,
+[data-testid="stWidgetLabel"] p,
+[data-testid="stWidgetLabel"] {
+    color: #64748b !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+}
+
+/* Selectbox */
+[data-baseweb="select"] > div {
+    background: #13131f !important;
+    border: 1px solid #2a2a3d !important;
+    border-radius: 10px !important;
+    color: #e2e8f0 !important;
+}
+[data-baseweb="select"] span { color: #e2e8f0 !important; }
+
+/* Number input */
+[data-testid="stNumberInput"] input {
+    background: #13131f !important;
+    color: #a78bfa !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 1.3rem !important;
+    font-weight: 500 !important;
+    border: 1px solid #2a2a3d !important;
+    border-radius: 10px !important;
+}
+[data-testid="stNumberInput"] button {
+    background: #1a1a2e !important;
+    color: #a78bfa !important;
+    border: 1px solid #2a2a3d !important;
+    border-radius: 8px !important;
+}
+[data-testid="stNumberInput"] button:hover {
+    background: #2d1f55 !important;
+    border-color: #7c3aed !important;
+}
+
+/* Botões */
+.stApp .stButton > button,
+.stApp .stFormSubmitButton > button,
+[data-testid="baseButton-primary"],
+[data-testid="baseButton-secondary"],
+[data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    height: 2.8em !important;
+    width: 100% !important;
+    box-shadow: 0 4px 15px rgba(124,58,237,0.25) !important;
+    transition: opacity 0.15s, transform 0.1s !important;
+}
+.stApp .stButton > button:hover,
+.stApp .stFormSubmitButton > button:hover {
+    opacity: 0.88 !important;
+    transform: translateY(-1px) !important;
+}
+.stApp .stButton > button:disabled {
+    background: #1e1e30 !important;
+    color: #3d3d5c !important;
+    box-shadow: none !important;
+}
+
+/* Tabs */
+[data-baseweb="tab-list"] {
+    background: #13131f !important;
+    border-radius: 12px !important;
+    padding: 4px !important;
+    gap: 4px !important;
+}
+[data-baseweb="tab"] {
+    background: transparent !important;
+    border-radius: 9px !important;
+    color: #475569 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+[aria-selected="true"] {
+    background: #7c3aed !important;
+    color: #fff !important;
+    box-shadow: 0 2px 10px rgba(124,58,237,0.35) !important;
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+    background: #13131f !important;
+    border: 1px solid #1e1e30 !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    margin-bottom: 0.5rem !important;
+}
+[data-testid="stExpander"] summary {
+    background: #13131f !important;
+    color: #c4b5fd !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    padding: 0.85rem 1rem !important;
+}
+[data-testid="stExpander"] summary p { color: #c4b5fd !important; }
+[data-testid="stExpander"] summary:hover { background: #1a1a2e !important; }
+
+/* Alertas */
+[data-testid="stInfo"]    { background: #0d1b2e !important; border-left: 3px solid #3b82f6 !important; border-radius: 10px !important; }
+[data-testid="stWarning"] { background: #1a1100 !important; border-left: 3px solid #f59e0b !important; border-radius: 10px !important; }
+[data-testid="stError"]   { background: #1a0808 !important; border-left: 3px solid #ef4444 !important; border-radius: 10px !important; }
+[data-testid="stSuccess"] { background: #061510 !important; border-left: 3px solid #10b981 !important; border-radius: 10px !important; }
+[data-testid="stAlert"] * { color: #e2e8f0 !important; font-size: 0.9rem !important; }
+
+/* Radio */
+.stRadio label {
+    background: #13131f !important;
+    border: 1px solid #2a2a3d !important;
+    border-radius: 9px !important;
+    color: #64748b !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    padding: 0.4rem 0.9rem !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+.stRadio label:has(input:checked) {
+    background: rgba(124,58,237,0.15) !important;
+    border-color: #7c3aed !important;
+    color: #c4b5fd !important;
+}
+
+/* Progress bar */
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #7c3aed, #a78bfa) !important;
+    border-radius: 99px !important;
+}
+[data-testid="stProgressBar"] > div {
+    background: #1e1e30 !important;
+    border-radius: 99px !important;
+    height: 6px !important;
+}
+
+/* Divider */
+hr { border-color: #1e1e30 !important; }
+
+/* Dataframe */
+[data-testid="stDataFrame"] { border-radius: 12px !important; overflow: hidden !important; }
+
+/* st.info reaproveitado como card de exercício — sem ícone azul */
+[data-testid="stInfo"] {
+    background: #13131f !important;
+    border: 1px solid #1e1e30 !important;
+    border-left: 3px solid #7c3aed !important;
+    border-radius: 12px !important;
+    padding: 0.65rem 1rem !important;
+}
+[data-testid="stInfo"] p, [data-testid="stInfo"] * { color: #e2e8f0 !important; font-size: 0.95rem !important; }
+[data-testid="stInfo"] > div:first-child svg { display: none !important; }
+[data-testid="stInfo"] > div:first-child { min-width: 0 !important; width: 0 !important; padding: 0 !important; }
+
+/* Título com gradiente */
+h1 {
+    font-size: 1.9rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    background: linear-gradient(135deg, #e2e8f0 30%, #a78bfa 100%);
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}
+h2, h3 { font-weight: 700 !important; letter-spacing: -0.01em !important; }
+
+/* Métrica compacta para perfil */
+[data-testid="stMetricValue"] > div {
+    font-size: 0.95rem !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-weight: 600 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .block-container { padding: 1rem 0.75rem 3rem !important; }
+    [data-testid="stMetricValue"] > div { font-size: 0.82rem !important; }
+}
+</style>
+""", unsafe_allow_html=True)
+
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -279,12 +546,13 @@ elif treinos_mes < 10:
 else:
     msg = str(treinos_mes) + " treinos este mes. Lendaria! 🏆"
 
-st.subheader(emoji_hora + " " + saudacao + ", " + nome_usuario + "!")
-st.caption(msg)
-
-col_sair, _ = st.columns([1, 3])
+col_header, col_sair = st.columns([4, 1])
+with col_header:
+    st.title("🏋️ PyTrain PRO")
+    st.markdown("**" + saudacao + ", " + nome_usuario + "!** " + emoji_hora + "  \n" + msg)
 with col_sair:
-    if st.button("Sair", key="btn_sair"):
+    st.markdown("###")
+    if st.button("Sair →", key="btn_sair", use_container_width=True):
         fazer_logout()
 
 st.divider()
@@ -300,18 +568,19 @@ with aba1:
             .eq("serie_tipo", serie).eq("user_id", user_id()).execute()
 
         if exs.data:
-            st.caption("SERIE " + serie + " - " + str(len(exs.data)) + " EXERCICIOS")
+            st.caption("SÉRIE " + serie + "  ·  " + str(len(exs.data)) + " exercícios")
             for i, ex in enumerate(exs.data, 1):
-                c1, c2 = st.columns([6, 1])
+                c1, c2 = st.columns([7, 1])
                 with c1:
-                    st.info("**" + str(i) + ". " + ex["nome"] + "** — " + str(ex["series"]) + "x" + str(ex["repeticoes"]) + " · " + str(ex["peso_kg"]) + "kg")
+                    st.info("**" + str(i) + ".  " + ex["nome"] + "**  ·  " + str(ex["series"]) + "×" + str(ex["repeticoes"]) + "  ·  " + str(ex["peso_kg"]) + " kg")
                 with c2:
-                    if st.button("X", key="del_" + str(ex["id"]), help="Remover"):
+                    st.markdown(" ")
+                    if st.button("✕", key="del_" + str(ex["id"]), help="Remover"):
                         supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
                         st.rerun()
             pode_iniciar = True
         else:
-            st.caption("SERIE " + serie + " - VAZIA")
+            st.caption("SÉRIE " + serie + "  ·  VAZIA")
             pode_iniciar = False
 
         with st.expander("+ Adicionar exercicio — Serie " + serie, expanded=not pode_iniciar):
@@ -368,9 +637,9 @@ with aba1:
             ex  = res.data[idx]
             pct = int((idx / total) * 100)
 
-            st.caption("SERIE " + st.session_state.serie_atual + " — " + str(idx+1) + " / " + str(total))
+            st.caption("SÉRIE " + st.session_state.serie_atual + "  ·  " + str(idx+1) + " de " + str(total))
             st.progress(pct)
-            st.subheader(ex["nome"])
+            st.subheader("💪 " + ex["nome"])
 
             c1, c2, c3 = st.columns(3)
             p = c1.number_input("Kg",   value=int(ex["peso_kg"]),   step=1, key="p" + str(idx))
@@ -379,15 +648,20 @@ with aba1:
 
             elapsed = int(time.time() - st.session_state.inicio_timer)
             m, sg   = divmod(elapsed, 60)
-            st.metric("Tempo de treino", str(m).zfill(2) + ":" + str(sg).zfill(2))
+            st.divider()
+            c_t1, c_t2, c_t3 = st.columns(3)
+            c_t1.metric("⏱ Treino", str(m).zfill(2) + ":" + str(sg).zfill(2))
+            c_t2.metric("🏋️ Exercício", str(idx+1) + "/" + str(total))
+            c_t3.metric("📦 Série", st.session_state.serie_atual)
+            st.divider()
 
             c_prox, c_cancel = st.columns(2)
-            if c_prox.button("Proximo", use_container_width=True):
+            if c_prox.button("✅  Próximo →", use_container_width=True):
                 registrar_historico(ex["id"], str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min")
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
                 st.session_state.indice_ex += 1
                 st.rerun()
-            if c_cancel.button("Cancelar", use_container_width=True):
+            if c_cancel.button("✕  Cancelar", use_container_width=True):
                 st.session_state.treino_ativo = False
                 st.rerun()
 
@@ -465,10 +739,13 @@ with aba2:
         seg = p["seg_restantes"]; m, s = divmod(seg, 60)
         pct = int((st.session_state.dist_real / da) * 100) if da > 0 else 0
 
-        st.subheader(nome_et)
+        st.subheader("🏃 " + nome_et)
         st.progress(min(pct, 100))
-        st.metric("Tempo restante", str(m).zfill(2) + ":" + str(s).zfill(2))
-        st.metric("Distancia", str(round(st.session_state.dist_real,2)) + " / " + str(round(da,2)) + " km")
+        st.divider()
+        c1, c2 = st.columns(2)
+        c1.metric("⏱ Restante", str(m).zfill(2) + ":" + str(s).zfill(2))
+        c2.metric("📍 Distância", str(round(st.session_state.dist_real, 2)) + " / " + str(round(da, 2)) + " km")
+        st.divider()
 
         time.sleep(1)
         st.session_state.dist_real += vel_et / 3600
@@ -567,13 +844,13 @@ with aba4:
     except Exception:
         dp = {}
 
-    st.subheader("Meu Perfil")
+    st.subheader("⚙️ Meu Perfil")
+    st.divider()
     c1, c2 = st.columns(2)
-    c1.metric("Nome", dp.get("nome", nome_atual))
-    c2.metric("Telefone", dp.get("telefone", "—"))
-    c1.metric("Email", email_atual)
-    c2.metric("Cidade / Estado", dp.get("cidade","—") + " · " + dp.get("estado","—"))
-
+    c1.metric("👤 Nome", dp.get("nome", nome_atual))
+    c2.metric("📱 Telefone", dp.get("telefone", "—"))
+    c1.metric("📧 Email", email_atual[:24] + ("…" if len(email_atual) > 24 else ""))
+    c2.metric("📍 Cidade / Estado", dp.get("cidade","—") + " · " + dp.get("estado","—"))
     st.divider()
 
     with st.expander("Editar dados pessoais"):
