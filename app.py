@@ -306,44 +306,13 @@ aba6 = _FakeCtx(_a == "perfil")
 # ═══════════════════════════════
 
 if aba0.ativa:
-    # Dados para a home
-    try:
-        _h_mes = supabase.table("historico_treinos").select("data_execucao")            .eq("user_id", uid())            .gte("data_execucao", hoje_agora.replace(day=1,hour=0,minute=0,second=0).isoformat())            .execute()
-        _treinos_mes = len(_h_mes.data) if _h_mes.data else 0
-
-        # Streak
-        _h_all = supabase.table("historico_treinos").select("data_execucao")            .eq("user_id", uid()).order("data_execucao", desc=True).execute()
-        import pandas as _pd2
-        _df_s = _pd2.json_normalize(_h_all.data) if _h_all.data else _pd2.DataFrame()
-        _streak = calcular_streak(_df_s, hoje_agora.date()) if not _df_s.empty else 0
-
-        # Último treino
-        _ult = supabase.table("historico_treinos").select("data_execucao,detalhes")            .eq("user_id", uid()).order("data_execucao", desc=True).limit(1).execute()
-        _ult_data = _ult.data[0]["data_execucao"][:10] if _ult.data else None
-
-        # Hoje
-        _h_hoje = supabase.table("historico_treinos").select("id")            .eq("user_id", uid())            .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())            .execute()
-        _n_hoje = len(_h_hoje.data) if _h_hoje.data else 0
-    except:
-        _treinos_mes = _streak = _n_hoje = 0
-        _ult_data = None
-
-    # Meta semanal (fixo 4 treinos/semana por default)
-    try:
-        _ini_sem = (hoje_agora - __import__("datetime").timedelta(days=hoje_agora.weekday())).replace(hour=0,minute=0,second=0)
-        _h_sem = supabase.table("historico_treinos").select("id")            .eq("user_id", uid()).gte("data_execucao", _ini_sem.isoformat()).execute()
-        _treinos_sem = len(set(x["id"] for x in (_h_sem.data or [])))
-        _meta_sem = 4
-        _pct_meta = min(100, int(_treinos_sem / _meta_sem * 100))
-    except:
-        _treinos_sem = 0; _meta_sem = 4; _pct_meta = 0
-
-    # Frase motivacional
-    _frase_home = FRASES[(hoje_agora.day + hoje_agora.month) % len(FRASES)]
-
-    streak_cor = "#4ade80" if _streak >= 3 else "#facc15" if _streak >= 1 else "#888"
-    hoje_txt = f"✅ {_n_hoje} exercício(s) hoje" if _n_hoje > 0 else "Nenhum treino hoje ainda"
-    ult_txt = f"Último treino: {_ult_data}" if _ult_data else ""
+    # Reutiliza dados já buscados no header
+    _treinos_mes = treinos_mes
+    _streak      = _streak_home
+    _frase_home  = FRASES[(hoje_agora.day + hoje_agora.month) % len(FRASES)]
+    streak_cor   = "#4ade80" if _streak >= 3 else "#facc15" if _streak >= 1 else "#888"
+    hoje_txt     = f"✅ {_n_hoje} exercício(s) hoje" if _n_hoje > 0 else "Nenhum treino hoje ainda"
+    ult_txt      = f"Último: {_ult_data}" if _ult_data else ""
 
     st.markdown(f"""
 <div style="background:#13132a;border-radius:14px;padding:14px;margin-bottom:10px">
