@@ -598,7 +598,23 @@ with aba3:
                 sinal = "+" if diff >= 0 else ""
                 return sinal + fmt.format(diff)
 
+            # ── FILTRO MENSAL ─────────────────────────────────────────────────────────
+            anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
+            c1, c2 = st.columns(2)
+            ano_sel = c1.selectbox("Ano", anos)
+            meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
+                       7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
+            meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
+            mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
 
+            df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
+            km_f, min_f = extrair_stats(df_f)
+
+            st.caption("RESUMO — " + meses_n[mes_sel].upper())
+            c1, c2, c3 = st.columns(3)
+            c1.metric("🏋️ Treinos", len(df_f))
+            c2.metric("🛣️ Distância", str(round(km_f,1)) + " km")
+            c3.metric("⏱ Tempo", str(min_f) + " min")
 
             # ── MENSAGEM DE COMPARAÇÃO SEMANAL ───────────────────────────────────────
             if kg_ant == 0 and km_ant == 0 and min_ant == 0:
@@ -624,7 +640,6 @@ with aba3:
                     elif diff_km < 0:
                         partes.append(f"~~distância~~ já superou em **{abs(diff_km)} km** 🔥")
 
-                # monta mensagem final
                 faltam = [p for p in partes if not p.startswith("~~")]
                 superou = [p for p in partes if p.startswith("~~")]
 
@@ -638,26 +653,6 @@ with aba3:
                         extras = ", ".join(s.replace("~~","").replace("~~","") for s in superou)
                         msg += f" Mas {extras}!"
                     st.warning(msg)
-
-            st.divider()
-
-            # ── FILTRO MENSAL ─────────────────────────────────────────────────────────
-            anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
-            c1, c2 = st.columns(2)
-            ano_sel = c1.selectbox("Ano", anos)
-            meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
-                       7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
-            meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
-            mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
-
-            df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
-            km_f, min_f = extrair_stats(df_f)
-
-            st.caption("RESUMO — " + meses_n[mes_sel].upper())
-            c1, c2, c3 = st.columns(3)
-            c1.metric("🏋️ Treinos", len(df_f))
-            c2.metric("🛣️ Distância", str(round(km_f,1)) + " km")
-            c3.metric("⏱ Tempo", str(min_f) + " min")
 
             df_h = df[df["data_execucao"].dt.date == hoje_agora.date()]
 
