@@ -899,17 +899,34 @@ with aba4:
 
     # ── Alterar email ─────────────────────────────────────────────────
     with st.expander("📧 Alterar email"):
+        st.info(
+            "O processo tem **2 etapas**:\n"
+            "1. Você recebe um link de confirmação no **email atual**\n"
+            "2. Após confirmar, recebe outro link no **novo email**\n\n"
+            "Só após as duas confirmações o email será alterado."
+        )
         with st.form("form_email"):
             novo_email = st.text_input("Novo email", placeholder="novo@email.com")
-            if st.form_submit_button("Enviar confirmação", use_container_width=True):
-                if novo_email.strip() and "@" in novo_email:
-                    try:
-                        supabase.auth.update_user({"email": novo_email.strip()})
-                        st.success("✅ Confirmação enviada. Verifique a caixa de entrada.")
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
-                else:
+            senha_email = st.text_input("Confirme sua senha", type="password")
+            if st.form_submit_button("Enviar confirmações", use_container_width=True):
+                if not novo_email.strip() or "@" not in novo_email:
                     st.warning("Digite um email válido.")
+                elif not senha_email:
+                    st.warning("Confirme sua senha para continuar.")
+                else:
+                    try:
+                        # Valida senha antes de iniciar troca de email
+                        supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_email})
+                        supabase.auth.update_user({"email": novo_email.strip()})
+                        st.success(
+                            f"✅ Confirmações enviadas! Verifique **{email_atual}** "
+                            f"e depois **{novo_email.strip()}** para concluir a alteração."
+                        )
+                    except Exception as e:
+                        if "Invalid login" in str(e) or "invalid_credentials" in str(e):
+                            st.error("❌ Senha incorreta.")
+                        else:
+                            st.error(f"Erro: {e}")
 
     # ── Alterar senha ─────────────────────────────────────────────────
     with st.expander("🔒 Alterar senha"):
@@ -934,30 +951,33 @@ with aba4:
 
     st.divider()
 
-    # ── Apagar conta ──────────────────────────────────────────────────
-    with st.expander("🚨 Apagar minha conta"):
-        st.warning("Esta acção é **irreversível**. Todos os teus dados e acesso serão removidos.")
-        with st.form("form_apagar_conta"):
-            conf_apagar = st.text_input("Digite **APAGAR** para confirmar", placeholder="APAGAR")
-            senha_conf  = st.text_input("Confirme sua senha", type="password")
-            if st.form_submit_button("🗑️ Apagar conta permanentemente", use_container_width=True):
-                if conf_apagar.strip().upper() != "APAGAR":
-                    st.error("Digite APAGAR em maiúsculas para confirmar.")
-                elif not senha_conf:
-                    st.warning("Confirme sua senha.")
-                else:
-                    try:
-                        # Valida senha antes de apagar
-                        supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_conf})
-                        uid = user_id()
-                        # Apaga dados relacionados
-                        supabase.table("historico_treinos").delete().eq("user_id", uid).execute()
-                        supabase.table("exercicios").delete().eq("user_id", uid).execute()
-                        supabase.table("perfis").delete().eq("user_id", uid).execute()
-                        # Apaga o utilizador via Admin API (requer service_role key no backend)
-                        supabase.auth.admin.delete_user(uid)
-                        fazer_logout()
-                    except Exception as e:
-                        st.error(f"Erro ao apagar conta: {e}")
+    # ── Solicitar exclusão de conta ──────────────────────────────────
+    with st.expander("🚨 Solicitar exclusão de conta"):
+        st.info("A exclusão de conta é realizada pela administradora. Ao solicitar, ela receberá um email com o seu pedido.")
+        with st.form("form_solicitar_exclusao"):
+            motivo = st.text_area("Motivo (opcional)", placeholder="Conte-nos o motivo, se quiser...")
+            if st.form_submit_button("📧 Enviar solicitação", use_container_width=True):
+                try:
+                    import urllib.parse
+                    nome_sol  = dados_perfil.get("nome", nome_atual)
+                    corpo     = urllib.parse.quote(
+                        f"Olá Natália,\n\n"
+                        f"O usuário abaixo está solicitando a exclusão de sua conta no PyTrain PRO:\n\n"
+                        f"Nome: {nome_sol}\n"
+                        f"Email: {email_atual}\n"
+                        f"ID: {user_id()}\n"
+                        f"Motivo: {motivo.strip() or 'Não informado'}\n\n"
+                        f"Por favor, tome as providências necessárias."
+                    )
+                    assunto = urllib.parse.quote(f"[PyTrain PRO] Solicitação de exclusão — {nome_sol}")
+                    st.markdown(
+                        f"✅ Solicitação preparada! "
+                        f"[Clique aqui para enviar o email]"
+                        f"(mailto:nabevia@gmail.com?subject={assunto}&body={corpo})",
+                        unsafe_allow_html=False,
+                    )
+                    st.caption("Isso abrirá o seu aplicativo de email com a mensagem já preenchida.")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
 
     rodape()
