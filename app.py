@@ -451,10 +451,32 @@ with aba1:
 
                 ult_det, ult_data = _ultima_carga(ex["id"])
 
-                # ── Card principal em HTML puro (sem limitações do Streamlit) ─
+                # ── Card + controles em HTML puro ─────────────────────────
                 ult_txt = f"📌 {ult_data}: {ult_det}" if ult_det else ""
+
+                # Lê ações de query params (vindas dos botões HTML)
+                qp = st.query_params
+                acao = qp.get("acao", "")
+                if acao == "mp": st.session_state[pk] = max(0, p-1); st.query_params.clear(); st.rerun()
+                if acao == "pp": st.session_state[pk] = p+1;         st.query_params.clear(); st.rerun()
+                if acao == "ms": st.session_state[sk] = max(1, s-1); st.query_params.clear(); st.rerun()
+                if acao == "ps": st.session_state[sk] = s+1;         st.query_params.clear(); st.rerun()
+                if acao == "mr": st.session_state[rk] = max(1, r-1); st.query_params.clear(); st.rerun()
+                if acao == "pr": st.session_state[rk] = r+1;         st.query_params.clear(); st.rerun()
+
+                btn = (
+                    "display:inline-flex;align-items:center;justify-content:center;"
+                    "width:52px;height:52px;border-radius:10px;background:#2a2a3e;"
+                    "color:#fff;font-size:1.6rem;font-weight:bold;text-decoration:none;"
+                    "border:1px solid #444;cursor:pointer"
+                )
+                val_box = (
+                    "flex:1;text-align:center;padding:4px 0"
+                )
+                row = "display:flex;align-items:center;gap:10px;margin:6px 0"
+
                 st.markdown(f"""
-<div style="background:#1a1a2e;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+<div style="background:#1a1a2e;border-radius:14px;padding:14px;margin-bottom:6px">
   <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#888;margin-bottom:6px">
     <span>SÉRIE {st.session_state.serie_atual} · {idx+1}/{total}</span>
     <span>⏱ {m_e:02d}:{sg:02d}</span>
@@ -462,37 +484,36 @@ with aba1:
   <div style="height:4px;background:#333;border-radius:2px;margin-bottom:10px">
     <div style="height:4px;background:#7c3aed;border-radius:2px;width:{pct}%"></div>
   </div>
-  <div style="font-size:1.15rem;font-weight:700;margin-bottom:4px">💪 {ex["nome"]}</div>
-  <div style="font-size:0.72rem;color:#aaa;margin-bottom:10px">{ult_txt}</div>
-  <div style="display:flex;gap:8px;margin-bottom:10px">
-    <div style="flex:1;background:#0f0f1a;border-radius:8px;padding:8px;text-align:center">
-      <div style="font-size:0.65rem;color:#888;margin-bottom:2px">PESO kg</div>
-      <div style="font-size:1.4rem;font-weight:bold">{p}</div>
+  <div style="font-size:1.1rem;font-weight:700;margin-bottom:2px">💪 {ex["nome"]}</div>
+  <div style="font-size:0.72rem;color:#aaa;margin-bottom:12px">{ult_txt}</div>
+
+  <div style="{row}">
+    <a href="?acao=mp" style="{btn}">−</a>
+    <div style="{val_box}">
+      <div style="font-size:0.6rem;color:#888;letter-spacing:1px">PESO kg</div>
+      <div style="font-size:2rem;font-weight:900;line-height:2rem">{p}</div>
     </div>
-    <div style="flex:1;background:#0f0f1a;border-radius:8px;padding:8px;text-align:center">
-      <div style="font-size:0.65rem;color:#888;margin-bottom:2px">SÉRIES</div>
-      <div style="font-size:1.4rem;font-weight:bold">{s}</div>
+    <a href="?acao=pp" style="{btn}">+</a>
+  </div>
+
+  <div style="{row}">
+    <a href="?acao=ms" style="{btn}">−</a>
+    <div style="{val_box}">
+      <div style="font-size:0.6rem;color:#888;letter-spacing:1px">SÉRIES</div>
+      <div style="font-size:2rem;font-weight:900;line-height:2rem">{s}</div>
     </div>
-    <div style="flex:1;background:#0f0f1a;border-radius:8px;padding:8px;text-align:center">
-      <div style="font-size:0.65rem;color:#888;margin-bottom:2px">REPS</div>
-      <div style="font-size:1.4rem;font-weight:bold">{r}</div>
+    <a href="?acao=ps" style="{btn}">+</a>
+  </div>
+
+  <div style="{row}">
+    <a href="?acao=mr" style="{btn}">−</a>
+    <div style="{val_box}">
+      <div style="font-size:0.6rem;color:#888;letter-spacing:1px">REPS</div>
+      <div style="font-size:2rem;font-weight:900;line-height:2rem">{r}</div>
     </div>
+    <a href="?acao=pr" style="{btn}">+</a>
   </div>
 </div>""", unsafe_allow_html=True)
-
-                # ── Controles: label | [−] valor [+] numa linha só ──────────
-                for lbl, key_, cur, mn in [("PESO kg", pk, p, 0), ("SÉRIES", sk, s, 1), ("REPS", rk, r, 1)]:
-                    cminus, cval, cplus = st.columns([1, 2, 1])
-                    if cminus.button("−", key=f"m_{key_}_{idx}", use_container_width=True):
-                        st.session_state[key_] = max(mn, cur - 1); st.rerun()
-                    cval.markdown(
-                        f"<div style='text-align:center'>"
-                        f"<div style='font-size:0.65rem;color:#888;letter-spacing:1px'>{lbl}</div>"
-                        f"<div style='font-size:1.8rem;font-weight:bold;line-height:1.8rem'>{cur}</div>"
-                        f"</div>", unsafe_allow_html=True
-                    )
-                    if cplus.button("+", key=f"p_{key_}_{idx}", use_container_width=True):
-                        st.session_state[key_] = cur + 1; st.rerun()
 
                 nota_ex = st.text_input("📝 Nota", placeholder="Observação...", key="nota_" + str(idx), label_visibility="collapsed")
 
