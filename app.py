@@ -187,8 +187,72 @@ def tela_login():
                 st.warning("Preencha email e senha.")
 
 # ─────────────────────────────────────────────
+# FLUXO DE CONVITE — define senha pela primeira vez
+# Recebe access_token + refresh_token via query params
+# vindos da página de redirect no GitHub Pages
+# ─────────────────────────────────────────────
+def tela_definir_senha(access_token: str, refresh_token: str):
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("""
+            <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:16px;
+                        padding:40px 32px;text-align:center;margin-bottom:24px;">
+                <h2 style="color:#e066ff;">🏋️ PyTrain PRO</h2>
+                <p style="color:gray;">Bem-vinda! Define a tua senha para activar a conta.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        with st.form("form_definir_senha"):
+            nova_senha  = st.text_input("🔒 Nova Senha", type="password", placeholder="mínimo 8 caracteres")
+            conf_senha  = st.text_input("🔒 Confirmar Senha", type="password", placeholder="repita a senha")
+            salvar      = st.form_submit_button("Activar Conta", use_container_width=True)
+
+        if salvar:
+            if not nova_senha or len(nova_senha) < 8:
+                st.warning("A senha deve ter pelo menos 8 caracteres.")
+                return
+            if nova_senha != conf_senha:
+                st.error("As senhas não coincidem.")
+                return
+
+            try:
+                # Autentica com o token do convite
+                supabase.auth.set_session(access_token, refresh_token)
+                # Actualiza a senha
+                supabase.auth.update_user({"password": nova_senha})
+
+                # Faz login imediato com a nova sessão
+                user = supabase.auth.get_user()
+                st.session_state.access_token  = access_token
+                st.session_state.refresh_token = refresh_token
+                st.session_state.usuario = {
+                    "id":    user.user.id,
+                    "email": user.user.email,
+                    "nome":  user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
+                }
+                st.success("✅ Senha definida! A entrar...")
+                time.sleep(1)
+                # Limpa os query params e reentra no app
+                st.query_params.clear()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao definir senha: {e}")
+
+# ─────────────────────────────────────────────
 # FLUXO PRINCIPAL
 # ─────────────────────────────────────────────
+
+# Verifica se chegaram tokens via URL (vindo da página de redirect)
+qp            = st.query_params
+url_token     = qp.get("access_token")
+url_refresh   = qp.get("refresh_token")
+url_type      = qp.get("type", "")
+
+if url_token and url_refresh and not st.session_state.usuario:
+    # Convite ou recuperação de senha — mostra tela de definir senha
+    tela_definir_senha(url_token, url_refresh)
+    st.stop()
+
 if not st.session_state.usuario:
     tela_login()
     st.stop()   # Nada abaixo é renderizado sem login
