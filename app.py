@@ -142,6 +142,8 @@ defaults = {
     "confirmar_historico": False,
     # Perfil
     "perfil_completo": None,   # None = ainda não verificado, True/False após check
+    # Sessão persistente
+    "sessao_restaurada": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -161,19 +163,71 @@ def fazer_login(email: str, senha: str) -> bool:
             "email": res.user.email,
             "nome":  res.user.user_metadata.get("nome", email.split("@")[0]),
         }
+        # Persiste tokens no localStorage do browser
+        salvar_sessao_local(res.session.access_token, res.session.refresh_token)
         return True
     except Exception as e:
         st.error(f"❌ Email ou senha incorretos.")
         return False
 
+def salvar_sessao_local(access_token: str, refresh_token: str):
+    """Salva tokens no localStorage via HTML/JS."""
+    st.markdown(f"""
+        <script>
+        localStorage.setItem('pytrain_access', '{access_token}');
+        localStorage.setItem('pytrain_refresh', '{refresh_token}');
+        </script>
+    """, unsafe_allow_html=True)
+
+def limpar_sessao_local():
+    """Remove tokens do localStorage."""
+    st.markdown("""
+        <script>
+        localStorage.removeItem('pytrain_access');
+        localStorage.removeItem('pytrain_refresh');
+        </script>
+    """, unsafe_allow_html=True)
+
+def restaurar_sessao() -> bool:
+    """Tenta restaurar sessão a partir do refresh_token guardado no localStorage.
+    Usa query_params como ponte entre JS e Python."""
+    if st.session_state.sessao_restaurada:
+        return False  # já tentou
+
+    # JS lê localStorage e injeta na URL como query param
+    st.markdown("""
+        <script>
+        (function() {
+            const access  = localStorage.getItem('pytrain_access');
+            const refresh = localStorage.getItem('pytrain_refresh');
+            if (access && refresh) {
+                const url = new URL(window.location.href);
+                if (!url.searchParams.get('_rt')) {
+                    url.searchParams.set('_at', access);
+                    url.searchParams.set('_rt', refresh);
+                    window.location.replace(url.toString());
+                }
+            }
+        })();
+        </script>
+    """, unsafe_allow_html=True)
+    st.session_state.sessao_restaurada = True
+    return False
+
 def fazer_logout():
+    limpar_sessao_local()
     try:
         supabase.auth.sign_out()
     except Exception:
         pass
     for k in ["usuario", "access_token", "refresh_token",
-              "treino_ativo", "cardio_ativo", "params_cardio"]:
+              "treino_ativo", "cardio_ativo", "params_cardio",
+              "sessao_restaurada", "perfil_completo"]:
         st.session_state[k] = defaults[k]
+    # Limpa query params de sessão
+    for p in ["_at", "_rt"]:
+        if p in st.query_params:
+            del st.query_params[p]
     st.rerun()
 
 def user_id() -> str:
@@ -363,19 +417,47 @@ def tela_definir_senha(access_token: str, refresh_token: str):
 # ─────────────────────────────────────────────
 # FLUXO PRINCIPAL
 # ─────────────────────────────────────────────
+qp          = st.query_params
+url_token   = qp.get("access_token")
+url_refresh = qp.get("refresh_token")
+_at         = qp.get("_at")   # token de sessão persistente
+_rt         = qp.get("_rt")   # refresh token de sessão persistente
 
-# Verifica se chegaram tokens via URL (vindo da página de redirect)
-qp            = st.query_params
-url_token     = qp.get("access_token")
-url_refresh   = qp.get("refresh_token")
-url_type      = qp.get("type", "")
-
+# Convite / recuperação de senha vindo do GitHub Pages
 if url_token and url_refresh and not st.session_state.usuario:
-    # Convite ou recuperação de senha — mostra tela de definir senha
     tela_definir_senha(url_token, url_refresh)
     st.stop()
 
+# Restaurar sessão salva no localStorage
+if _at and _rt and not st.session_state.usuario:
+    try:
+        res = supabase.auth.set_session(_at, _rt)
+        if res and res.user:
+            # Renova o access_token com o refresh_token
+            res2 = supabase.auth.refresh_session(_rt)
+            novo_at = res2.session.access_token if res2 and res2.session else _at
+            novo_rt = res2.session.refresh_token if res2 and res2.session else _rt
+            st.session_state.access_token  = novo_at
+            st.session_state.refresh_token = novo_rt
+            st.session_state.usuario = {
+                "id":    res.user.id,
+                "email": res.user.email,
+                "nome":  res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
+            }
+            # Atualiza localStorage com tokens renovados e limpa URL
+            salvar_sessao_local(novo_at, novo_rt)
+            del st.query_params["_at"]
+            del st.query_params["_rt"]
+            st.rerun()
+    except Exception:
+        # Token expirado ou inválido — limpa e pede login
+        limpar_sessao_local()
+        for p in ["_at", "_rt"]:
+            if p in st.query_params:
+                del st.query_params[p]
+
 if not st.session_state.usuario:
+    restaurar_sessao()
     tela_login()
     st.stop()
 
