@@ -280,15 +280,14 @@ elif treinos_mes < 10:
 else:
     msg = str(treinos_mes) + " treinos este mes. Lendaria! 🏆"
 
-st.title("🏋️ PyTrain PRO")
-st.markdown("**" + saudacao + ", " + nome_usuario + "!** " + emoji_hora + "  \n" + msg)
-
-col_sair, _ = st.columns([1, 3])
+col_titulo, col_sair = st.columns([5, 1])
+with col_titulo:
+    st.subheader("🏋️ PyTrain PRO")
+    st.caption(saudacao + ", " + nome_usuario + "! " + emoji_hora + " · " + msg)
 with col_sair:
-    if st.button("Sair →", key="btn_sair", use_container_width=True):
+    if st.button("Sair", key="btn_sair", use_container_width=True):
         fazer_logout()
 
-st.divider()
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Perfil"])
 
 # ABA 1 - TREINO
