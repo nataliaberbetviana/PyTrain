@@ -183,9 +183,9 @@ def tela_completar_perfil():
         """, unsafe_allow_html=True)
 
         with st.form("form_perfil"):
-            nome_p    = st.text_input("👤 Nome completo", placeholder="Nome Sobrenome")
+            nome_p    = st.text_input("👤 Nome completo", placeholder="Natália Berbet Viana")
             telefone  = st.text_input("📱 Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
-            cidade    = st.text_input("🏙️ Cidade", placeholder="Cidade onde reside")
+            cidade    = st.text_input("🏙️ Cidade", placeholder="Cachoeiro de Itapemirim")
             estado    = st.selectbox("🗺️ Estado", [
                 "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
                 "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
@@ -437,6 +437,11 @@ st.markdown(f"""
 if st.button("🚪 Sair", key="btn_sair"):
     fazer_logout()
 
+# Se veio do botão "Cadastrar exercícios agora", abre direto na aba Menu
+_tab_default = 3 if st.session_state.get("ir_para_menu") else 0
+if st.session_state.get("ir_para_menu"):
+    st.session_state["ir_para_menu"] = False
+
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
 
 # ═══════════════════════════════════════════
@@ -472,7 +477,31 @@ with aba1:
                 )
             pode_iniciar = True
         else:
-            st.warning(f"Nenhum exercício cadastrado na Série {serie}. Adicione no Menu ⚙️.")
+            st.warning(f"Nenhum exercício cadastrado na Série {serie}.")
+
+            # Formulário inline para cadastrar o primeiro exercício sem sair da aba
+            with st.expander("➕ Cadastrar exercício aqui mesmo", expanded=True):
+                with st.form(f"form_rapido_{serie}"):
+                    r_nome   = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
+                    c1r, c2r, c3r = st.columns(3)
+                    r_peso   = c1r.number_input("Peso (kg)", value=0, min_value=0)
+                    r_series = c2r.number_input("Séries", value=3, min_value=1)
+                    r_reps   = c3r.number_input("Reps", value=12, min_value=1)
+                    if st.form_submit_button("✅ Adicionar e continuar", use_container_width=True):
+                        if r_nome.strip():
+                            supabase.table("exercicios").insert({
+                                "user_id":    user_id(),
+                                "nome":       r_nome.strip(),
+                                "serie_tipo": serie,
+                                "peso_kg":    r_peso,
+                                "series":     r_series,
+                                "repeticoes": r_reps,
+                            }).execute()
+                            st.success(f"✅ '{r_nome}' adicionado à Série {serie}!")
+                            st.rerun()
+                        else:
+                            st.warning("Digite o nome do exercício.")
+
             pode_iniciar = False
 
         if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True, disabled=not pode_iniciar):
