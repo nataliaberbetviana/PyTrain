@@ -964,34 +964,49 @@ with aba4:
                     st.warning("Confirme sua senha.")
                 else:
                     try:
-                        import requests as _requests
-                        # Valida senha e obtém token fresco
+                        # 1. Valida senha e obtém token fresco
                         res_login = supabase.auth.sign_in_with_password({
                             "email": email_atual, "password": senha_conf
                         })
                         token = res_login.session.access_token
+                        uid   = user_id()
 
-                        # Chama a Edge Function com o token do utilizador
+                        # 2. Tenta chamar a Edge Function
+                        edge_ok = False
                         edge_url = f"{SUPABASE_URL}/functions/v1/delete-account"
-                        resp = _requests.post(
-                            edge_url,
-                            headers={
-                                "Authorization": f"Bearer {token}",
-                                "Content-Type": "application/json",
-                            },
-                            timeout=15,
-                        )
-                        data = resp.json()
-                        if resp.status_code == 200 and data.get("success"):
-                            st.success("Conta apagada. Até logo! 👋")
+                        try:
+                            import urllib.request as _ur, json as _json, ssl as _ssl
+                            _req = _ur.Request(
+                                edge_url,
+                                data=b"{}",
+                                headers={
+                                    "Authorization": f"Bearer {token}",
+                                    "Content-Type":  "application/json",
+                                },
+                                method="POST",
+                            )
+                            ctx = _ssl.create_default_context()
+                            with _ur.urlopen(_req, context=ctx, timeout=15) as _r:
+                                _body = _json.loads(_r.read())
+                            if _body.get("success"):
+                                edge_ok = True
+                            else:
+                                st.error(f"Erro na Edge Function: {_body.get('error', _body)}")
+                        except Exception as edge_err:
+                            st.error(f"❌ Não foi possível contactar a Edge Function: {edge_err}")
+                            st.caption("Certifica-te que a função 'delete-account' foi deployada no Supabase.")
+
+                        # 3. Se Edge Function OK, faz logout
+                        if edge_ok:
+                            st.success("✅ Conta apagada. Até logo! 👋")
                             time.sleep(1)
                             fazer_logout()
-                        else:
-                            st.error(f"Erro ao apagar conta: {data.get('error', 'desconhecido')}")
+
                     except Exception as e:
-                        if "invalid_credentials" in str(e) or "Invalid login" in str(e):
+                        err = str(e)
+                        if "invalid_credentials" in err or "Invalid login" in err or "invalid" in err.lower():
                             st.error("❌ Senha incorreta.")
                         else:
-                            st.error(f"Erro: {e}")
+                            st.error(f"Erro inesperado: {err}")
 
     rodape()
