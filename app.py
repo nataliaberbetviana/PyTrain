@@ -175,8 +175,14 @@ with aba4:
                     {"nome": n, "serie_tipo": s, "peso_kg": 0, "series": 3, "repeticoes": 12}).execute()
                 st.rerun()
 
-    if st.button("🗑️ Limpar Histórico"):
-        # Filtro seguro para deletar tudo
-        supabase.table("historico_treinos").delete().gt("id", -1).execute()
-        st.success("Limpo!")
+    if col_h.button("🗑️ Apagar Todo Histórico"):
+        # Filtro que remove tudo onde o ID não é nulo (funciona para UUID e Int)
+        supabase.table("historico_treinos").delete().not_.is_("id", "null").execute()
+        st.success("Histórico limpo com sucesso!")
+        st.rerun()
+
+    if col_p.button("🔄 Resetar Todos os Pesos"):
+        # Mesma lógica para a tabela de exercícios
+        supabase.table("exercicios").update({"peso_kg": 0}).not_.is_("id", "null").execute()
+        st.success("Pesos resetados para 0kg!")
         st.rerun()
