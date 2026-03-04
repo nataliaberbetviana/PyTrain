@@ -115,6 +115,8 @@ defaults = {
     "cardio_salvo":   False,
     # UI
     "confirmar_historico": False,
+    # Perfil
+    "perfil_completo": None,   # None = ainda não verificado, True/False após check
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -152,6 +154,70 @@ def fazer_logout():
 def user_id() -> str:
     """Retorna o UUID do utilizador logado."""
     return st.session_state.usuario["id"]
+
+def verificar_perfil() -> bool:
+    """Retorna True se o perfil já foi preenchido (tem telefone e cidade)."""
+    try:
+        res = (
+            supabase.table("perfis")
+            .select("telefone, cidade")
+            .eq("user_id", user_id())
+            .execute()
+        )
+        if res.data and res.data[0].get("telefone") and res.data[0].get("cidade"):
+            return True
+        return False
+    except Exception:
+        return False
+
+def tela_completar_perfil():
+    """Tela exibida uma única vez após o primeiro login."""
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("""
+            <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:16px;
+                        padding:32px;text-align:center;margin-bottom:20px;">
+                <h2 style="color:#e066ff;margin-bottom:6px;">🏋️ Bem-vinda ao PyTrain PRO!</h2>
+                <p style="color:gray;">Complete o seu perfil para continuar.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        with st.form("form_perfil"):
+            nome_p    = st.text_input("👤 Nome completo", placeholder="Natália Berbet Viana")
+            telefone  = st.text_input("📱 Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
+            cidade    = st.text_input("🏙️ Cidade", placeholder="Cachoeiro de Itapemirim")
+            estado    = st.selectbox("🗺️ Estado", [
+                "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
+                "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
+                "RS","RO","RR","SC","SP","SE","TO"
+            ], index=7)  # ES por padrão
+
+            salvar = st.form_submit_button("Salvar e Entrar 🚀", use_container_width=True)
+
+        if salvar:
+            if not nome_p.strip() or not telefone.strip() or not cidade.strip():
+                st.warning("Preencha todos os campos para continuar.")
+            else:
+                try:
+                    # Atualiza nome nos metadados do Auth
+                    supabase.auth.update_user({"data": {"nome": nome_p.strip()}})
+                    st.session_state.usuario["nome"] = nome_p.strip()
+
+                    # Upsert na tabela perfis
+                    supabase.table("perfis").upsert({
+                        "user_id":   user_id(),
+                        "nome":      nome_p.strip(),
+                        "telefone":  telefone.strip(),
+                        "cidade":    cidade.strip(),
+                        "estado":    estado,
+                    }).execute()
+
+                    st.session_state.perfil_completo = True
+                    st.success("✅ Perfil salvo!")
+                    time.sleep(0.8)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar perfil: {e}")
 
 # ─────────────────────────────────────────────
 # HELPERS — DADOS
@@ -286,10 +352,18 @@ if url_token and url_refresh and not st.session_state.usuario:
 
 if not st.session_state.usuario:
     tela_login()
-    st.stop()   # Nada abaixo é renderizado sem login
+    st.stop()
+
+# Verifica se o perfil está completo (apenas uma vez por sessão)
+if st.session_state.perfil_completo is None:
+    st.session_state.perfil_completo = verificar_perfil()
+
+if not st.session_state.perfil_completo:
+    tela_completar_perfil()
+    st.stop()
 
 # ─────────────────────────────────────────────
-# APP PRINCIPAL (só chega aqui se estiver logado)
+# APP PRINCIPAL (só chega aqui se estiver logado e com perfil completo)
 # ─────────────────────────────────────────────
 nome_usuario = st.session_state.usuario["nome"]
 hora_atual   = hoje_agora.hour
