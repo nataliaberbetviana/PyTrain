@@ -42,6 +42,7 @@ st.title("🏋️ PyTrain PRO")
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📜 Histórico", "⚙️ Menu"])
 
 # --- ABA 1: TREINO (EXERCÍCIO POR EXERCÍCIO) ---
+# --- ABA 1: TREINO (EXERCÍCIO POR EXERCÍCIO) ---
 with aba1:
     st.subheader("🗓️ Checklist Semanal")
     dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -55,7 +56,7 @@ with aba1:
     if st.button(f"🚀 INICIAR SÉRIE {serie}"):
         st.session_state.treino_ativo = True
         st.session_state.indice_ex = 0
-        st.session_state.inicio_timer = time.time()
+        st.session_state.inicio_timer = time.time()  # Define o marco zero do exercício
 
     if st.session_state.get("treino_ativo"):
         res = supabase.table("exercicios").select("*").eq("serie_tipo", serie).execute()
@@ -69,15 +70,26 @@ with aba1:
             s = c2.number_input("Séries", value=int(ex_atual['series']), step=1)
             r = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1)
 
-            tempo_decorrido = int(time.time() - st.session_state.inicio_timer)
-            st.write(f"⏱️ Tempo neste exercício: {tempo_decorrido // 60:02d}:{tempo_decorrido % 60:02d}")
+            # --- LÓGICA DO CRONÔMETRO EM TEMPO REAL ---
+            timer_place = st.empty()
+            tempo_decorrido_seg = int(time.time() - st.session_state.inicio_timer)
+            mins, segs = divmod(tempo_decorrido_seg, 60)
+            timer_place.write(f"⏱️ Tempo de execução: **{mins:02d}:{segs:02d}**")
 
             if st.button("PRÓXIMO EXERCÍCIO ➡️"):
-                registrar_historico(ex_atual['id'], f"{p}kg | {s}x{r}")
+                # Calcula o tempo total gasto em minutos para o histórico
+                tempo_final_min = max(1, tempo_decorrido_seg // 60)
+
+                # Registra com a carga e o tempo (essencial para o Dashboard da Aba 3)
+                detalhes_save = f"{p}kg | {s}x{r} | {tempo_final_min}min"
+                registrar_historico(ex_atual['id'], detalhes_save)
+
+                # Atualiza o catálogo
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual['id']).execute()
+
                 if st.session_state.indice_ex + 1 < len(res.data):
                     st.session_state.indice_ex += 1
-                    st.session_state.inicio_timer = time.time()
+                    st.session_state.inicio_timer = time.time()  # Reseta o timer para o próximo
                     st.rerun()
                 else:
                     st.session_state.treino_ativo = False
