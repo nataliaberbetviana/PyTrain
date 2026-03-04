@@ -128,21 +128,50 @@ with aba2:
             st.session_state.cardio_ativo = False
 
 # --- ABA 3: HISTÓRICO CORRIGIDO ---
+# --- ABA 3: HISTÓRICO CORRIGIDO ---
 with aba3:
     st.header("📊 Desempenho Mensal")
-    res_h = supabase.table("historico_treinos").select("*, exercicios(nome)").order("data_execucao", desc=True).execute()
-    if res_h.data:
-        df = pd.json_normalize(res_h.data)
-        df['data_execucao'] = pd.to_datetime(df['data_execucao'])
-        # Correção do NameError: usando a variável 'hoje' definida no topo
-        df_mes = df[df['data_execucao'].dt.month == hoje.month]
+    try:
+        res_h = supabase.table("historico_treinos").select("*, exercicios(nome)").order("data_execucao",
+                                                                                        desc=True).execute()
+        if res_h.data:
+            df = pd.json_normalize(res_h.data)
+            df['data_execucao'] = pd.to_datetime(df['data_execucao'])
+            df_mes = df[df['data_execucao'].dt.month == hoje.month]
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Frequência", f"{len(df_mes)}x")
-        km_sum = df_mes[df_mes['tipo'] == 'cardio']['detalhes'].str.extract(r'(\d+\.\d+)km').astype(float).sum()[0]
-        c2.metric("Distância", f"{km_sum:.1f} km" if not pd.isna(km_sum) else "0.0 km")
-        c3.metric("Mês", hoje.strftime("%B"))
-        st.dataframe(df[['data_execucao', 'exercicios.nome', 'detalhes']].head(10), use_container_width=True)
+            # Métricas
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Frequência", f"{len(df_mes)}x")
+
+            # Cálculo de KM com verificação de coluna
+            km_sum = 0.0
+            if 'detalhes' in df_mes.columns:
+                km_sum = \
+                df_mes[df_mes['tipo'] == 'cardio']['detalhes'].str.extract(r'(\d+\.\d+)km').astype(float).sum()[0]
+            c2.metric("Distância", f"{km_sum:.1f} km" if not pd.isna(km_sum) else "0.0 km")
+            c3.metric("Mês", hoje.strftime("%B"))
+
+            # Exibição da Tabela com verificação de colunas (Evita o KeyError)
+            st.subheader("📜 Registros Recentes")
+            # Garantir que a coluna de nome exista mesmo que venha vazia
+            if 'exercicios.nome' not in df.columns:
+                df['exercicios.nome'] = "🏃 Cardio"
+            else:
+                df['exercicios.nome'] = df['exercicios.nome'].fillna("🏃 Cardio")
+
+            colunas_visiveis = ['data_execucao', 'exercicios.nome', 'detalhes']
+            # Filtra apenas as colunas que realmente existem no DF
+            existentes = [c for c in colunas_visiveis if c in df.columns]
+
+            st.dataframe(
+                df[existentes].head(15),
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("Ainda não há treinos registrados neste mês! Bora começar?")
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {e}")
 
 # --- ABA 4: MENU --- (Manteve igual à sua versão anterior)
 
