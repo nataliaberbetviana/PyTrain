@@ -183,9 +183,9 @@ def tela_completar_perfil():
         """, unsafe_allow_html=True)
 
         with st.form("form_perfil"):
-            nome_p    = st.text_input("👤 Nome completo", placeholder="Natália Berbet Viana")
+            nome_p    = st.text_input("👤 Nome completo", placeholder="Nome Sobrenome")
             telefone  = st.text_input("📱 Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
-            cidade    = st.text_input("🏙️ Cidade", placeholder="Cachoeiro de Itapemirim")
+            cidade    = st.text_input("🏙️ Cidade", placeholder="Cidade onde reside")
             estado    = st.selectbox("🗺️ Estado", [
                 "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
                 "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
