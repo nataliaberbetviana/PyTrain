@@ -261,13 +261,72 @@ if not st.session_state.usuario:
 # APP PRINCIPAL (só chega aqui se estiver logado)
 # ─────────────────────────────────────────────
 nome_usuario = st.session_state.usuario["nome"]
+hora_atual   = hoje_agora.hour
 
-# Cabeçalho com info do utilizador + botão logout
-col_title, col_user = st.columns([4, 1])
-col_title.title("🏋️ PyTrain PRO")
-with col_user:
-    st.markdown(f"<p style='color:gray;font-size:0.85em;margin-bottom:4px;'>👤 {nome_usuario}</p>", unsafe_allow_html=True)
-    if st.button("Sair", use_container_width=True):
+# Saudação baseada no horário
+if hora_atual < 12:
+    saudacao = "Bom dia"
+    emoji_hora = "🌅"
+elif hora_atual < 18:
+    saudacao = "Boa tarde"
+    emoji_hora = "☀️"
+else:
+    saudacao = "Boa noite"
+    emoji_hora = "🌙"
+
+# Contagem de treinos do mês atual para motivação
+try:
+    res_streak = (
+        supabase.table("historico_treinos")
+        .select("data_execucao")
+        .eq("user_id", user_id())
+        .gte("data_execucao", hoje_agora.replace(day=1, hour=0, minute=0, second=0).isoformat())
+        .execute()
+    )
+    treinos_mes = len(res_streak.data) if res_streak.data else 0
+except Exception:
+    treinos_mes = 0
+
+if treinos_mes == 0:
+    msg_motivacao = "Que tal começar o mês com tudo? 💪"
+elif treinos_mes < 5:
+    msg_motivacao = f"Já tens **{treinos_mes} treinos** este mês. Continue assim! 🔥"
+elif treinos_mes < 10:
+    msg_motivacao = f"**{treinos_mes} treinos** este mês — você está voando! 🚀"
+else:
+    msg_motivacao = f"Impressionante! **{treinos_mes} treinos** este mês. Você é uma máquina! 🏆"
+
+# ── Banner de saudação ────────────────────────────────────────────
+col_banner, col_sair = st.columns([5, 1])
+
+with col_banner:
+    st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #1e1e2e 0%, #2a1a3e 100%);
+            border: 2px solid #7d33ff;
+            border-radius: 14px;
+            padding: 20px 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        ">
+            <div style="font-size: 3em; line-height: 1;">{emoji_hora}</div>
+            <div>
+                <p style="margin:0; color:#a78bfa; font-size:0.9em; letter-spacing:1px; text-transform:uppercase;">
+                    🏋️ PyTrain PRO
+                </p>
+                <h2 style="margin:4px 0 6px; color:#ffffff; font-size:1.6em;">
+                    {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
+                </h2>
+                <p style="margin:0; color:#aaa; font-size:0.95em;">{msg_motivacao}</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col_sair:
+    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+    if st.button("🚪 Sair", use_container_width=True):
         fazer_logout()
 
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
