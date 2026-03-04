@@ -117,41 +117,59 @@ with aba1:
             st.rerun()
 
 # --- ABA 2: CARDIO (CORREÇÃO DO TYPEERROR) ---
+# --- ABA 2: CARDIO (CORREÇÃO DE TEMPO TOTAL E CICLOS) ---
 with aba2:
-    st.header("🏃 Cardio")
+    st.header("🏃 Controle de Esteira")
     modo = st.radio("Configurar por:", ["KM Total", "Número de Ciclos"], horizontal=True)
 
     col1, col2 = st.columns(2)
-    t_anda = col1.number_input("Minutos Andando", 5.0, step=1.0)
-    v_anda = col1.number_input("Vel. Andando", 5.0, step=0.5)
-    t_corre = col2.number_input("Minutos Correndo", 2.0, step=1.0)
-    v_corre = col2.number_input("Vel. Correndo", 9.0, step=0.5)
+    t_anda = col1.number_input("Minutos Andando", value=5.0, step=1.0, key="t_anda_cardio")
+    v_anda = col1.number_input("Vel. Andando (km/h)", value=5.0, step=0.5, key="v_anda_cardio")
+    t_corre = col2.number_input("Minutos Correndo", value=2.0, step=1.0, key="t_corre_cardio")
+    v_corre = col2.number_input("Vel. Correndo (km/h)", value=9.0, step=0.5, key="v_corre_cardio")
 
+    # Distância de um ciclo base: (Velocidade * Tempo / 60)
     dist_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
 
     if modo == "KM Total":
-        dist_alvo = st.number_input("Meta de Percurso (km)", 5.0, step=0.5)
-        # CORREÇÃO: int() garante que n_ciclos não seja float
-        n_ciclos = int(dist_alvo / dist_ciclo) + (1 if dist_alvo % dist_ciclo > 0.05 else 0)
+        dist_alvo = st.number_input("Meta de Percurso (km)", value=5.0, step=0.5)
+        # Cálculo de ciclos necessários para atingir os KM desejados
+        if dist_ciclo > 0:
+            n_ciclos = int(dist_alvo / dist_ciclo) + (1 if dist_alvo % dist_ciclo > 0.05 else 0)
+        else:
+            n_ciclos = 0
     else:
+        # Se você escolher por ciclos, definimos o N e calculamos a distância
         n_ciclos = st.number_input("Quantos Ciclos?", value=1, min_value=1, step=1)
         dist_alvo = dist_ciclo * n_ciclos
 
-    st.info(f"📋 {n_ciclos} ciclos planejados | Total: {dist_alvo:.2f} km")
+    # CÁLCULO DO TEMPO TOTAL REAL (Minutos de um ciclo * quantidade de ciclos)
+    tempo_total_real = (t_anda + t_corre) * n_ciclos
+
+    # Exibição em destaque das métricas combinadas
+    st.markdown(f"""
+        <div style="background:#1e1e2e; padding:20px; border-radius:15px; border-left: 5px solid #7d33ff; margin-bottom:20px;">
+            <h3 style="margin:0; color:#a366ff;">📊 Planejamento do Treino</h3>
+            <p style="margin:5px 0; font-size:18px;">🔄 <b>{n_ciclos} Ciclos</b> planejados</p>
+            <p style="margin:5px 0; font-size:22px; color:#e066ff;">⏱️ Tempo Total: <b>{int(tempo_total_real)} minutos</b></p>
+            <p style="margin:5px 0; font-size:18px;">📍 Distância Estimada: <b>{dist_alvo:.2f} km</b></p>
+        </div>
+    """, unsafe_allow_html=True)
 
     if "cardio_ativo" not in st.session_state: st.session_state.cardio_ativo = False
     if "dist_real" not in st.session_state: st.session_state.dist_real = 0.0
 
     c_start, c_stop = st.columns(2)
-    if c_start.button("🚀 INICIAR"):
+    if c_start.button("🚀 INICIAR TREINO", use_container_width=True):
         st.session_state.cardio_ativo = True
         st.session_state.dist_real = 0.0
         st.session_state.t_cardio_start = time.time()
 
-    if c_stop.button("🛑 ENCERRAR"):
+    if c_stop.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
         if st.session_state.cardio_ativo:
             t_final = int((time.time() - st.session_state.t_cardio_start) // 60)
-            registrar_historico(None, f"Cardio: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+            registrar_historico(None, f"Cardio Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min",
+                                tipo="cardio")
         st.session_state.cardio_ativo = False
         st.rerun()
 
@@ -159,18 +177,18 @@ with aba2:
         ph = st.empty()
         etapas = []
         for i in range(n_ciclos):
-            etapas.append((f"🚶 Caminhada ({i + 1})", t_anda * 60, v_anda))
-            etapas.append((f"⚡ Corrida ({i + 1})", t_corre * 60, v_corre))
+            if t_anda > 0: etapas.append((f"🚶 Caminhada ({i + 1}/{n_ciclos})", t_anda * 60, v_anda))
+            if t_corre > 0: etapas.append((f"⚡ Corrida ({i + 1}/{n_ciclos})", t_corre * 60, v_corre))
 
         for nome, segs, vel in etapas:
             while segs > 0 and st.session_state.cardio_ativo:
                 st.session_state.dist_real += vel / 3600
                 m, s = divmod(int(segs), 60)
                 ph.markdown(f"""
-                    <div style='text-align:center; border:2px solid #7d33ff; padding:20px; border-radius:15px; background:black;'>
-                        <h2 style='color:#a366ff'>{nome}</h2>
-                        <h1 style='font-size:70px;'>{m:02d}:{s:02d}</h1>
-                        <h3 style='color:#e066ff'>{st.session_state.dist_real:.2f} / {dist_alvo:.2f} km</h3>
+                    <div style="text-align:center; border:2px solid #7d33ff; padding:20px; border-radius:15px; background:black;">
+                        <h2 style="color:#a366ff">{nome}</h2>
+                        <h1 style="font-size:70px; color:white;">{m:02d}:{segs % 60:02.0f}</h1>
+                        <h3 style="color:#e066ff">Progresso: {st.session_state.dist_real:.2f} / {dist_alvo:.2f} km</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
@@ -178,9 +196,10 @@ with aba2:
 
         if st.session_state.cardio_ativo:
             t_final = int((time.time() - st.session_state.t_cardio_start) // 60)
-            registrar_historico(None, f"Cardio: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+            registrar_historico(None, f"Cardio Concluído: {st.session_state.dist_real:.2f}km | {t_final}min",
+                                tipo="cardio")
             st.session_state.cardio_ativo = False
-            st.success("Objetivo concluído!")
+            st.success("Objetivo de cardio alcançado!")
 
 # --- ABA 3: RENDIMENTO DETALHADO (DIÁRIO/SEMANAL/MENSAL) ---
 with aba3:
