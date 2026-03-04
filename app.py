@@ -285,15 +285,35 @@ st.markdown(f"""
   </div>
 </div>""", unsafe_allow_html=True)
 
-aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
-    "🚀 Treino", "🏃 Cardio", "📊 Painel", "📈 Evolução", "🏆 Conquistas", "⚙️ Perfil"
-])
+# Navegação por session_state (sem abas visíveis)
+if "aba_ativa" not in st.session_state:
+    st.session_state.aba_ativa = "treino"
+
+_aba_qp = st.query_params.get("aba", "")
+if _aba_qp and _aba_qp != st.session_state.aba_ativa:
+    st.session_state.aba_ativa = _aba_qp
+    st.query_params.clear()
+    st.rerun()
+
+# Contexto manager falso para manter compatibilidade com "with abaX:"
+class _FakeCtx:
+    def __init__(self, ativa): self.ativa = ativa
+    def __enter__(self): return self
+    def __exit__(self, *a): pass
+
+_a = st.session_state.aba_ativa
+aba1 = _FakeCtx(_a == "treino")
+aba2 = _FakeCtx(_a == "cardio")
+aba3 = _FakeCtx(_a == "painel")
+aba4 = _FakeCtx(_a == "evolucao")
+aba5 = _FakeCtx(_a == "conquistas")
+aba6 = _FakeCtx(_a == "perfil")
 
 # ═══════════════════════════════
 # ABA 1 — TREINO
 # ═══════════════════════════════
 
-with aba1:
+if aba1.ativa:
     st.info("✨ " + _frase("treino"))
 
     modo_treino = st.radio("Modo", ["Série", "Treino Livre"], horizontal=True, label_visibility="collapsed")
@@ -652,7 +672,7 @@ with aba1:
 # ABA 2 — CARDIO
 # ═══════════════════════════════
 
-with aba2:
+if aba2.ativa:
     if not st.session_state.cardio_ativo:
         st.info("🏃 " + _frase("cardio"))
 
@@ -769,7 +789,7 @@ with aba2:
 # ABA 3 — PAINEL
 # ═══════════════════════════════
 
-with aba3:
+if aba3.ativa:
     st.info("📊 " + _frase("painel"))
     try:
         res_h = buscar_historico_completo(supabase, uid())
@@ -927,7 +947,7 @@ with aba3:
 # ABA 4 — EVOLUÇÃO
 # ═══════════════════════════════
 
-with aba4:
+if aba4.ativa:
     st.info("📈 " + _frase("evolucao"))
 
     sub1, sub2, sub3 = st.tabs(["🏋️ Progressão por exercício", "⚖️ Peso corporal", "📏 Medidas"])
@@ -1080,7 +1100,7 @@ with aba4:
 # ABA 5 — CONQUISTAS
 # ═══════════════════════════════
 
-with aba5:
+if aba5.ativa:
     st.info("🏆 " + _frase("conquistas"))
 
     try:
@@ -1183,7 +1203,7 @@ with aba5:
 # ABA 6 — PERFIL
 # ═══════════════════════════════
 
-with aba6:
+if aba6.ativa:
     st.info("⚙️ " + _frase("perfil"))
 
     email_atual = st.session_state.usuario["email"]
