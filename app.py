@@ -81,10 +81,16 @@ input[type="number"], textarea,
     border: 1px solid #4a4a6a !important;
 }
 
-/* ── BOTÕES ───────────────────────────────────────────────────── */
+/* ── BOTÕES — cobre TODOS os tipos do Streamlit ──────────────── */
 div.stButton > button,
+div.stFormSubmitButton > button,
 button[kind="primary"],
-button[kind="formSubmit"] {
+button[kind="formSubmit"],
+button[kind="secondary"],
+[data-testid="stFormSubmitButton"] > button,
+[data-testid="baseButton-primary"],
+[data-testid="baseButton-secondary"],
+[data-testid="baseButton-formSubmit"] {
     background-color: #7d33ff !important;
     color: #ffffff !important;
     border-radius: 12px !important;
@@ -95,15 +101,15 @@ button[kind="formSubmit"] {
     border: none !important;
     opacity: 1 !important;
 }
-div.stButton > button:hover { background-color: #9b55ff !important; }
+div.stButton > button:hover,
+div.stFormSubmitButton > button:hover { background-color: #9b55ff !important; }
 
-/* Botão Sair — secundário */
-button[kind="secondary"] {
+/* Botão Sair — sobrescreve acima apenas para o btn_sair */
+button[data-testid="baseButton-secondary"]:not([data-testid="stFormSubmitButton"] *) {
     background-color: transparent !important;
     border: 1px solid #7d33ff !important;
     color: #d0b8ff !important;
     height: 2.4em !important;
-    font-size: 0.95rem !important;
 }
 
 /* ── EXPANDERS ────────────────────────────────────────────────── */
