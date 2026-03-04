@@ -53,13 +53,13 @@ with aba1:
 
     st.divider()
 
-    # IMPORTANTE: Definimos 'serie' ANTES de usar no botão de iniciar
-    serie = st.radio("Série de hoje:", ["A", "B", "C", "D"], horizontal=True)  #
+    # Define a série antes do botão
+    serie = st.radio("Série de hoje:", ["A", "B", "C", "D"], horizontal=True)
 
     if st.button(f"🚀 INICIAR SÉRIE {serie}"):
         st.session_state.treino_ativo = True
         st.session_state.indice_ex = 0
-        st.session_state.inicio_timer = time.time()
+        st.session_state.inicio_timer = time.time()  # Inicia o tempo da SESSÃO aqui
         st.rerun()
 
     if st.session_state.get("treino_ativo"):
@@ -76,29 +76,37 @@ with aba1:
             r = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1,
                                 key=f"r_{st.session_state.indice_ex}")
 
-            # Cronômetro Visual
+            # --- CRONÔMETRO TOTAL (NÃO ZERA) ---
             timer_place = st.empty()
-            tempo_decorrido_seg = int(time.time() - st.session_state.inicio_timer)
-            m, seg = divmod(tempo_decorrido_seg, 60)
-            timer_place.markdown(f"⏱️ Tempo: **{m:02d}:{seg:02d}**")
+            tempo_total_seg = int(time.time() - st.session_state.inicio_timer)
+            m, seg = divmod(tempo_total_seg, 60)
+
+            timer_place.markdown(f"""
+                <div style="text-align: center; padding: 10px; border: 2px solid #e066ff; border-radius: 10px; background: #1e1e1e;">
+                    <span style="font-size: 20px; color: gray;">Tempo Total de Treino:</span><br>
+                    <span style="font-size: 35px; color: #e066ff; font-weight: bold;">{m:02d}:{seg:02d}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
             if st.button("PRÓXIMO EXERCÍCIO ➡️", use_container_width=True):
-                tempo_final_min = max(1, tempo_decorrido_seg // 60)
-                registrar_historico(ex_atual['id'], f"{p}kg | {s}x{r} | {tempo_final_min}min")
+                # Apenas registramos o momento no histórico, mas não zeramos o timer global
+                tempo_parcial_min = max(1, tempo_total_seg // 60)
+                registrar_historico(ex_atual['id'], f"{p}kg | {s}x{r} | {tempo_parcial_min}min")
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual['id']).execute()
 
                 if st.session_state.indice_ex + 1 < len(res.data):
                     st.session_state.indice_ex += 1
-                    st.session_state.inicio_timer = time.time()
+                    # REMOVIDO: st.session_state.inicio_timer = time.time()
+                    # Ao remover a linha acima, o tempo continua contando do início da série
                     st.rerun()
                 else:
                     st.session_state.treino_ativo = False
                     st.balloons()
-                    st.success("Série concluída!")
+                    st.success(f"Série concluída em {m} minutos!")
                     st.rerun()
 
             time.sleep(1)
-            st.rerun()  # Atualiza o relógio
+            st.rerun()
 
 # --- ABA 2: CARDIO (SALVAMENTO NA INTERRUPÇÃO) ---
 with aba2:
