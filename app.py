@@ -152,27 +152,34 @@ def registrar_historico(ex_id, detalhes, tipo="musculacao"):
         "detalhes": detalhes, "tipo": tipo,
     }).execute()
 
+import re as _re
+
 def extrair_stats(df):
+    """Retorna (km_cardio, min_total, kg_total).
+    - min_total: soma todos os 'Xmin' de musculação + esteira
+    - kg_total:  soma kg×séries×reps dos exercícios
+    """
     if df.empty or "detalhes" not in df.columns:
-        return 0.0, 0
-    km = df["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
-    mn = df["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
-    return (float(km) if not pd.isna(km) else 0.0), (int(mn) if not pd.isna(mn) else 0)
+        return 0.0, 0, 0.0
+    km_total  = 0.0
+    min_total = 0
+    kg_total  = 0.0
+    for det in df["detalhes"].dropna():
+        det = str(det)
+        m = _re.search(r"([\d.]+)km", det)
+        if m:
+            km_total += float(m.group(1))
+        for mm in _re.findall(r"(\d+)min", det):
+            min_total += int(mm)
+        m_kg   = _re.search(r"([\d.]+)kg", det)
+        m_sets = _re.search(r"(\d+)x(\d+)", det)
+        if m_kg and m_sets:
+            kg_total += float(m_kg.group(1)) * int(m_sets.group(1)) * int(m_sets.group(2))
+    return km_total, min_total, kg_total
 
 def extrair_peso_total(df):
-    """Soma kg×séries×reps de todos os registros de musculação."""
-    if df.empty or "detalhes" not in df.columns:
-        return 0.0
-    df_musc = df[df.get("tipo", pd.Series(["musculacao"]*len(df))) != "cardio"] if "tipo" in df.columns else df
-    total = 0.0
-    for det in df_musc["detalhes"].dropna():
-        # formato: "75kg | 3x12 | 5min"  ou  "75kg | 3x12 | ..."
-        import re
-        m_kg   = re.search(r"([\d.]+)kg", det)
-        m_sets = re.search(r"(\d+)x(\d+)", det)
-        if m_kg and m_sets:
-            total += float(m_kg.group(1)) * int(m_sets.group(1)) * int(m_sets.group(2))
-    return total
+    _, _, kg = extrair_stats(df)
+    return kg
 
 def rodape():
     st.divider()
@@ -586,10 +593,8 @@ with aba3:
             df_sem_atual = df[df["data_execucao"] >= ini_sem_atual]
             df_sem_ant   = df[(df["data_execucao"] >= ini_sem_ant) & (df["data_execucao"] < ini_sem_atual)]
 
-            km_a,  min_a  = extrair_stats(df_sem_atual)
-            km_ant, min_ant = extrair_stats(df_sem_ant)
-            kg_a   = extrair_peso_total(df_sem_atual)
-            kg_ant = extrair_peso_total(df_sem_ant)
+            km_a,  min_a,  kg_a   = extrair_stats(df_sem_atual)
+            km_ant, min_ant, kg_ant = extrair_stats(df_sem_ant)
 
             def delta_str(atual, anterior, fmt="{:.0f}"):
                 if anterior == 0:
@@ -608,13 +613,14 @@ with aba3:
             mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
 
             df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
-            km_f, min_f = extrair_stats(df_f)
+            km_f, min_f, kg_f = extrair_stats(df_f)
 
             st.caption("RESUMO — " + meses_n[mes_sel].upper())
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("🏋️ Treinos", len(df_f))
-            c2.metric("🛣️ Distância", str(round(km_f,1)) + " km")
+            c2.metric("🏋️ Vol. Total", f"{kg_f:,.0f} kg")
             c3.metric("⏱ Tempo", str(min_f) + " min")
+            c4.metric("🛣️ Distância", str(round(km_f,1)) + " km")
 
             # ── MENSAGEM DE COMPARAÇÃO SEMANAL ───────────────────────────────────────
             if kg_ant == 0 and km_ant == 0 and min_ant == 0:
@@ -630,9 +636,9 @@ with aba3:
                 if min_ant > 0:
                     diff_min = min_ant - min_a
                     if diff_min > 0:
-                        partes.append(f"**{diff_min} min** de esteira")
+                        partes.append(f"**{diff_min} min** de tempo ativo")
                     elif diff_min < 0:
-                        partes.append(f"~~esteira~~ já superou em **{abs(diff_min)} min** 🔥")
+                        partes.append(f"~~tempo~~ já superou em **{abs(diff_min)} min** 🔥")
                 if km_ant > 0:
                     diff_km = round(km_ant - km_a, 1)
                     if diff_km > 0:
@@ -657,8 +663,8 @@ with aba3:
             df_h = df[df["data_execucao"].dt.date == hoje_agora.date()]
 
             with st.expander("📅 Hoje e esta semana"):
-                km_h, min_h = extrair_stats(df_h)
-                km_sw, min_sw = extrair_stats(df_sem_atual)
+                km_h, min_h, kg_h = extrair_stats(df_h)
+                km_sw, min_sw, kg_sw = extrair_stats(df_sem_atual)
                 st.metric("Hoje", str(len(df_h)) + " atividade(s)  ·  " + str(round(km_h,1)) + " km  ·  " + str(min_h) + " min")
                 st.metric("Esta semana", str(len(df_sem_atual)) + " atividade(s)  ·  " + str(round(km_sw,1)) + " km  ·  " + str(min_sw) + " min")
 
