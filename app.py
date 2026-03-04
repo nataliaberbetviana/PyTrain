@@ -76,48 +76,50 @@ with aba1:
 
 # --- ABA 2: CARDIO (ESTEIRA) ---
 with aba2:
-    st.header("🏃 Lógica de Esteira")
+    st.header("🏃 Controle de Esteira")
 
+    # Colunas para tempo
     col_t1, col_t2 = st.columns(2)
-    # Forçamos o step=1 para aumentar/diminuir de 1 em 1 minuto
-    t_base = col_t1.number_input("Tempo Principal (min)", value=20, step=1)
-    t_extra = col_t2.number_input("Aquecimento/Desaceleração (min)", value=2, step=1)
+    # Step=1 garante que mude de 1 em 1 minuto
+    t_aquec = col_t1.number_input("Aquecimento (min)", value=2, step=1, help="Tempo inicial e final")
+    t_corrida = col_t2.number_input("Corrida Principal (min)", value=20, step=1)
 
+    # Colunas para velocidade
     col_v1, col_v2 = st.columns(2)
-    # Mantemos 0.5 de step para velocidade, fica mais prático que 0.1
+    # Step=0.5 permite um ajuste mais fino, mas você pode mudar para 1.0 se preferir
     v_anda = col_v1.number_input("Velocidade Andando (km/h)", value=5.5, step=0.5)
     v_corre = col_v2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5)
 
-    t_total = t_base + (t_extra * 2)
-    st.info(f"⏱️ Tempo Total do Treino: {t_total} minutos")
+    # Cálculo dinâmico baseado no que VOCÊ digitou acima
+    t_total = t_corrida + (t_aquec * 2)
+    st.info(f"⏱️ Cronograma Total: **{t_total} minutos**")
 
-    if st.button("🚀 INICIAR CRONÔMETRO"):
-        placeholder = st.empty()  # Espaço que será atualizado pelo cronômetro
+    if st.button("🚀 INICIAR TREINO"):
+        placeholder = st.empty()
 
-        # Etapas do treino: (Nome, Tempo em segundos, Velocidade)
+        # Montagem das etapas usando as variáveis que você alterou
         etapas = [
-            ("🔥 Aquecimento", t_extra * 60, v_anda),
-            ("⚡ Corrida Principal", t_base * 60, v_corre),
-            ("❄️ Desaceleração", t_extra * 60, v_anda)
+            ("🔥 Aquecimento", t_aquec * 60, v_anda),
+            ("⚡ Corrida Principal", t_corrida * 60, v_corre),
+            ("❄️ Desaceleração", t_aquec * 60, v_anda)
         ]
 
         for nome_etapa, tempo_seg, vel in etapas:
             while tempo_seg > 0:
                 mins, secs = divmod(tempo_seg, 60)
-                # Atualiza a interface em tempo real
                 placeholder.markdown(f"""
-                    <div style="text-align: center; border: 2px solid #e066ff; padding: 20px; border-radius: 10px;">
-                        <h2 style="color: #e066ff;">{nome_etapa}</h2>
-                        <h1 style="font-size: 80px;">{mins:02d}:{secs:02d}</h1>
-                        <h3>Velocidade: <span style="color: #66ffe0;">{vel} km/h</span></h3>
+                    <div style="text-align: center; border: 2px solid #e066ff; padding: 20px; border-radius: 10px; background-color: #1e1e1e;">
+                        <h2 style="color: #e066ff; margin-bottom: 0;">{nome_etapa}</h2>
+                        <h1 style="font-size: 85px; color: white; margin: 10px 0;">{mins:02d}:{secs:02d}</h1>
+                        <h3 style="color: #66ffe0;">Velocidade: {vel} km/h</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
                 tempo_seg -= 1
 
-        placeholder.success("🎉 Treino de Cardio Concluído!")
+        placeholder.success("🎉 Treino de Cardio Finalizado!")
+        # Salva o histórico com os valores que você definiu no momento
         registrar_historico(None, f"Cardio: {t_total}min | Pico: {v_corre}km/h", tipo="cardio")
-
 # --- ABA 3: HISTÓRICO ---
 with aba3:
     st.header("📊 Evolução Recente")
