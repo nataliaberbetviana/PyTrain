@@ -91,21 +91,37 @@ with aba2:
     st.header("🏃 Controle de Esteira")
 
     col1, col2 = st.columns(2)
-    t_anda = col1.number_input("Minutos Andando", value=5, step=1)
-    v_anda = col1.number_input("Velocidade Andando", value=5.0, step=0.5)
+    t_anda = col1.number_input("Minutos Andando", value=5, step=1, key="input_t_anda")
+    v_anda = col1.number_input("Velocidade Andando (km/h)", value=5.0, step=0.5, key="input_v_anda")
 
-    t_corre = col2.number_input("Minutos Correndo", value=0, step=1)
-    v_corre = col2.number_input("Velocidade Correndo", value=9.0, step=0.5)
+    t_corre = col2.number_input("Minutos Correndo", value=0, step=1, key="input_t_corre")
+    v_corre = col2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5, key="input_v_corre")
 
-    # Botão de início e interrupção usando Session State
+    n_ciclos = st.number_input("Quantas vezes repetir esse ciclo?", value=1, min_value=1, step=1)
+
+    # --- CÁLCULOS DE DATA SCIENCE (Antes de iniciar) ---
+    # Distância = (Velocidade * Tempo) / 60
+    dist_anda_total = (v_anda * (t_anda / 60)) * n_ciclos
+    dist_corre_total = (v_corre * (t_corre / 60)) * n_ciclos
+    distancia_total = dist_anda_total + dist_corre_total
+    tempo_total = (t_anda + t_corre) * n_ciclos
+
+    # Exibição das métricas em destaque
+    m1, m2 = st.columns(2)
+    m1.metric("⏱️ Tempo Total", f"{tempo_total} min")
+    m2.metric("📍 Distância Estimada", f"{distancia_total:.2f} km")
+
+    st.divider()
+
+    # --- LÓGICA DO CRONÔMETRO (Mantendo a correção anterior) ---
     if "cardio_ativo" not in st.session_state:
         st.session_state.cardio_ativo = False
 
     c_start, c_stop = st.columns(2)
-    if c_start.button("🚀 INICIAR", use_container_width=True):
+    if c_start.button("🚀 INICIAR HIIT", use_container_width=True):
         st.session_state.cardio_ativo = True
 
-    if c_stop.button("🛑 ENCERRAR", use_container_width=True):
+    if c_stop.button("🛑 ENCERRAR AGORA", use_container_width=True):
         st.session_state.cardio_ativo = False
         st.rerun()
 
@@ -113,9 +129,9 @@ with aba2:
         ph = st.empty()
         # Etapas baseadas no que você configurou
         etapas = []
-        if t_anda > 0: etapas.append(("🚶 Caminhada", t_anda * 60, v_anda))
-        if t_corre > 0: etapas.append(("⚡ Corrida", t_corre * 60, v_corre))
-        if t_anda > 0: etapas.append(("❄️ Desaceleração", t_anda * 60, v_anda))
+        for _ in range(n_ciclos):
+            if t_anda > 0: etapas.append(("🚶 Caminhada", t_anda * 60, v_anda))
+            if t_corre > 0: etapas.append(("⚡ Corrida", t_corre * 60, v_corre))
 
         for nome, tempo_seg, vel in etapas:
             if not st.session_state.cardio_ativo: break
@@ -123,17 +139,19 @@ with aba2:
             while tempo_seg > 0 and st.session_state.cardio_ativo:
                 m, s = divmod(tempo_seg, 60)
                 ph.markdown(f"""
-                    <div style="text-align: center; border: 3px solid #e066ff; padding: 20px; border-radius: 15px;">
+                    <div style="text-align: center; border: 3px solid #e066ff; padding: 20px; border-radius: 15px; background: #1e1e1e;">
                         <h2 style="color: #e066ff;">{nome}</h2>
-                        <h1 style="font-size: 80px;">{m:02d}:{s:02d}</h1>
-                        <h3>Velocidade: {vel} km/h</h3>
+                        <h1 style="font-size: 80px; color: white;">{m:02d}:{s:02d}</h1>
+                        <h3 style="color: #66ffe0;">Velocidade: {vel} km/h</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
                 tempo_seg -= 1
 
         if st.session_state.cardio_ativo:
-            st.success("Treino Finalizado!")
+            st.balloons()
+            st.success(f"🎉 Finalizado! Você percorreu {distancia_total:.2f} km!")
+            registrar_historico(None, f"Cardio HIIT: {distancia_total:.2f}km | {tempo_total}min", tipo="cardio")
             st.session_state.cardio_ativo = False
 
 # --- ABA 3: DASHBOARD DE PERFORMANCE ---
