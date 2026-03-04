@@ -615,7 +615,7 @@ with aba3:
                        7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 
             modo_filtro = st.radio(
-                "Filtrar por", ["Mês", "Dia específico", "Intervalo de datas"],
+                "Filtrar por", ["Mês", "Por período"],
                 horizontal=True, label_visibility="collapsed",
             )
 
@@ -631,13 +631,8 @@ with aba3:
                 df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
                 titulo_resumo = "RESUMO — " + meses_n[mes_sel].upper()
 
-            elif modo_filtro == "Dia específico":
-                dia_sel = st.date_input("Selecione o dia", value=hoje_agora.date(),
-                                        min_value=data_min, max_value=data_max)
-                df_f = df[df["data_execucao"].dt.date == dia_sel]
-                titulo_resumo = "RESUMO — " + dia_sel.strftime("%d/%m/%Y")
-
-            else:  # Intervalo
+            else:  # Por período
+                st.caption("Para um dia específico, coloque a mesma data nos dois campos.")
                 c1, c2 = st.columns(2)
                 ini_default = max(data_min, data_max - timedelta(days=6))
                 ini_sel = c1.date_input("De", value=ini_default,
@@ -650,7 +645,10 @@ with aba3:
                 fim_dt = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
                 ini_dt = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
                 df_f = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
-                titulo_resumo = "RESUMO — " + ini_sel.strftime("%d/%m") + " a " + fim_sel.strftime("%d/%m/%Y")
+                if ini_sel == fim_sel:
+                    titulo_resumo = "RESUMO — " + ini_sel.strftime("%d/%m/%Y")
+                else:
+                    titulo_resumo = "RESUMO — " + ini_sel.strftime("%d/%m") + " a " + fim_sel.strftime("%d/%m/%Y")
 
             km_f, min_f, kg_f = extrair_stats(df_f)
 
