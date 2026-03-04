@@ -607,52 +607,44 @@ with aba3:
 
             st.divider()
 
-            # ── GRÁFICOS SEMANAIS ─────────────────────────────────────────────────────
-            with st.expander("📈 Evolução semanal (últimas 8 semanas)", expanded=True):
-                # montar série de 8 semanas com labels legíveis
-                semanas = []
-                for i in range(7, -1, -1):
-                    ini = ini_sem_atual - timedelta(weeks=i)
-                    fim = ini + timedelta(weeks=1)
-                    df_s = df[(df["data_execucao"] >= ini) & (df["data_execucao"] < fim)]
-                    km_s, min_s = extrair_stats(df_s)
-                    kg_s = extrair_peso_total(df_s)
-                    # label curto e sem ambiguidade
-                    if i == 0:
-                        label = "Esta sem."
-                    elif i == 1:
-                        label = "Sem. passada"
-                    else:
-                        label = ini.strftime("%-d %b")   # ex: "2 jan", "9 fev"
-                    semanas.append({
-                        "Semana": label,
-                        "Período": ini.strftime("%d/%m") + "–" + (fim - timedelta(days=1)).strftime("%d/%m"),
-                        "Treinos": len(df_s),
-                        "Peso Total (kg)": round(kg_s),
-                        "Distância (km)": round(km_s, 1),
-                        "Esteira (min)": min_s,
-                    })
+            # ── MENSAGEM DE COMPARAÇÃO SEMANAL ───────────────────────────────────────
+            if kg_ant == 0 and km_ant == 0 and min_ant == 0:
+                st.info("📅 Sem dados da semana passada para comparar ainda. Bora criar um histórico! 💪")
+            else:
+                partes = []
+                if kg_ant > 0:
+                    diff_kg = kg_ant - kg_a
+                    if diff_kg > 0:
+                        partes.append(f"**{diff_kg:,.0f} kg** de volume de treino")
+                    elif diff_kg < 0:
+                        partes.append(f"~~peso~~ já superou em **{abs(diff_kg):,.0f} kg** 🔥")
+                if min_ant > 0:
+                    diff_min = min_ant - min_a
+                    if diff_min > 0:
+                        partes.append(f"**{diff_min} min** de esteira")
+                    elif diff_min < 0:
+                        partes.append(f"~~esteira~~ já superou em **{abs(diff_min)} min** 🔥")
+                if km_ant > 0:
+                    diff_km = round(km_ant - km_a, 1)
+                    if diff_km > 0:
+                        partes.append(f"**{diff_km} km** de distância")
+                    elif diff_km < 0:
+                        partes.append(f"~~distância~~ já superou em **{abs(diff_km)} km** 🔥")
 
-                df_graf = pd.DataFrame(semanas)
+                # monta mensagem final
+                faltam = [p for p in partes if not p.startswith("~~")]
+                superou = [p for p in partes if p.startswith("~~")]
 
-                tab_g1, tab_g2, tab_g3 = st.tabs(["🏋️ Peso Total", "🛣️ Distância", "⏱ Esteira"])
-
-                with tab_g1:
-                    st.bar_chart(df_graf.set_index("Semana")["Peso Total (kg)"], use_container_width=True)
-                    st.caption("Soma de kg×séries×reps de todos os exercícios da semana.")
-
-                with tab_g2:
-                    st.bar_chart(df_graf.set_index("Semana")["Distância (km)"], use_container_width=True)
-                    st.caption("Distância total percorrida no cardio por semana.")
-
-                with tab_g3:
-                    st.bar_chart(df_graf.set_index("Semana")["Esteira (min)"], use_container_width=True)
-                    st.caption("Tempo total de esteira/cardio por semana.")
-
-                # legenda de referência das datas
-                with st.expander("🗓️ Ver datas de cada semana"):
-                    for row in semanas:
-                        st.caption(f"**{row['Semana']}** → {row['Período']}  ·  {row['Treinos']} treino(s)")
+                if not faltam and not superou:
+                    st.success("🏆 Semana igualada! Agora é superar!")
+                elif not faltam:
+                    st.success("🏆 Você superou a semana passada em tudo! Incrível!")
+                else:
+                    msg = "💡 Ainda falta " + ", ".join(faltam) + " pra se equiparar à semana passada."
+                    if superou:
+                        extras = ", ".join(s.replace("~~","").replace("~~","") for s in superou)
+                        msg += f" Mas {extras}!"
+                    st.warning(msg)
 
             st.divider()
 
