@@ -951,33 +951,47 @@ with aba4:
 
     st.divider()
 
-    # ── Solicitar exclusão de conta ──────────────────────────────────
-    with st.expander("🚨 Solicitar exclusão de conta"):
-        st.info("A exclusão de conta é realizada pela administradora. Ao solicitar, ela receberá um email com o seu pedido.")
-        with st.form("form_solicitar_exclusao"):
-            motivo = st.text_area("Motivo (opcional)", placeholder="Conte-nos o motivo, se quiser...")
-            if st.form_submit_button("📧 Enviar solicitação", use_container_width=True):
-                try:
-                    import urllib.parse
-                    nome_sol  = dados_perfil.get("nome", nome_atual)
-                    corpo     = urllib.parse.quote(
-                        f"Olá Natália,\n\n"
-                        f"O usuário abaixo está solicitando a exclusão de sua conta no PyTrain PRO:\n\n"
-                        f"Nome: {nome_sol}\n"
-                        f"Email: {email_atual}\n"
-                        f"ID: {user_id()}\n"
-                        f"Motivo: {motivo.strip() or 'Não informado'}\n\n"
-                        f"Por favor, tome as providências necessárias."
-                    )
-                    assunto = urllib.parse.quote(f"[PyTrain PRO] Solicitação de exclusão — {nome_sol}")
-                    st.markdown(
-                        f"✅ Solicitação preparada! "
-                        f"[Clique aqui para enviar o email]"
-                        f"(mailto:nabevia@gmail.com?subject={assunto}&body={corpo})",
-                        unsafe_allow_html=False,
-                    )
-                    st.caption("Isso abrirá o seu aplicativo de email com a mensagem já preenchida.")
-                except Exception as e:
-                    st.error(f"Erro: {e}")
+    # ── Apagar conta ──────────────────────────────────────────────────
+    with st.expander("🚨 Apagar minha conta"):
+        st.warning("Esta acção é **irreversível**. Todos os teus treinos, histórico e acesso serão removidos permanentemente.")
+        with st.form("form_apagar_conta"):
+            conf_texto = st.text_input("Digite **APAGAR** para confirmar", placeholder="APAGAR")
+            senha_conf = st.text_input("Confirme sua senha", type="password")
+            if st.form_submit_button("🗑️ Apagar conta permanentemente", use_container_width=True):
+                if conf_texto.strip().upper() != "APAGAR":
+                    st.error("Digite APAGAR em maiúsculas para confirmar.")
+                elif not senha_conf:
+                    st.warning("Confirme sua senha.")
+                else:
+                    try:
+                        import requests as _requests
+                        # Valida senha e obtém token fresco
+                        res_login = supabase.auth.sign_in_with_password({
+                            "email": email_atual, "password": senha_conf
+                        })
+                        token = res_login.session.access_token
+
+                        # Chama a Edge Function com o token do utilizador
+                        edge_url = f"{SUPABASE_URL}/functions/v1/delete-account"
+                        resp = _requests.post(
+                            edge_url,
+                            headers={
+                                "Authorization": f"Bearer {token}",
+                                "Content-Type": "application/json",
+                            },
+                            timeout=15,
+                        )
+                        data = resp.json()
+                        if resp.status_code == 200 and data.get("success"):
+                            st.success("Conta apagada. Até logo! 👋")
+                            time.sleep(1)
+                            fazer_logout()
+                        else:
+                            st.error(f"Erro ao apagar conta: {data.get('error', 'desconhecido')}")
+                    except Exception as e:
+                        if "invalid_credentials" in str(e) or "Invalid login" in str(e):
+                            st.error("❌ Senha incorreta.")
+                        else:
+                            st.error(f"Erro: {e}")
 
     rodape()
