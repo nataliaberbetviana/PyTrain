@@ -477,24 +477,26 @@ with aba1:
                     st.caption("💬 " + FRASES[(hoje_agora.day + idx) % len(FRASES)])
 
                 st.write("")
-                c_prox, c_cancel = st.columns(2)
-                if c_prox.button("✅  Próximo →", use_container_width=True):
-                    if st.session_state.get("ultimo_idx_registrado") != idx:
-                        st.session_state.ultimo_idx_registrado = idx
-                        is_pr = _verificar_pr(ex["id"], p)
-                        det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
-                        if nota_ex:
-                            det += " | " + nota_ex
-                        if is_pr:
-                            det += " | 🏆 PR"
-                            _desbloquear("pr_primeiro")
-                            st.success("🏆 NOVO RECORDE PESSOAL!")
-                        _registrar(ex["id"], det)
-                        supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
-                        st.session_state.indice_ex += 1
-                        st.session_state.timer_descanso_ativo = False
-                        st.rerun()
-                if c_cancel.button("Cancelar treino", use_container_width=True):
+                with st.form(key=f"form_proximo_{idx}"):
+                    c_prox, c_cancel = st.columns(2)
+                    prox_clicked   = c_prox.form_submit_button("✅  Próximo →", use_container_width=True)
+                    cancel_clicked = c_cancel.form_submit_button("❌ Cancelar treino", use_container_width=True)
+
+                if prox_clicked:
+                    is_pr = _verificar_pr(ex["id"], p)
+                    det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
+                    if nota_ex:
+                        det += " | " + nota_ex
+                    if is_pr:
+                        det += " | 🏆 PR"
+                        _desbloquear("pr_primeiro")
+                        st.success("🏆 NOVO RECORDE PESSOAL!")
+                    _registrar(ex["id"], det)
+                    supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
+                    st.session_state.indice_ex += 1
+                    st.session_state.timer_descanso_ativo = False
+                    st.rerun()
+                if cancel_clicked:
                     st.session_state.treino_ativo = False; st.rerun()
 
     rodape()
