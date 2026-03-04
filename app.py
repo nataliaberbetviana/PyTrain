@@ -463,6 +463,24 @@ with aba1:
                 if acao == "ps": st.session_state[sk] = s+1;         st.query_params.clear(); st.rerun()
                 if acao == "mr": st.session_state[rk] = max(1, r-1); st.query_params.clear(); st.rerun()
                 if acao == "pr": st.session_state[rk] = r+1;         st.query_params.clear(); st.rerun()
+                if acao == "r30": st.session_state.timer_descanso=30;  st.session_state.timer_descanso_inicio=time.time(); st.session_state.timer_descanso_ativo=True;  st.query_params.clear(); st.rerun()
+                if acao == "r60": st.session_state.timer_descanso=60;  st.session_state.timer_descanso_inicio=time.time(); st.session_state.timer_descanso_ativo=True;  st.query_params.clear(); st.rerun()
+                if acao == "pular":
+                    nova_ordem = [eid for eid in ordem if eid != ex["id"]] + [ex["id"]]
+                    st.session_state.ordem_exercicios = nova_ordem; st.query_params.clear(); st.rerun()
+                if acao == "proximo":
+                    st.query_params.clear()
+                    is_pr = _verificar_pr(ex["id"], p)
+                    det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
+                    if nota_ex: det += " | " + nota_ex
+                    if is_pr:
+                        det += " | 🏆 PR"; _desbloquear("pr_primeiro")
+                        st.success("🏆 NOVO RECORDE PESSOAL!")
+                    _registrar(ex["id"], det)
+                    supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
+                    st.session_state.indice_ex += 1
+                    st.session_state.timer_descanso_ativo = False
+                    st.rerun()
 
                 btn = (
                     "display:inline-flex;align-items:center;justify-content:center;"
@@ -517,55 +535,63 @@ with aba1:
 
                 nota_ex = st.text_input("📝 Nota", placeholder="Observação...", key="nota_" + str(idx), label_visibility="collapsed")
 
-                # ── Timer de descanso ─────────────────────────────────────────
-                st.caption("⏳ DESCANSO")
-                tc1, tc2, tc3, tc4 = st.columns(4)
-                for col, seg, label in [(tc1,30,"30s"),(tc2,60,"1min"),(tc3,90,"1:30"),(tc4,120,"2min")]:
-                    if col.button(label, key=f"rest_{seg}_{idx}", use_container_width=True):
-                        st.session_state.timer_descanso        = seg
-                        st.session_state.timer_descanso_inicio = time.time()
-                        st.session_state.timer_descanso_ativo  = True
-                        st.rerun()
-
+                # ── Timer + Pular (HTML puro) ─────────────────────────────────
                 if st.session_state.timer_descanso_ativo:
                     decorrido = int(time.time() - st.session_state.timer_descanso_inicio)
                     restante  = st.session_state.timer_descanso - decorrido
-                    if restante > 0:
-                        mr, sr = divmod(restante, 60)
-                        st.progress(1 - restante / st.session_state.timer_descanso)
-                        st.markdown(f"<div style='text-align:center;font-size:2rem;font-weight:bold;color:#a78bfa'>⏳ {mr:02d}:{sr:02d}</div>", unsafe_allow_html=True)
-                    else:
+                    if restante <= 0:
                         st.session_state.timer_descanso_ativo = False
-                        st.success("✅ Bora!")
+                        restante = 0
+                    mr2, sr2 = divmod(max(restante,0), 60)
+                    pct_rest  = 1 - restante / st.session_state.timer_descanso if st.session_state.timer_descanso > 0 else 1
+                    timer_txt = f"⏳ {mr2:02d}:{sr2:02d}" if restante > 0 else "✅ Bora!"
+                    timer_color = "#a78bfa" if restante > 0 else "#4ade80"
+                    timer_bar = f'''<div style="height:4px;background:#333;border-radius:2px;margin:6px 0">
+                      <div style="height:4px;background:{timer_color};border-radius:2px;width:{int(pct_rest*100)}%"></div></div>
+                      <div style="text-align:center;font-size:1.5rem;font-weight:bold;color:{timer_color};margin-bottom:6px">{timer_txt}</div>'''
+                else:
+                    timer_bar = ""
 
-                # ── Pular + Próximo + Cancelar ────────────────────────────────
-                cb1, cb2, cb3 = st.columns([1, 3, 1])
-                if cb1.button("⏭", key=f"pular_{idx}", use_container_width=True, help="Pular para o final"):
-                    nova_ordem = [eid for eid in ordem if eid != ex["id"]] + [ex["id"]]
-                    st.session_state.ordem_exercicios = nova_ordem
-                    st.rerun()
+                circle = (
+                    "display:inline-flex;align-items:center;justify-content:center;"
+                    "width:56px;height:56px;border-radius:50%;background:#2a2a3e;"
+                    "color:#fff;font-size:0.8rem;font-weight:bold;text-decoration:none;"
+                    "border:2px solid #7c3aed;cursor:pointer;margin:0 4px"
+                )
+                btn_pular = (
+                    "display:inline-flex;align-items:center;justify-content:center;"
+                    "height:42px;padding:0 16px;border-radius:10px;background:#2a2a3e;"
+                    "color:#aaa;font-size:0.85rem;text-decoration:none;"
+                    "border:1px solid #444;cursor:pointer"
+                )
+                btn_prox = (
+                    "display:inline-flex;align-items:center;justify-content:center;"
+                    "flex:1;height:52px;border-radius:12px;background:#7c3aed;"
+                    "color:#fff;font-size:1rem;font-weight:bold;text-decoration:none;"
+                    "border:none;cursor:pointer;margin-left:8px"
+                )
 
-                with st.form(key=f"form_proximo_{idx}"):
-                    c_prox, c_cancel = st.columns([4, 1])
-                    prox_clicked   = c_prox.form_submit_button("✅ Próximo →", use_container_width=True)
-                    cancel_clicked = c_cancel.form_submit_button("✕", use_container_width=True, help="Cancelar treino")
+                st.markdown(f"""
+<div style="margin-top:8px">
+  {timer_bar}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <span style="font-size:0.65rem;color:#888;letter-spacing:1px">DESCANSO</span>
+    <div>
+      <a href="?acao=r30" style="{circle}">30s</a>
+      <a href="?acao=r60" style="{circle}">60s</a>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center">
+    <a href="?acao=pular" style="{btn_pular}">⏭ Pular</a>
+    <a href="?acao=proximo" style="{btn_prox}">✅ Próximo →</a>
+  </div>
+</div>""", unsafe_allow_html=True)
 
-                if prox_clicked:
-                    is_pr = _verificar_pr(ex["id"], p)
-                    det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
-                    if nota_ex:
-                        det += " | " + nota_ex
-                    if is_pr:
-                        det += " | 🏆 PR"
-                        _desbloquear("pr_primeiro")
-                        st.success("🏆 NOVO RECORDE PESSOAL!")
-                    _registrar(ex["id"], det)
-                    supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
-                    st.session_state.indice_ex += 1
-                    st.session_state.timer_descanso_ativo = False
-                    st.rerun()
-                if cancel_clicked:
+                # Cancela via botão Streamlit pequeno
+                if st.button("✕ Cancelar treino", key=f"cancel_{idx}"):
                     st.session_state.treino_ativo = False; st.rerun()
+
+
 
     rodape()
 
