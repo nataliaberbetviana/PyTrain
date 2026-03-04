@@ -68,6 +68,7 @@ DEFAULTS = {
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
     "ultimo_idx_registrado": -1,
+    "n_adds": 0,  # contador para resetar form de adicionar
     "ordem_exercicios": [],  # IDs na ordem atual do treino
 }
 for k, v in DEFAULTS.items():
@@ -368,7 +369,7 @@ with aba1:
                 pode_iniciar = False
 
             with st.expander("＋ Adicionar exercício — Série " + serie, expanded=not pode_iniciar):
-                with st.form("form_add_" + serie):
+                with st.form("form_add_" + serie + "_" + str(st.session_state.get("n_adds", 0))):
                     r_nome = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
                     c1, c2, c3 = st.columns(3)
                     r_peso   = c1.number_input("Peso (kg)", value=0, min_value=0)
@@ -388,6 +389,7 @@ with aba1:
                                         "serie_tipo": serie, "peso_kg": r_peso,
                                         "series":     r_series, "repeticoes": r_reps,
                                     }).execute()
+                                    st.session_state.n_adds = st.session_state.get("n_adds", 0) + 1
                                     st.success("✅ '" + r_nome + "' adicionado!")
                                     st.rerun()
                                 except Exception as e:
