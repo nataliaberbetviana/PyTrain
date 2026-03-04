@@ -8,6 +8,7 @@ import pytz
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
+from streamlit_autorefresh import st_autorefresh
 
 # ── Biblioteca interna ─────────────────────────────────────────────────────────
 from pytrain import (
@@ -270,9 +271,6 @@ else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Len
 
 st.markdown("""
 <style>
-/* ── Viewport meta para mobile ── */
-@viewport { width: device-width; }
-
 /* ── Reset e base ── */
 #MainMenu, header, footer { display: none !important; }
 section[data-testid="stSidebar"] { display: none; }
@@ -287,11 +285,22 @@ section[data-testid="stSidebar"] { display: none; }
     padding-right: 1rem !important;
 }
 
-/* ── Selectbox compacto (nav) ── */
-div[data-testid="stSelectbox"] > div { min-height: 38px !important; }
+/* ── Tipografia global — fontes maiores e melhor contraste ── */
+p, span, label, div, li {
+    font-size: 0.95rem !important;
+    color: #e2e8f0 !important;
+}
+.stCaption, [data-testid="stCaptionContainer"] p {
+    font-size: 0.82rem !important;
+    color: #b0b8c8 !important;
+}
+
+/* ── Selectbox (nav) ── */
+div[data-testid="stSelectbox"] > div { min-height: 44px !important; }
 div[data-testid="stSelectbox"] > div > div {
-    padding: 4px 10px !important;
-    font-size: 0.85rem !important;
+    padding: 6px 12px !important;
+    font-size: 0.95rem !important;
+    color: #e2e8f0 !important;
 }
 
 /* ── Touch targets mínimos 44px ── */
@@ -308,6 +317,7 @@ div[data-testid="stNumberInput"] input {
     font-size: 16px !important;   /* evita zoom no iOS */
     min-height: 44px !important;
     border-radius: 8px !important;
+    color: #e2e8f0 !important;
 }
 
 /* ── Botões com cantos arredondados e espaçamento ── */
@@ -315,31 +325,34 @@ div[data-testid="stButton"] > button {
     border-radius: 12px !important;
     padding: 0.5rem 1rem !important;
     font-weight: 600 !important;
+    font-size: 0.95rem !important;
 }
 
 /* ── Tabs responsivos ── */
 div[data-testid="stTabs"] button {
-    font-size: 0.82rem !important;
-    padding: 8px 12px !important;
+    font-size: 0.88rem !important;
+    padding: 8px 14px !important;
     min-height: 44px !important;
 }
 
 /* ── Expanders ── */
 details[data-testid="stExpander"] summary {
     min-height: 44px !important;
-    font-size: 0.9rem !important;
+    font-size: 0.95rem !important;
     padding: 8px 12px !important;
 }
 
-/* ── Métricas compactas ── */
+/* ── Métricas ── */
 div[data-testid="stMetric"] {
     padding: 6px !important;
 }
 div[data-testid="stMetric"] label {
-    font-size: 0.7rem !important;
+    font-size: 0.78rem !important;
+    color: #b0b8c8 !important;
 }
 div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-    font-size: 1.2rem !important;
+    font-size: 1.3rem !important;
+    color: #f0f0f5 !important;
 }
 
 /* ── DataFrames scroll horizontal ── */
@@ -380,22 +393,20 @@ ABAS = [("🏠 Home","home"),("🚀 Treino","treino"),("🏃 Cardio","cardio"),
         ("📊 Painel","painel"),("📈 Evolução","evolucao"),
         ("🏆 Conquistas","conquistas"),("⚙️ Perfil","perfil"),("🚪 Sair","__sair__")]
 
-col_h, col_m = st.columns([5,1])
-with col_h:
-    st.markdown(
-        f"<div style='font-size:1.25rem;font-weight:800;line-height:1.2'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
-        f"<div style='font-size:0.68rem;color:#666;margin-top:1px'>{msg_treinos}</div>",
-        unsafe_allow_html=True)
-with col_m:
-    escolha = st.selectbox("nav", [l for l,_ in ABAS],
-        index=[k for _,k in ABAS].index(_a) if _a in [k for _,k in ABAS] else 0,
-        label_visibility="collapsed", key="nav_select")
-    _nav_key = dict(ABAS).get(escolha, "")
-    if _nav_key == "__sair__":
-        fazer_logout(supabase, cookies, DEFAULTS)
-    elif _nav_key and _nav_key != _a:
-        st.session_state.aba_ativa = _nav_key
-        st.rerun()
+st.markdown(
+    f"<div style='font-size:1.3rem;font-weight:800;line-height:1.3;color:#f0f0f5'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+    f"<div style='font-size:0.8rem;color:#a0a8b8;margin-top:2px'>{msg_treinos}</div>",
+    unsafe_allow_html=True)
+
+escolha = st.selectbox("Navegar", [l for l,_ in ABAS],
+    index=[k for _,k in ABAS].index(_a) if _a in [k for _,k in ABAS] else 0,
+    label_visibility="collapsed", key="nav_select")
+_nav_key = dict(ABAS).get(escolha, "")
+if _nav_key == "__sair__":
+    fazer_logout(supabase, cookies, DEFAULTS)
+elif _nav_key and _nav_key != _a:
+    st.session_state.aba_ativa = _nav_key
+    st.rerun()
 
 # Contexto manager
 class _FakeCtx:
@@ -458,14 +469,14 @@ if aba0.ativa:
 
     st.markdown(f"""
 <div style="background:#13132a;border-radius:14px;padding:14px;margin-bottom:10px">
-  <div style="font-size:0.7rem;color:#888;margin-bottom:8px;letter-spacing:1px">ESTE MÊS</div>
+  <div style="font-size:0.78rem;color:#b0b8c8;margin-bottom:8px;letter-spacing:1px">ESTE MÊS</div>
   <div style="display:flex;gap:8px">
     <div style="flex:1;background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
-      <div style="font-size:0.6rem;color:#888">TREINOS</div>
+      <div style="font-size:0.72rem;color:#b0b8c8">TREINOS</div>
       <div style="font-size:1.8rem;font-weight:900;color:#a78bfa">{_treinos_mes}</div>
     </div>
     <div style="flex:1;background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
-      <div style="font-size:0.6rem;color:#888">SEQUÊNCIA</div>
+      <div style="font-size:0.72rem;color:#b0b8c8">SEQUÊNCIA</div>
       <div style="font-size:1.8rem;font-weight:900;color:{streak_cor}">{_streak}🔥</div>
     </div>
   </div>
@@ -473,13 +484,13 @@ if aba0.ativa:
 
 <div style="background:#13132a;border-radius:14px;padding:14px;margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <div style="font-size:0.7rem;color:#888;letter-spacing:1px">META DA SEMANA</div>
+    <div style="font-size:0.78rem;color:#b0b8c8;letter-spacing:1px">META DA SEMANA</div>
     <div style="font-size:0.75rem;color:#a78bfa;font-weight:700">{_treinos_sem}/{_meta_sem}</div>
   </div>
   <div style="height:8px;background:#1a1a3e;border-radius:4px">
     <div style="height:8px;background:{'#4ade80' if _pct_meta >= 100 else '#7c3aed'};border-radius:4px;width:{_pct_meta}%;transition:width .3s"></div>
   </div>
-  <div style="font-size:0.68rem;color:#555;margin-top:4px">{hoje_txt} · {ult_txt}</div>
+  <div style="font-size:0.78rem;color:#9ca3b0;margin-top:4px">{hoje_txt} · {ult_txt}</div>
 </div>
 
 <div style="background:#13132a;border-radius:14px;padding:12px;margin-bottom:10px">
@@ -534,12 +545,12 @@ if aba1.ativa:
         if st.session_state.treino_livre_exs:
             st.caption(str(len(st.session_state.treino_livre_exs)) + " exercício(s)")
             for i, ex in enumerate(st.session_state.treino_livre_exs):
-                nota_txt = f"<div style='font-size:0.75rem;color:#aaa;margin-top:2px'>{ex['nota']}</div>" if ex.get("nota") else ""
+                nota_txt = f"<div style='font-size:0.82rem;color:#c8cdd5;margin-top:2px'>{ex['nota']}</div>" if ex.get("nota") else ""
                 st.markdown(f"""
 <div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:10px 14px;margin-bottom:6px;position:relative">
-  <a href="?del_livre={i}" style="position:absolute;top:8px;right:10px;color:#666;font-size:1rem;text-decoration:none">✕</a>
+  <a href="?del_livre={i}" style="position:absolute;top:8px;right:10px;color:#9ca3b0;font-size:1.1rem;text-decoration:none">✕</a>
   <div style="font-size:0.9rem;font-weight:700;color:#90caf9;padding-right:24px">{i+1}. {ex['nome']}</div>
-  <div style="font-size:0.8rem;color:#aaa">{ex['series']}×{ex['reps']} · {ex['peso']} kg</div>
+  <div style="font-size:0.88rem;color:#c8cdd5">{ex['series']}×{ex['reps']} · {ex['peso']} kg</div>
   {nota_txt}
 </div>""", unsafe_allow_html=True)
 
@@ -593,7 +604,7 @@ if aba1.ativa:
                             st.markdown(f"""
 <div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:8px 12px;margin-bottom:2px">
   <div style="font-size:0.9rem;font-weight:700;color:#90caf9">{i}. {ex['nome']}</div>
-  <div style="font-size:0.78rem;color:#aaa;margin-top:1px">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg</div>
+  <div style="font-size:0.85rem;color:#c8cdd5;margin-top:1px">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg</div>
   {ult_txt}
 </div>""", unsafe_allow_html=True)
                         with c_del:
@@ -754,7 +765,7 @@ if aba1.ativa:
 
                 st.markdown(f"""
 <div style="background:#1a1a2e;border-radius:14px;padding:14px;margin-bottom:6px">
-  <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#888;margin-bottom:6px">
+  <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#b0b8c8;margin-bottom:6px">
     <span>SÉRIE {st.session_state.serie_atual} · {idx+1}/{total}</span>
     <span>⏱ {m_e:02d}:{sg:02d}</span>
   </div>
@@ -762,12 +773,12 @@ if aba1.ativa:
     <div style="height:4px;background:#7c3aed;border-radius:2px;width:{pct}%"></div>
   </div>
   <div style="font-size:1.1rem;font-weight:700;margin-bottom:2px">💪 {ex["nome"]}</div>
-  <div style="font-size:0.72rem;color:#aaa;margin-bottom:12px">{ult_txt}</div>
+  <div style="font-size:0.82rem;color:#c8cdd5;margin-bottom:12px">{ult_txt}</div>
 
   <div style="{row}">
     <a href="?acao=mp" style="{btn}">−</a>
     <div style="{val_box}">
-      <div style="font-size:0.6rem;color:#888;letter-spacing:1px">PESO kg</div>
+      <div style="font-size:0.72rem;color:#b0b8c8;letter-spacing:1px">PESO kg</div>
       <div style="font-size:2rem;font-weight:900;line-height:2rem">{p}</div>
     </div>
     <a href="?acao=pp" style="{btn}">+</a>
@@ -776,7 +787,7 @@ if aba1.ativa:
   <div style="{row}">
     <a href="?acao=ms" style="{btn}">−</a>
     <div style="{val_box}">
-      <div style="font-size:0.6rem;color:#888;letter-spacing:1px">SÉRIES</div>
+      <div style="font-size:0.72rem;color:#b0b8c8;letter-spacing:1px">SÉRIES</div>
       <div style="font-size:2rem;font-weight:900;line-height:2rem">{s}</div>
     </div>
     <a href="?acao=ps" style="{btn}">+</a>
@@ -785,7 +796,7 @@ if aba1.ativa:
   <div style="{row}">
     <a href="?acao=mr" style="{btn}">−</a>
     <div style="{val_box}">
-      <div style="font-size:0.6rem;color:#888;letter-spacing:1px">REPS</div>
+      <div style="font-size:0.72rem;color:#b0b8c8;letter-spacing:1px">REPS</div>
       <div style="font-size:2rem;font-weight:900;line-height:2rem">{r}</div>
     </div>
     <a href="?acao=pr" style="{btn}">+</a>
@@ -820,7 +831,7 @@ if aba1.ativa:
                 btn_pular = (
                     "display:inline-flex;align-items:center;justify-content:center;"
                     "height:42px;padding:0 16px;border-radius:10px;background:#2a2a3e;"
-                    "color:#aaa;font-size:0.85rem;text-decoration:none;"
+                    "color:#c8cdd5;font-size:0.92rem;text-decoration:none;"
                     "border:1px solid #444;cursor:pointer"
                 )
                 btn_prox = (
@@ -834,7 +845,7 @@ if aba1.ativa:
 <div style="margin-top:8px">
   {timer_bar}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:0.65rem;color:#888;letter-spacing:1px">DESCANSO</span>
+    <span style="font-size:0.75rem;color:#b0b8c8;letter-spacing:1px">DESCANSO</span>
     <div>
       <a href="?acao=r30" style="{circle}">30s</a>
       <a href="?acao=r60" style="{circle}">60s</a>
@@ -966,8 +977,8 @@ if aba2.ativa:
         c2.metric("📍 Distância", f"{round(estado['dist_real'], 2)} / {round(da, 2)} km")
         st.divider()
 
-        time.sleep(1)
-        st.rerun()
+        # Auto-refresh via client-side (não bloqueia o servidor)
+        st_autorefresh(interval=1000, key="cardio_refresh")
 
     rodape()
 
@@ -1046,19 +1057,19 @@ if aba3.ativa:
             st.markdown(f"""
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
   <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
-    <div style="font-size:0.65rem;color:#888">🏋️ ATIVIDADES</div>
+    <div style="font-size:0.75rem;color:#b0b8c8">🏋️ ATIVIDADES</div>
     <div style="font-size:1.4rem;font-weight:bold">{len(df_f)}</div>
   </div>
   <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
-    <div style="font-size:0.65rem;color:#888">💪 VOLUME</div>
+    <div style="font-size:0.75rem;color:#b0b8c8">💪 VOLUME</div>
     <div style="font-size:1.4rem;font-weight:bold">{kg_f:,.0f} kg</div>
   </div>
   <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
-    <div style="font-size:0.65rem;color:#888">⏱ TEMPO</div>
+    <div style="font-size:0.75rem;color:#b0b8c8">⏱ TEMPO</div>
     <div style="font-size:1.4rem;font-weight:bold">{fmt_tempo(min_f)}</div>
   </div>
   <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
-    <div style="font-size:0.65rem;color:#888">🛣️ DISTÂNCIA</div>
+    <div style="font-size:0.75rem;color:#b0b8c8">🛣️ DISTÂNCIA</div>
     <div style="font-size:1.4rem;font-weight:bold">{round(km_f,1)} km</div>
   </div>
 </div>""", unsafe_allow_html=True)
@@ -1321,8 +1332,8 @@ if aba5.ativa:
                     <div style="background:#13131f;border:1px solid #2d2d45;border-radius:8px;
                     padding:12px;margin-bottom:8px;opacity:0.45;filter:grayscale(1)">
                     <span style="font-size:1.4rem">🔒</span>
-                    <div style="font-weight:600;color:#888;margin-top:4px">{c['nome']}</div>
-                    <div style="color:#666;font-size:0.8rem">{c['desc']}</div>
+                    <div style="font-weight:600;color:#b0b8c8;margin-top:4px">{c['nome']}</div>
+                    <div style="color:#9ca3b0;font-size:0.88rem">{c['desc']}</div>
                     </div>""", unsafe_allow_html=True)
 
         st.divider()
@@ -1406,7 +1417,7 @@ if aba6.ativa:
     <style>
     .perfil-card { background:#13131f;border:1px solid #2d2d45;border-radius:10px;
         padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;font-size:0.92rem; }
-    .perfil-label { color:#888;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px; }
+    .perfil-label { color:#b0b8c8;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px; }
     .perfil-valor { color:#e2e8f0;font-size:0.95rem;font-weight:500; }
     .perfil-icon  { font-size:1.2rem;flex-shrink:0; }
     </style>""", unsafe_allow_html=True)
