@@ -22,7 +22,7 @@ if not cookies.ready():
 fuso      = pytz.timezone("America/Sao_Paulo")
 hoje_agora = datetime.now(fuso)
 
-st.markdown("""
+st.html("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -328,7 +328,7 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     }
 }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("⚠️ Variáveis SUPABASE_URL e SUPABASE_KEY não encontradas.")
@@ -437,32 +437,32 @@ def extrair_stats(df: pd.DataFrame):
     return (float(km) if not pd.isna(km) else 0.0), (int(mn) if not pd.isna(mn) else 0)
 
 def rodape():
-    st.markdown("""
+    st.html("""
         <div style="margin-top:3rem;padding-top:1rem;border-top:1px solid #1e1e2e;text-align:center;">
             <p style="margin:0;color:#334155;font-size:0.78rem;">
                 Dúvidas → <a href="mailto:nabevia@gmail.com" style="color:#7c3aed;text-decoration:none;">nabevia@gmail.com</a>
             </p>
         </div>
-    """, unsafe_allow_html=True)
+    """)
 
 def tela_login():
-    st.markdown("""
+    st.html("""
         <div style="text-align:center;padding:2.5rem 0 1.5rem;">
             <div style="font-size:2.5rem;margin-bottom:0.5rem;">🏋️</div>
             <h1 style="font-size:1.8rem;font-weight:700;color:#e2e8f0;margin:0;">PyTrain PRO</h1>
             <p style="color:#475569;font-size:0.9rem;margin-top:0.4rem;">Seu treino, sua evolução.</p>
         </div>
-    """, unsafe_allow_html=True)
+    """)
 
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
         tab_login, tab_reset = st.tabs(["Entrar", "Recuperar senha"])
         with tab_login:
             with st.form("form_login"):
-                st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+                st.html("<div style='height:0.5rem'></div>")
                 email = st.text_input("Email", placeholder="seu@email.com")
                 senha = st.text_input("Senha", type="password", placeholder="••••••••")
-                st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
+                st.html("<div style='height:0.3rem'></div>")
                 entrar = st.form_submit_button("Entrar", use_container_width=True)
             if entrar:
                 if email and senha:
@@ -489,13 +489,13 @@ def tela_login():
 def tela_definir_senha(access_token: str, refresh_token: str):
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        st.markdown("""
+        st.html("""
             <div style="text-align:center;padding:2rem 0 1rem;">
                 <div style="font-size:2rem;margin-bottom:0.5rem;">🏋️</div>
                 <h2 style="color:#e2e8f0;font-size:1.4rem;font-weight:700;margin:0;">Ativar conta</h2>
                 <p style="color:#475569;font-size:0.88rem;margin-top:0.3rem;">Crie sua senha para começar.</p>
             </div>
-        """, unsafe_allow_html=True)
+        """)
         with st.form("form_definir_senha"):
             nova = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
             conf = st.text_input("Confirmar senha", type="password")
@@ -528,13 +528,13 @@ def tela_definir_senha(access_token: str, refresh_token: str):
 def tela_completar_perfil():
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        st.markdown("""
+        st.html("""
             <div style="text-align:center;padding:2rem 0 1rem;">
                 <div style="font-size:2rem;">👋</div>
                 <h2 style="color:#e2e8f0;font-size:1.4rem;font-weight:700;margin:0.3rem 0 0;">Bem-vinda!</h2>
                 <p style="color:#475569;font-size:0.88rem;margin-top:0.3rem;">Complete seu perfil para continuar.</p>
             </div>
-        """, unsafe_allow_html=True)
+        """)
         with st.form("form_perfil"):
             nome_p   = st.text_input("Nome completo", placeholder="Seu nome")
             telefone = st.text_input("Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
@@ -601,7 +601,7 @@ msg = (
     f"{treinos_mes} treinos este mês. Lendária! 🏆"
 )
 
-st.markdown(f"""
+st.html(f"""
     <div class="pt-card-accent" style="display:flex;align-items:center;gap:1rem;margin-bottom:0.25rem;">
         <div style="font-size:2.2rem;line-height:1;">{emoji_hora}</div>
         <div style="flex:1;min-width:0;">
@@ -612,7 +612,7 @@ st.markdown(f"""
             <p style="margin:0;font-size:0.82rem;color:#64748b;">{msg}</p>
         </div>
     </div>
-""", unsafe_allow_html=True)
+""")
 
 col_sair, _ = st.columns([1, 3])
 with col_sair:
@@ -632,23 +632,23 @@ with aba1:
             .eq("serie_tipo", serie).eq("user_id", user_id()).execute()
 
         if exs.data:
-            st.markdown(f'<p class="pt-section-title">Série {serie} · {len(exs.data)} exercícios</p>', unsafe_allow_html=True)
+            st.html(f'<p class="pt-section-title">Série {serie} · {len(exs.data)} exercícios</p>')
             for i, ex in enumerate(exs.data, 1):
                 c1, c2 = st.columns([6, 1])
                 with c1:
-                    st.markdown(f"""
+                    st.html(f"""
                         <div class="pt-ex-row">
                             <span class="pt-ex-name">{i}. {ex['nome']}</span>
                             <span class="pt-ex-meta">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']}kg</span>
-                        </div>""", unsafe_allow_html=True)
+                        </div>""")
                 with c2:
-                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                    st.html("<div style='height:8px'></div>")
                     if st.button("✕", key=f"del_{ex['id']}", help="Remover"):
                         supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
                         st.rerun()
             pode_iniciar = True
         else:
-            st.markdown(f'<p class="pt-section-title">Série {serie} · vazia</p>', unsafe_allow_html=True)
+            st.html(f'<p class="pt-section-title">Série {serie} · vazia</p>')
             pode_iniciar = False
 
         with st.expander(f"＋ Adicionar exercício — Série {serie}", expanded=not pode_iniciar):
@@ -676,7 +676,7 @@ with aba1:
                     else:
                         st.warning("Digite o nome.")
 
-        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+        st.html("<div style='height:0.5rem'></div>")
         if st.button(f"Iniciar Série {serie} →", use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
             st.session_state.serie_atual  = serie
@@ -706,7 +706,7 @@ with aba1:
             ex = res.data[idx]
             pct = int((idx / total) * 100)
 
-            st.markdown(f"""
+            st.html(f"""
                 <div class="pt-card-accent" style="text-align:center;padding:1.5rem;">
                     <div class="pt-badge">Série {st.session_state.serie_atual} · {idx+1} / {total}</div>
                     <div style="background:#1e1e2e;border-radius:6px;height:4px;margin:0.75rem 0;">
@@ -714,7 +714,7 @@ with aba1:
                     </div>
                     <h2 style="color:#e2e8f0;font-size:1.4rem;font-weight:700;margin:0.5rem 0 0;">{ex['nome']}</h2>
                 </div>
-            """, unsafe_allow_html=True)
+            """)
 
             c1, c2, c3 = st.columns(3)
             p = c1.number_input("Kg",   value=int(ex["peso_kg"]),   step=1, key=f"p{idx}")
@@ -723,12 +723,12 @@ with aba1:
 
             elapsed = int(time.time() - st.session_state.inicio_timer)
             m, sg   = divmod(elapsed, 60)
-            st.markdown(f"""
+            st.html(f"""
                 <div class="pt-timer">
                     <div class="pt-timer-label">tempo de treino</div>
                     <div class="pt-timer-val">{m:02d}:{sg:02d}</div>
                 </div>
-            """, unsafe_allow_html=True)
+            """)
 
             c_prox, c_cancel = st.columns(2)
             if c_prox.button("Próximo →", use_container_width=True):
@@ -750,7 +750,7 @@ with aba1:
 # ═══════════════════════════════════════════════════════════════════
 with aba2:
     if not st.session_state.cardio_ativo:
-        st.markdown('<p class="pt-section-title">Configurar esteira</p>', unsafe_allow_html=True)
+        st.html('<p class="pt-section-title">Configurar esteira</p>')
         modo = st.radio("Modo", ["Distância (km)", "Número de ciclos"], horizontal=True, label_visibility="collapsed")
 
         c1, c2 = st.columns(2)
@@ -814,7 +814,7 @@ with aba2:
         seg = p["seg_restantes"]; m, s = divmod(seg, 60)
         pct = int((st.session_state.dist_real / da) * 100) if da > 0 else 0
 
-        st.markdown(f"""
+        st.html(f"""
             <div class="pt-card-accent" style="text-align:center;padding:1.5rem;">
                 <h3 style="color:#a78bfa;margin:0 0 0.5rem;font-size:1rem;">{nome_et}</h3>
                 <div style="background:#1e1e2e;border-radius:6px;height:4px;margin:0.5rem auto;max-width:200px;">
@@ -825,7 +825,7 @@ with aba2:
                     {st.session_state.dist_real:.2f} / {da:.2f} km
                 </p>
             </div>
-        """, unsafe_allow_html=True)
+        """)
 
         time.sleep(1)
         st.session_state.dist_real += vel_et / 3600
@@ -880,13 +880,13 @@ with aba3:
                 col1, col2 = st.columns(2)
                 # ── Substituído: usando st.metric em vez de HTML raw com grid ──
                 with col1:
-                    st.markdown('<p class="pt-label">Hoje</p>', unsafe_allow_html=True)
-                    st.markdown(f'<p class="pt-value">{len(df_h)} atividades · {km_h:.1f}km · {min_h}min</p>', unsafe_allow_html=True)
+                    st.html('<p class="pt-label">Hoje</p>')
+                    st.html(f'<p class="pt-value">{len(df_h)} atividades · {km_h:.1f}km · {min_h}min</p>')
                 with col2:
-                    st.markdown('<p class="pt-label">Esta semana</p>', unsafe_allow_html=True)
-                    st.markdown(f'<p class="pt-value">{len(df_s)} atividades · {km_s:.1f}km · {min_s}min</p>', unsafe_allow_html=True)
+                    st.html('<p class="pt-label">Esta semana</p>')
+                    st.html(f'<p class="pt-value">{len(df_s)} atividades · {km_s:.1f}km · {min_s}min</p>')
 
-            st.markdown(f'<p class="pt-section-title">Atividades — {meses_n[mes_sel]}</p>', unsafe_allow_html=True)
+            st.html(f'<p class="pt-section-title">Atividades — {meses_n[mes_sel]}</p>')
             if df_f.empty:
                 st.info(f"Nenhum registro em {meses_n[mes_sel]}.")
             else:
@@ -899,7 +899,7 @@ with aba3:
                     columns={"exercicios.nome":"Exercício","detalhes":"Detalhes"}),
                     use_container_width=True, hide_index=True)
 
-            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+            st.html("<div style='height:0.5rem'></div>")
             if st.button("Apagar histórico completo", use_container_width=True):
                 st.session_state["confirmar_historico"] = True
             if st.session_state.get("confirmar_historico"):
@@ -933,7 +933,7 @@ with aba4:
         dp = {}
 
     # ── Card de perfil: HTML completo em um único st.markdown ────────
-    st.markdown(f"""
+    st.html(f"""
         <div class="pt-card-accent">
             <p class="pt-label" style="margin-bottom:1rem;">Meu perfil</p>
             <div style="display:flex;flex-wrap:wrap;gap:1rem;">
@@ -955,7 +955,7 @@ with aba4:
                 </div>
             </div>
         </div>
-    """, unsafe_allow_html=True)
+    """)
 
     with st.expander("Editar dados pessoais"):
         with st.form("form_dados"):
