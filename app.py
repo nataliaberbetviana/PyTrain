@@ -15,7 +15,7 @@ st.markdown("""
     div.stButton > button:first-child { height: 3em; width: 100%; font-size: 18px; font-weight: bold; }
     .stNumberInput div div input { font-size: 20px !important; }
     </style>
-    """, unsafe_allow_stdio=True)
+    """, unsafe_allow_html=True)
 
 # --- CONEXÃO SUPABASE ---
 load_dotenv()
