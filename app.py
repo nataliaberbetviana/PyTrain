@@ -271,13 +271,24 @@ with aba1:
     if modo_treino == "Treino Livre":
         st.caption("TREINO LIVRE — adicione exercícios na hora")
 
+        # Delete treino livre via query param
+        _qp2 = st.query_params
+        _del_livre = _qp2.get("del_livre", "")
+        if _del_livre != "":
+            try:
+                i_del = int(_del_livre)
+                if 0 <= i_del < len(st.session_state.treino_livre_exs):
+                    st.session_state.treino_livre_exs.pop(i_del)
+                st.query_params.clear(); st.rerun()
+            except: st.query_params.clear()
+
         with st.form("form_livre"):
-            c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
-            tl_nome   = c1.text_input("Exercício", placeholder="Ex: Agachamento")
-            tl_peso   = c2.number_input("Kg",      value=0, min_value=0)
-            tl_series = c3.number_input("Séries",  value=3, min_value=1)
-            tl_reps   = c4.number_input("Reps",    value=12, min_value=1)
-            tl_nota   = st.text_input("Nota (opcional)", placeholder="Como se sentiu, observações...")
+            tl_nome   = st.text_input("Exercício", placeholder="Ex: Agachamento")
+            c_kg, c_s, c_r = st.columns(3)
+            tl_peso   = c_kg.number_input("Kg",     value=0, min_value=0)
+            tl_series = c_s.number_input("Séries",  value=3, min_value=1)
+            tl_reps   = c_r.number_input("Reps",    value=12, min_value=1)
+            tl_nota   = st.text_input("Nota (opcional)", placeholder="Observações...")
             if st.form_submit_button("➕ Adicionar", use_container_width=True):
                 if tl_nome.strip():
                     st.session_state.treino_livre_exs.append({
@@ -287,15 +298,16 @@ with aba1:
                     st.rerun()
 
         if st.session_state.treino_livre_exs:
-            st.caption(str(len(st.session_state.treino_livre_exs)) + " exercício(s) adicionado(s)")
+            st.caption(str(len(st.session_state.treino_livre_exs)) + " exercício(s)")
             for i, ex in enumerate(st.session_state.treino_livre_exs):
-                c1, c2 = st.columns([9, 1])
-                txt = f"**{i+1}. {ex['nome']}** · {ex['series']}×{ex['reps']} · {ex['peso']}kg"
-                if ex.get("nota"):
-                    txt += f" · _{ex['nota']}_"
-                c1.info(txt)
-                if c2.button("✕", key=f"del_livre_{i}"):
-                    st.session_state.treino_livre_exs.pop(i); st.rerun()
+                nota_txt = f"<div style='font-size:0.75rem;color:#aaa;margin-top:2px'>{ex['nota']}</div>" if ex.get("nota") else ""
+                st.markdown(f"""
+<div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:10px 14px;margin-bottom:6px;position:relative">
+  <a href="?del_livre={i}" style="position:absolute;top:8px;right:10px;color:#666;font-size:1rem;text-decoration:none">✕</a>
+  <div style="font-size:0.9rem;font-weight:700;color:#90caf9;padding-right:24px">{i+1}. {ex['nome']}</div>
+  <div style="font-size:0.8rem;color:#aaa">{ex['series']}×{ex['reps']} · {ex['peso']} kg</div>
+  {nota_txt}
+</div>""", unsafe_allow_html=True)
 
             st.write("")
             if st.button("✅ Salvar treino livre", use_container_width=True):
@@ -339,24 +351,22 @@ with aba1:
 
             if exs.data:
                 st.caption("SÉRIE " + serie + "  ·  " + str(len(exs.data)) + " exercícios")
+                # Checa delete via query param
+                _qp = st.query_params
+                _del_id = _qp.get("del_ex", "")
+                if _del_id:
+                    supabase.table("exercicios").delete().eq("id", _del_id).execute()
+                    st.query_params.clear(); st.rerun()
                 for i, ex in enumerate(exs.data, 1):
                     ult_det, ult_data = _ultima_carga(ex["id"])
-                    c1, c2 = st.columns([9, 1])
-                    with c1:
-                        txt = f"**{i}. {ex['nome']}** · {ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg"
-                        if ult_det:
-                            txt += f"\n\n_Última vez ({ult_data}): {ult_det}_"
-                        st.info(txt)
-                    with c2:
-                        # Alinha verticalmente com o card usando CSS
-                        st.markdown(
-                            "<style>div[data-testid='column']:last-child{"
-                            "display:flex;align-items:center;justify-content:center}"
-                            "</style>", unsafe_allow_html=True
-                        )
-                        if st.button("✕", key="del_" + str(ex["id"]), help="Remover", use_container_width=True):
-                            supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
-                            st.rerun()
+                    ult_txt = f"<div style='font-size:0.75rem;color:#a78bfa;margin-top:4px'>📌 {ult_data}: {ult_det}</div>" if ult_det else ""
+                    st.markdown(f"""
+<div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:12px 14px;margin-bottom:8px;position:relative">
+  <a href="?del_ex={ex['id']}" style="position:absolute;top:8px;right:10px;color:#666;font-size:1rem;text-decoration:none;line-height:1">✕</a>
+  <div style="font-size:0.95rem;font-weight:700;color:#90caf9;padding-right:24px">{i}. {ex['nome']}</div>
+  <div style="font-size:0.8rem;color:#aaa;margin-top:2px">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg</div>
+  {ult_txt}
+</div>""", unsafe_allow_html=True)
                 pode_iniciar = True
             else:
                 st.caption("SÉRIE " + serie + "  ·  VAZIA")
@@ -784,11 +794,25 @@ with aba3:
             km_f, min_f, kg_f = extrair_stats(df_f)
 
             st.caption(titulo_resumo)
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("🏋️ Atividades", len(df_f))
-            c2.metric("🏋️ Vol. Total",  f"{kg_f:,.0f} kg")
-            c3.metric("⏱ Tempo",        fmt_tempo(min_f))
-            c4.metric("🛣️ Distância",   str(round(km_f, 1)) + " km")
+            st.markdown(f"""
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
+  <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
+    <div style="font-size:0.65rem;color:#888">🏋️ ATIVIDADES</div>
+    <div style="font-size:1.4rem;font-weight:bold">{len(df_f)}</div>
+  </div>
+  <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
+    <div style="font-size:0.65rem;color:#888">💪 VOLUME</div>
+    <div style="font-size:1.4rem;font-weight:bold">{kg_f:,.0f} kg</div>
+  </div>
+  <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
+    <div style="font-size:0.65rem;color:#888">⏱ TEMPO</div>
+    <div style="font-size:1.4rem;font-weight:bold">{fmt_tempo(min_f)}</div>
+  </div>
+  <div style="background:#1a1a2e;border-radius:10px;padding:10px;text-align:center">
+    <div style="font-size:0.65rem;color:#888">🛣️ DISTÂNCIA</div>
+    <div style="font-size:1.4rem;font-weight:bold">{round(km_f,1)} km</div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
             if kg_ant == 0 and km_ant == 0 and min_ant == 0:
                 st.info("📅 Sem dados da semana passada para comparar ainda. Bora criar um histórico! 💪")
