@@ -9,6 +9,27 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 
+# ── Biblioteca interna ─────────────────────────────────────────────────────────
+from pytrain import (
+    # utils
+    FRASES, CONQUISTAS_DEF,
+    fmt_tempo, fmt_mm_ss, extrair_stats,
+    calcular_streak, frase_aba,
+    # auth
+    cookie_get, cookie_set,
+    fazer_login, restaurar_sessao, fazer_logout, verificar_perfil,
+    # db
+    registrar_historico, buscar_historico_completo,
+    ultima_carga, verificar_pr,
+    desbloquear_conquista, verificar_conquistas_treino,
+    # cardio
+    gerar_etapas, distancia_ciclo, calcular_estado_cardio,
+)
+
+import re as _re
+
+# ── Config ─────────────────────────────────────────────────────────────────────
+
 st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
 
 load_dotenv()
@@ -23,66 +44,20 @@ if not cookies.ready():
 fuso       = pytz.timezone("America/Sao_Paulo")
 hoje_agora = datetime.now(fuso)
 
-FRASES = [
-    "O único treino ruim é aquele que não aconteceu. 💜",
-    "Cada rep te aproxima da melhor versão de você. 🔥",
-    "Consistência bate perfeição sempre. 🏆",
-    "Seu corpo consegue. É sua mente que precisa ser convencida. 💪",
-    "Pequenos progressos ainda são progressos. ⚡",
-    "Você não vai se arrepender de ter treinado. Promessa. 🌟",
-    "A dor de hoje é a força de amanhã. 🚀",
-    "Foco. Disciplina. Resultado. 🎯",
-    "Mais um dia, mais um treino, mais uma conquista. ✨",
-    "Você é mais forte do que imagina. Sempre. 💫",
-    "Não espere motivação. Crie o hábito. 🔑",
-    "Cada gota de suor é um investimento em você mesma. 💧",
-    "O corpo alcança o que a mente acredita. 🧠",
-    "Descanso é parte do treino. Volta amanhã mais forte. 😴",
-    "Ninguém se arrepende de ter se exercitado. Nunca. 🙌",
-    "Sua única competição é quem você era ontem. 📈",
-    "Vai com tudo. Você merece sentir essa sensação no fim. 🎉",
-    "Treinar é um presente que você dá pro seu futuro. 🎁",
-    "Um passo de cada vez. O caminho se faz caminhando. 👣",
-    "Força não é o que você tem. É o que você descobre quando não aguenta mais. 💎",
-    "Hoje pode ser difícil. Amanhã vai valer a pena. ☀️",
-    "Seu esforço não some. Ele se acumula. 📊",
-    "Seja orgulhosa de cada treino. Você apareceu. Isso já é tudo. 🌸",
-    "A versão mais forte de você está sendo construída agora. 🏗️",
-    "Não precisa ser perfeito. Precisa ser constante. 🔄",
-    "Você já fez isso antes. Você faz de novo. 💥",
-    "Cada série é uma escolha por você mesma. ❤️",
-    "O cansaço passa. O orgulho fica. 🥇",
-    "Mais forte do que qualquer desculpa. 🚫",
-    "Você não treina pra impressionar ninguém. Treina pra se sentir incrível. 🌟",
-]
-
-CONQUISTAS_DEF = [
-    {"id": "primeiro_treino",   "emoji": "🌱", "nome": "Primeiro passo",      "desc": "Completou o primeiro treino"},
-    {"id": "treinos_5",         "emoji": "🔥", "nome": "Pegando fogo",         "desc": "5 treinos concluídos"},
-    {"id": "treinos_10",        "emoji": "💪", "nome": "Dez e contando",       "desc": "10 treinos concluídos"},
-    {"id": "treinos_25",        "emoji": "⚡", "nome": "Máquina",              "desc": "25 treinos concluídos"},
-    {"id": "treinos_50",        "emoji": "🚀", "nome": "Imparável",            "desc": "50 treinos concluídos"},
-    {"id": "treinos_100",       "emoji": "🏆", "nome": "Lendária",             "desc": "100 treinos concluídos"},
-    {"id": "streak_3",          "emoji": "📅", "nome": "3 dias seguidos",      "desc": "Treinou 3 dias consecutivos"},
-    {"id": "streak_7",          "emoji": "🗓️", "nome": "Semana cheia",         "desc": "Treinou 7 dias consecutivos"},
-    {"id": "streak_30",         "emoji": "🌙", "nome": "Mês invicta",          "desc": "Treinou 30 dias consecutivos"},
-    {"id": "pr_primeiro",       "emoji": "🎯", "nome": "Novo recorde!",        "desc": "Bateu o primeiro PR"},
-    {"id": "cardio_5km",        "emoji": "🏃", "nome": "5 km!",               "desc": "Correu 5 km em uma sessão"},
-    {"id": "cardio_10km",       "emoji": "🛣️", "nome": "10 km!",              "desc": "Correu 10 km em uma sessão"},
-    {"id": "peso_registrado",   "emoji": "⚖️", "nome": "Me pesando",           "desc": "Registrou o peso corporal"},
-    {"id": "medidas_registradas","emoji": "📏","nome": "Me medindo",           "desc": "Registrou as medidas corporais"},
-]
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("Variáveis de ambiente não encontradas.")
-    st.stop()
+# ── Supabase ───────────────────────────────────────────────────────────────────
 
 @st.cache_resource
 def get_supabase() -> Client:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        st.error("Variáveis de ambiente não encontradas.")
+        st.stop()
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
 supabase = get_supabase()
 
-defaults = {
+# ── Session state defaults ─────────────────────────────────────────────────────
+
+DEFAULTS = {
     "usuario": None, "access_token": None, "refresh_token": None,
     "treino_ativo": False, "serie_atual": "A", "indice_ex": 0, "inicio_timer": 0.0,
     "timer_descanso": 0, "timer_descanso_inicio": 0.0, "timer_descanso_ativo": False,
@@ -93,184 +68,36 @@ defaults = {
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
 }
-for k, v in defaults.items():
+for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── helpers ────────────────────────────────────────────────────────────────────
+# ── Helpers locais ─────────────────────────────────────────────────────────────
 
-def frase_aba(nome_aba: str) -> str:
-    if st.session_state.aba_anterior != nome_aba:
-        st.session_state.frase_idx = (st.session_state.frase_idx + 1) % len(FRASES)
-        st.session_state.aba_anterior = nome_aba
-    return FRASES[st.session_state.frase_idx]
+def uid() -> str:
+    return st.session_state.usuario["id"]
 
-def fmt_tempo(minutos: int) -> str:
-    if minutos >= 60:
-        h, m = divmod(minutos, 60)
-        return f"{h}h {m}min" if m else f"{h}h"
-    return f"{minutos}min"
+def _registrar(ex_id, detalhes, tipo="musculacao"):
+    registrar_historico(supabase, uid(), fuso, ex_id, detalhes, tipo)
 
-import re as _re
+def _desbloquear(conquista_id):
+    desbloquear_conquista(supabase, uid(), fuso, conquista_id)
 
-def extrair_stats(df):
-    if df.empty or "detalhes" not in df.columns:
-        return 0.0, 0, 0.0
-    km_total = 0.0; min_total = 0; kg_total = 0.0
-    for det in df["detalhes"].dropna():
-        det = str(det)
-        m = _re.search(r"([\d.]+)km", det)
-        if m: km_total += float(m.group(1))
-        for mm in _re.findall(r"(\d+)min", det):
-            min_total += int(mm)
-        m_kg = _re.search(r"([\d.]+)kg", det)
-        m_sets = _re.search(r"(\d+)x(\d+)", det)
-        if m_kg and m_sets:
-            kg_total += float(m_kg.group(1)) * int(m_sets.group(1)) * int(m_sets.group(2))
-    return km_total, min_total, kg_total
+def _ultima_carga(ex_id):
+    return ultima_carga(supabase, uid(), fuso, ex_id)
 
-def extrair_peso_total(df):
-    _, _, kg = extrair_stats(df)
-    return kg
+def _verificar_pr(ex_id, peso):
+    return verificar_pr(supabase, uid(), ex_id, peso)
+
+def _frase(nome_aba):
+    return frase_aba(nome_aba, st.session_state)
 
 def rodape():
     st.divider()
     st.caption("Dúvidas: nabevia@gmail.com")
 
-def _cookie_get(key):
-    try:
-        val = cookies[key]; return val if val else ""
-    except Exception: return ""
-
-def _cookie_set(key, val):
-    try: cookies[key] = val; cookies.save()
-    except Exception: pass
-
-# ── auth ───────────────────────────────────────────────────────────────────────
-
-def fazer_login(email, senha):
-    try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": senha})
-        st.session_state.access_token  = res.session.access_token
-        st.session_state.refresh_token = res.session.refresh_token
-        st.session_state.usuario = {
-            "id": res.user.id, "email": res.user.email,
-            "nome": res.user.user_metadata.get("nome", email.split("@")[0]),
-        }
-        _cookie_set("rt", res.session.refresh_token)
-        return True
-    except Exception:
-        st.error("Email ou senha incorretos.")
-        return False
-
-def restaurar_sessao():
-    if st.session_state.sessao_restaurada: return False
-    st.session_state.sessao_restaurada = True
-    rt = _cookie_get("rt")
-    if not rt: return False
-    try:
-        res = supabase.auth.refresh_session(rt)
-        if not res or not res.session or not res.user:
-            _cookie_set("rt", ""); return False
-        st.session_state.access_token  = res.session.access_token
-        st.session_state.refresh_token = res.session.refresh_token
-        st.session_state.usuario = {
-            "id": res.user.id, "email": res.user.email,
-            "nome": res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
-        }
-        _cookie_set("rt", res.session.refresh_token)
-        return True
-    except Exception:
-        _cookie_set("rt", ""); return False
-
-def fazer_logout():
-    _cookie_set("rt", "")
-    try: supabase.auth.sign_out()
-    except Exception: pass
-    for k in list(defaults.keys()):
-        st.session_state[k] = defaults[k]
-    st.rerun()
-
-def user_id():
-    return st.session_state.usuario["id"]
-
-def verificar_perfil():
-    try:
-        res = supabase.table("perfis").select("telefone,cidade").eq("user_id", user_id()).execute()
-        return bool(res.data and res.data[0].get("telefone") and res.data[0].get("cidade"))
-    except Exception: return False
-
-def registrar_historico(ex_id, detalhes, tipo="musculacao"):
-    supabase.table("historico_treinos").insert({
-        "user_id": user_id(), "exercicio_id": ex_id,
-        "data_execucao": datetime.now(fuso).isoformat(),
-        "detalhes": detalhes, "tipo": tipo,
-    }).execute()
-
-# ── conquistas ─────────────────────────────────────────────────────────────────
-
-def desbloquear_conquista(conquista_id: str):
-    try:
-        ex = supabase.table("conquistas").select("id").eq("user_id", user_id()).eq("conquista_id", conquista_id).execute()
-        if not ex.data:
-            supabase.table("conquistas").insert({
-                "user_id": user_id(), "conquista_id": conquista_id,
-                "desbloqueada_em": datetime.now(fuso).isoformat(),
-            }).execute()
-    except Exception: pass
-
-def verificar_conquistas_treino(total_treinos: int, streak: int):
-    if total_treinos >= 1:   desbloquear_conquista("primeiro_treino")
-    if total_treinos >= 5:   desbloquear_conquista("treinos_5")
-    if total_treinos >= 10:  desbloquear_conquista("treinos_10")
-    if total_treinos >= 25:  desbloquear_conquista("treinos_25")
-    if total_treinos >= 50:  desbloquear_conquista("treinos_50")
-    if total_treinos >= 100: desbloquear_conquista("treinos_100")
-    if streak >= 3:  desbloquear_conquista("streak_3")
-    if streak >= 7:  desbloquear_conquista("streak_7")
-    if streak >= 30: desbloquear_conquista("streak_30")
-
-def calcular_streak(df_hist):
-    if df_hist.empty: return 0
-    datas = sorted(df_hist["data_execucao"].dt.date.unique(), reverse=True)
-    streak = 0
-    ref = hoje_agora.date()
-    for d in datas:
-        if d == ref or d == ref - timedelta(days=1):
-            streak += 1
-            ref = d
-        else:
-            break
-    return streak
-
-# ── PR ─────────────────────────────────────────────────────────────────────────
-
-def verificar_pr(ex_id, peso_atual):
-    try:
-        res = supabase.table("historico_treinos").select("detalhes")\
-            .eq("user_id", user_id()).eq("exercicio_id", ex_id).execute()
-        if not res.data: return False
-        max_peso = 0.0
-        for row in res.data:
-            m = _re.search(r"([\d.]+)kg", str(row.get("detalhes","")))
-            if m: max_peso = max(max_peso, float(m.group(1)))
-        return peso_atual > max_peso
-    except Exception: return False
-
-def ultima_carga(ex_id):
-    try:
-        res = supabase.table("historico_treinos").select("detalhes,data_execucao")\
-            .eq("user_id", user_id()).eq("exercicio_id", ex_id)\
-            .order("data_execucao", desc=True).limit(1).execute()
-        if res.data:
-            det  = res.data[0]["detalhes"]
-            data = pd.to_datetime(res.data[0]["data_execucao"]).astimezone(fuso).strftime("%d/%m")
-            return det, data
-    except Exception: pass
-    return None, None
-
 # ═══════════════════════════════
-# TELAS PRE-LOGIN
+# TELAS PRÉ-LOGIN
 # ═══════════════════════════════
 
 def tela_login():
@@ -288,8 +115,10 @@ def tela_login():
             if entrar:
                 if email and senha:
                     with st.spinner(""):
-                        if fazer_login(email, senha): st.rerun()
-                else: st.warning("Preencha email e senha.")
+                        if fazer_login(supabase, cookies, email, senha):
+                            st.rerun()
+                else:
+                    st.warning("Preencha email e senha.")
         with tab_reset:
             st.caption("Enviaremos um link para redefinir sua senha.")
             with st.form("form_reset"):
@@ -300,8 +129,11 @@ def tela_login():
                     try:
                         supabase.auth.reset_password_email(email_reset.strip())
                         st.success("Link enviado para " + email_reset)
-                    except Exception as e: st.error("Erro: " + str(e))
-                else: st.warning("Digite um email válido.")
+                    except Exception as e:
+                        st.error("Erro: " + str(e))
+                else:
+                    st.warning("Digite um email válido.")
+
 
 def tela_definir_senha(access_token, refresh_token):
     col_l, col_c, col_r = st.columns([1, 2, 1])
@@ -313,8 +145,10 @@ def tela_definir_senha(access_token, refresh_token):
             conf = st.text_input("Confirmar senha", type="password")
             ok   = st.form_submit_button("Ativar conta", use_container_width=True)
         if ok:
-            if not nova or len(nova) < 8: st.warning("Mínimo 8 caracteres."); return
-            if nova != conf: st.error("Senhas não coincidem."); return
+            if not nova or len(nova) < 8:
+                st.warning("Mínimo 8 caracteres."); return
+            if nova != conf:
+                st.error("Senhas não coincidem."); return
             try:
                 supabase.auth.set_session(access_token, refresh_token)
                 supabase.auth.update_user({"password": nova})
@@ -322,15 +156,18 @@ def tela_definir_senha(access_token, refresh_token):
                 st.session_state.access_token  = access_token
                 st.session_state.refresh_token = refresh_token
                 st.session_state.usuario = {
-                    "id": user.user.id, "email": user.user.email,
-                    "nome": user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
+                    "id":    user.user.id,
+                    "email": user.user.email,
+                    "nome":  user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
                 }
-                _cookie_set("rt", refresh_token)
+                cookie_set(cookies, "rt", refresh_token)
                 st.success("Conta ativada!")
                 time.sleep(0.8)
                 st.query_params.clear()
                 st.rerun()
-            except Exception as e: st.error("Erro: " + str(e))
+            except Exception as e:
+                st.error("Erro: " + str(e))
+
 
 def tela_completar_perfil():
     col_l, col_c, col_r = st.columns([1, 2, 1])
@@ -353,18 +190,19 @@ def tela_completar_perfil():
                     supabase.auth.update_user({"data": {"nome": nome_p.strip()}})
                     st.session_state.usuario["nome"] = nome_p.strip()
                     supabase.table("perfis").upsert({
-                        "user_id": user_id(), "nome": nome_p.strip(),
+                        "user_id":  uid(), "nome":     nome_p.strip(),
                         "telefone": telefone.strip(), "cidade": cidade.strip(), "estado": estado,
                     }).execute()
                     st.session_state.perfil_completo = True
                     st.rerun()
-                except Exception as e: st.error("Erro: " + str(e))
+                except Exception as e:
+                    st.error("Erro: " + str(e))
 
 # ═══════════════════════════════
 # FLUXO PRINCIPAL
 # ═══════════════════════════════
 
-qp = st.query_params
+qp    = st.query_params
 url_at = qp.get("access_token")
 url_rt = qp.get("refresh_token")
 
@@ -373,13 +211,14 @@ if url_at and url_rt and not st.session_state.usuario:
     st.stop()
 
 if not st.session_state.usuario and not st.session_state.sessao_restaurada:
-    if restaurar_sessao(): st.rerun()
+    if restaurar_sessao(supabase, cookies):
+        st.rerun()
 
 if not st.session_state.usuario:
     tela_login(); st.stop()
 
 if st.session_state.perfil_completo is None:
-    st.session_state.perfil_completo = verificar_perfil()
+    st.session_state.perfil_completo = verificar_perfil(supabase, uid())
 
 if not st.session_state.perfil_completo:
     tela_completar_perfil(); st.stop()
@@ -394,8 +233,8 @@ saudacao     = "Bom dia" if hora < 12 else "Boa tarde" if hora < 18 else "Boa no
 emoji_hora   = "🌅" if hora < 12 else "☀️" if hora < 18 else "🌙"
 
 try:
-    r = supabase.table("historico_treinos").select("data_execucao").eq("user_id", user_id())\
-        .gte("data_execucao", hoje_agora.replace(day=1,hour=0,minute=0,second=0).isoformat()).execute()
+    r = supabase.table("historico_treinos").select("data_execucao").eq("user_id", uid())\
+        .gte("data_execucao", hoje_agora.replace(day=1, hour=0, minute=0, second=0).isoformat()).execute()
     treinos_mes = len(r.data) if r.data else 0
 except Exception:
     treinos_mes = 0
@@ -411,7 +250,7 @@ with col_titulo:
     st.caption(msg_treinos)
 with col_sair:
     if st.button("Sair", key="btn_sair", use_container_width=True):
-        fazer_logout()
+        fazer_logout(supabase, cookies, DEFAULTS)
 
 aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
     "🚀 Treino", "🏃 Cardio", "📊 Painel", "📈 Evolução", "🏆 Conquistas", "⚙️ Perfil"
@@ -422,20 +261,20 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 # ═══════════════════════════════
 
 with aba1:
-    st.info("✨ " + frase_aba("treino"))
+    st.info("✨ " + _frase("treino"))
 
     modo_treino = st.radio("Modo", ["Série", "Treino Livre"], horizontal=True, label_visibility="collapsed")
 
-    # ── TREINO LIVRE ──────────────────────────────────────────────────────────
+    # ── Treino Livre ──────────────────────────────────────────────────────────
     if modo_treino == "Treino Livre":
         st.caption("TREINO LIVRE — adicione exercícios na hora")
 
         with st.form("form_livre"):
-            c1, c2, c3, c4 = st.columns([3,1,1,1])
+            c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
             tl_nome   = c1.text_input("Exercício", placeholder="Ex: Agachamento")
-            tl_peso   = c2.number_input("Kg", value=0, min_value=0)
-            tl_series = c3.number_input("Séries", value=3, min_value=1)
-            tl_reps   = c4.number_input("Reps", value=12, min_value=1)
+            tl_peso   = c2.number_input("Kg",      value=0, min_value=0)
+            tl_series = c3.number_input("Séries",  value=3, min_value=1)
+            tl_reps   = c4.number_input("Reps",    value=12, min_value=1)
             tl_nota   = st.text_input("Nota (opcional)", placeholder="Como se sentiu, observações...")
             if st.form_submit_button("➕ Adicionar", use_container_width=True):
                 if tl_nome.strip():
@@ -448,9 +287,10 @@ with aba1:
         if st.session_state.treino_livre_exs:
             st.caption(str(len(st.session_state.treino_livre_exs)) + " exercício(s) adicionado(s)")
             for i, ex in enumerate(st.session_state.treino_livre_exs):
-                c1, c2 = st.columns([9,1])
+                c1, c2 = st.columns([9, 1])
                 txt = f"**{i+1}. {ex['nome']}** · {ex['series']}×{ex['reps']} · {ex['peso']}kg"
-                if ex.get("nota"): txt += f" · _{ex['nota']}_"
+                if ex.get("nota"):
+                    txt += f" · _{ex['nota']}_"
                 c1.info(txt)
                 if c2.button("✕", key=f"del_livre_{i}"):
                     st.session_state.treino_livre_exs.pop(i); st.rerun()
@@ -459,21 +299,21 @@ with aba1:
             if st.button("✅ Salvar treino livre", use_container_width=True):
                 for ex in st.session_state.treino_livre_exs:
                     det = f"{ex['peso']}kg | {ex['series']}x{ex['reps']}"
-                    if ex.get("nota"): det += f" | {ex['nota']}"
-                    registrar_historico(None, det, tipo="musculacao")
+                    if ex.get("nota"):
+                        det += f" | {ex['nota']}"
+                    _registrar(None, det, tipo="musculacao")
                 st.session_state.treino_livre_exs = []
                 st.success("✅ Treino salvo!")
                 st.balloons()
         else:
             st.caption("Nenhum exercício adicionado ainda.")
 
-    # ── TREINO POR SÉRIE ──────────────────────────────────────────────────────
+    # ── Treino por Série ──────────────────────────────────────────────────────
     else:
         if not st.session_state.treino_ativo:
             serie = st.radio("Série", ["A", "B", "C", "D"], horizontal=True, label_visibility="collapsed")
-
-            exs = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
-                .eq("serie_tipo", serie).eq("user_id", user_id()).execute()
+            exs   = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
+                .eq("serie_tipo", serie).eq("user_id", uid()).execute()
 
             with st.expander("📋 Clonar esta série em outra"):
                 outras = [s for s in ["A","B","C","D"] if s != serie]
@@ -483,12 +323,12 @@ with aba1:
                         for ex in exs.data:
                             dup = supabase.table("exercicios").select("id")\
                                 .ilike("nome", ex["nome"]).eq("serie_tipo", dest)\
-                                .eq("user_id", user_id()).execute()
+                                .eq("user_id", uid()).execute()
                             if not dup.data:
                                 supabase.table("exercicios").insert({
-                                    "user_id": user_id(), "nome": ex["nome"],
-                                    "serie_tipo": dest, "peso_kg": ex["peso_kg"],
-                                    "series": ex["series"], "repeticoes": ex["repeticoes"],
+                                    "user_id":    uid(), "nome": ex["nome"],
+                                    "serie_tipo": dest,  "peso_kg": ex["peso_kg"],
+                                    "series":     ex["series"], "repeticoes": ex["repeticoes"],
                                 }).execute()
                         st.success(f"✅ Série {serie} clonada para Série {dest}!")
                         st.rerun()
@@ -498,7 +338,7 @@ with aba1:
             if exs.data:
                 st.caption("SÉRIE " + serie + "  ·  " + str(len(exs.data)) + " exercícios")
                 for i, ex in enumerate(exs.data, 1):
-                    ult_det, ult_data = ultima_carga(ex["id"])
+                    ult_det, ult_data = _ultima_carga(ex["id"])
                     c1, c2 = st.columns([8, 1])
                     with c1:
                         txt = f"**{i}. {ex['nome']}** · {ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg"
@@ -526,15 +366,15 @@ with aba1:
                         if r_nome.strip():
                             dup = supabase.table("exercicios").select("id")\
                                 .ilike("nome", r_nome.strip()).eq("serie_tipo", serie)\
-                                .eq("user_id", user_id()).execute()
+                                .eq("user_id", uid()).execute()
                             if dup.data:
                                 st.warning("'" + r_nome + "' já existe na Série " + serie)
                             else:
                                 try:
                                     supabase.table("exercicios").insert({
-                                        "user_id": user_id(), "nome": r_nome.strip(),
+                                        "user_id":    uid(), "nome": r_nome.strip(),
                                         "serie_tipo": serie, "peso_kg": r_peso,
-                                        "series": r_series, "repeticoes": r_reps,
+                                        "series":     r_series, "repeticoes": r_reps,
                                     }).execute()
                                     st.success("✅ '" + r_nome + "' adicionado!")
                                     st.rerun()
@@ -553,12 +393,13 @@ with aba1:
                 st.rerun()
 
         else:
-            res = supabase.table("exercicios").select("*")\
-                .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", user_id()).execute()
+            res   = supabase.table("exercicios").select("*")\
+                .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", uid()).execute()
 
             if not res.data:
                 st.warning("Nenhum exercício nesta série.")
-                if st.button("Voltar"): st.session_state.treino_ativo = False; st.rerun()
+                if st.button("Voltar"):
+                    st.session_state.treino_ativo = False; st.rerun()
             else:
                 total = len(res.data)
                 idx   = st.session_state.indice_ex
@@ -566,12 +407,16 @@ with aba1:
                 if idx >= total:
                     try:
                         hist_all = supabase.table("historico_treinos").select("data_execucao")\
-                            .eq("user_id", user_id()).execute()
+                            .eq("user_id", uid()).execute()
                         df_all = pd.json_normalize(hist_all.data) if hist_all.data else pd.DataFrame()
                         if not df_all.empty:
                             df_all["data_execucao"] = pd.to_datetime(df_all["data_execucao"])
-                        verificar_conquistas_treino(len(df_all), calcular_streak(df_all))
-                    except Exception: pass
+                        verificar_conquistas_treino(
+                            supabase, uid(), fuso,
+                            len(df_all), calcular_streak(df_all, hoje_agora.date())
+                        )
+                    except Exception:
+                        pass
                     st.session_state.treino_ativo = False
                     st.balloons()
                     st.success("🎉 Treino concluído! Você arrasou hoje!")
@@ -585,7 +430,7 @@ with aba1:
                 st.progress(pct)
                 st.subheader("💪 " + ex["nome"])
 
-                ult_det, ult_data = ultima_carga(ex["id"])
+                ult_det, ult_data = _ultima_carga(ex["id"])
                 if ult_det:
                     st.caption(f"📌 Última vez ({ult_data}): {ult_det}")
 
@@ -602,16 +447,14 @@ with aba1:
 
                 st.divider()
                 c_t1, c_t2, c_t3 = st.columns(3)
-                c_t1.metric("⏱ Tempo", str(m_e).zfill(2) + ":" + str(sg).zfill(2))
+                c_t1.metric("⏱ Tempo",      str(m_e).zfill(2) + ":" + str(sg).zfill(2))
                 c_t2.metric("🔢 Exercício", str(idx+1) + "/" + str(total))
-                c_t3.metric("📋 Série", st.session_state.serie_atual)
+                c_t3.metric("📋 Série",     st.session_state.serie_atual)
 
-                # ── Timer de descanso ──────────────────────────────────────────
                 st.divider()
                 st.caption("⏳ TIMER DE DESCANSO")
                 tc1, tc2, tc3, tc4 = st.columns(4)
-                botoes_rest = [(tc1, 30, "30s"), (tc2, 60, "1min"), (tc3, 90, "1:30"), (tc4, 120, "2min")]
-                for col, seg, label in botoes_rest:
+                for col, seg, label in [(tc1,30,"30s"),(tc2,60,"1min"),(tc3,90,"1:30"),(tc4,120,"2min")]:
                     if col.button(label, key=f"rest_{seg}_{idx}"):
                         st.session_state.timer_descanso        = seg
                         st.session_state.timer_descanso_inicio = time.time()
@@ -635,14 +478,15 @@ with aba1:
                 st.write("")
                 c_prox, c_cancel = st.columns(2)
                 if c_prox.button("✅  Próximo →", use_container_width=True):
-                    is_pr = verificar_pr(ex["id"], p)
+                    is_pr = _verificar_pr(ex["id"], p)
                     det   = str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min"
-                    if nota_ex: det += " | " + nota_ex
+                    if nota_ex:
+                        det += " | " + nota_ex
                     if is_pr:
                         det += " | 🏆 PR"
-                        desbloquear_conquista("pr_primeiro")
+                        _desbloquear("pr_primeiro")
                         st.success("🏆 NOVO RECORDE PESSOAL!")
-                    registrar_historico(ex["id"], det)
+                    _registrar(ex["id"], det)
                     supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
                     st.session_state.indice_ex += 1
                     st.session_state.timer_descanso_ativo = False
@@ -661,20 +505,20 @@ with aba1:
 
 with aba2:
     if not st.session_state.cardio_ativo:
-        st.info("🏃 " + frase_aba("cardio"))
+        st.info("🏃 " + _frase("cardio"))
 
         try:
             ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(
                 hour=0, minute=0, second=0, microsecond=0)
             res_sem = supabase.table("historico_treinos").select("detalhes")\
-                .eq("user_id", user_id()).gte("data_execucao", ini_sem.isoformat()).execute()
+                .eq("user_id", uid()).gte("data_execucao", ini_sem.isoformat()).execute()
             df_sem_c = pd.json_normalize(res_sem.data) if res_sem.data else pd.DataFrame()
             km_sem, _, _ = extrair_stats(df_sem_c)
         except Exception:
             km_sem = 0.0
 
         with st.expander("🎯 Meta semanal de distância"):
-            meta_km = st.number_input("Meta em km por semana", value=20.0, step=1.0, min_value=1.0, key="meta_cardio")
+            meta_km  = st.number_input("Meta em km por semana", value=20.0, step=1.0, min_value=1.0, key="meta_cardio")
             pct_meta = min(int((km_sem / meta_km) * 100), 100)
             st.progress(pct_meta)
             st.caption(f"{round(km_sem,1)} km de {meta_km} km esta semana ({pct_meta}%)")
@@ -685,108 +529,88 @@ with aba2:
         modo = st.radio("Modo", ["Distância (km)", "Número de ciclos"], horizontal=True, label_visibility="collapsed")
 
         c1, c2 = st.columns(2)
-        t_anda  = c1.number_input("Min. Andando",        value=5.0, step=1.0)
+        t_anda  = c1.number_input("Min. Andando",         value=5.0, step=1.0)
         v_anda  = c1.number_input("Vel. Andando (km/h)",  value=5.0, step=0.5)
-        t_corre = c2.number_input("Min. Correndo",        value=2.0, step=1.0)
+        t_corre = c2.number_input("Min. Correndo",         value=2.0, step=1.0)
         v_corre = c2.number_input("Vel. Correndo (km/h)", value=9.0, step=0.5)
 
-        dist_ciclo = (v_anda*(t_anda/60)) + (v_corre*(t_corre/60))
-        if dist_ciclo <= 0:
+        dist_ciclo_val = distancia_ciclo(t_anda, v_anda, t_corre, v_corre)
+        if dist_ciclo_val <= 0:
             st.warning("Verifique velocidades e tempos.")
             st.stop()
 
         if modo == "Distância (km)":
             dist_alvo = st.number_input("Meta em km", value=5.0, step=0.5, min_value=0.1)
-            n_ciclos  = max(1, round(dist_alvo / dist_ciclo))
+            n_ciclos  = max(1, round(dist_alvo / dist_ciclo_val))
         else:
             n_ciclos  = st.number_input("Ciclos", value=1, min_value=1, step=1)
-            dist_alvo = dist_ciclo * n_ciclos
+            dist_alvo = dist_ciclo_val * n_ciclos
 
-        km_est  = dist_ciclo * n_ciclos
+        km_est  = dist_ciclo_val * n_ciclos
         min_est = int(n_ciclos * (t_anda + t_corre))
-        st.info("📊  " + str(n_ciclos) + " ciclos  ·  ~" + str(round(km_est,2)) + " km  ·  ~" + fmt_tempo(min_est))
+        st.info("📊  " + str(n_ciclos) + " ciclos  ·  ~" + str(round(km_est, 2)) + " km  ·  ~" + fmt_tempo(min_est))
 
         st.write("")
         if st.button("🏃  Iniciar cardio", use_container_width=True):
-            etapas = []
-            for i in range(int(n_ciclos)):
-                etapas += [
-                    ("Caminhada " + str(i+1) + "/" + str(int(n_ciclos)), int(t_anda*60), v_anda),
-                    ("Corrida "   + str(i+1) + "/" + str(int(n_ciclos)), int(t_corre*60), v_corre),
-                ]
+            etapas = gerar_etapas(n_ciclos, t_anda, v_anda, t_corre, v_corre)
             st.session_state.update({
-                "cardio_ativo": True, "cardio_salvo": False,
-                "dist_real": 0.0, "t_cardio_start": time.time(),
-                "params_cardio": {"etapas": etapas, "dist_alvo": dist_alvo,
-                                  "etapa_idx": 0, "seg_restantes": etapas[0][1]},
+                "cardio_ativo":  True,
+                "cardio_salvo":  False,
+                "dist_real":     0.0,
+                "t_cardio_start": time.time(),
+                "params_cardio": {
+                    "etapas":    etapas,
+                    "dist_alvo": dist_alvo,
+                    "etapa_idx": 0,
+                    "etapa_start": time.time(),
+                },
             })
             st.rerun()
+
     else:
         p  = st.session_state.params_cardio
-        et = p["etapas"]; da = p["dist_alvo"]; idx = p["etapa_idx"]
+        da = p["dist_alvo"]
 
         if st.button("⏹  Encerrar e salvar", use_container_width=True):
             if not st.session_state.cardio_salvo:
-                tf = int((time.time()-st.session_state.t_cardio_start)/60)
+                tf     = int((time.time() - st.session_state.t_cardio_start) / 60)
                 dist_r = round(st.session_state.dist_real, 2)
-                registrar_historico(None, "Interrompido: " + str(dist_r) + "km | " + str(tf) + "min", tipo="cardio")
+                _registrar(None, f"Interrompido: {dist_r}km | {tf}min", tipo="cardio")
                 st.session_state.cardio_salvo = True
-                if dist_r >= 5:  desbloquear_conquista("cardio_5km")
-                if dist_r >= 10: desbloquear_conquista("cardio_10km")
-            st.session_state.cardio_ativo = False; st.rerun()
+                if dist_r >= 5:  _desbloquear("cardio_5km")
+                if dist_r >= 10: _desbloquear("cardio_10km")
+            st.session_state.cardio_ativo = False
+            st.rerun()
 
-        if idx >= len(et):
+        # ── Timer baseado em tempo real ────────────────────────────────────────
+        estado = calcular_estado_cardio(p)
+        st.session_state.params_cardio = estado["params"]
+        st.session_state.dist_real     = estado["dist_real"]
+
+        if estado["concluido"]:
             if not st.session_state.cardio_salvo:
-                tf = int((time.time()-st.session_state.t_cardio_start)/60)
-                dist_r = round(st.session_state.dist_real, 2)
-                registrar_historico(None, "Concluído: " + str(dist_r) + "km | " + str(tf) + "min", tipo="cardio")
+                tf     = int((time.time() - st.session_state.t_cardio_start) / 60)
+                dist_r = round(estado["dist_real"], 2)
+                _registrar(None, f"Concluído: {dist_r}km | {tf}min", tipo="cardio")
                 st.session_state.cardio_salvo = True
-                if dist_r >= 5:  desbloquear_conquista("cardio_5km")
-                if dist_r >= 10: desbloquear_conquista("cardio_10km")
+                if dist_r >= 5:  _desbloquear("cardio_5km")
+                if dist_r >= 10: _desbloquear("cardio_10km")
             st.session_state.cardio_ativo = False
             st.balloons()
             st.success("🎉 Cardio concluído! Você foi incrível!")
             st.info("💜 " + random.choice(FRASES))
             st.rerun()
 
-        nome_et, dur_et, vel_et = et[idx]
+        pct = int((estado["dist_real"] / da) * 100) if da > 0 else 0
 
-        # Timer baseado em tempo real, não em contagem de reruns
-        if "etapa_start" not in p:
-            p["etapa_start"] = time.time()
-
-        agora = time.time()
-        decorrido_etapa = agora - p["etapa_start"]
-        seg = max(0, int(dur_et - decorrido_etapa))
-        m, s = divmod(seg, 60)
-
-        # Distância real calculada com base no tempo decorrido por etapa
-        dist_calc = 0.0
-        for i_e, (_, dur_e, vel_e) in enumerate(et):
-            if i_e < idx:
-                dist_calc += vel_e * (dur_e / 3600)
-            else:
-                frac = min(decorrido_etapa, dur_e)
-                dist_calc += vel_e * (frac / 3600)
-                break
-        st.session_state.dist_real = dist_calc
-
-        pct = int((dist_calc / da) * 100) if da > 0 else 0
-
-        st.subheader("🏃 " + nome_et)
+        st.subheader("🏃 " + estado["nome_etapa"])
         st.progress(min(pct, 100))
         st.divider()
         c1, c2 = st.columns(2)
-        c1.metric("⏱ Restante", str(m).zfill(2) + ":" + str(s).zfill(2))
-        c2.metric("📍 Distância", str(round(dist_calc, 2)) + " / " + str(round(da, 2)) + " km")
+        c1.metric("⏱ Restante",  fmt_mm_ss(estado["seg_restantes"]))
+        c2.metric("📍 Distância", f"{round(estado['dist_real'], 2)} / {round(da, 2)} km")
         st.divider()
 
-        # Avança etapa quando o tempo real se esgotou
-        if decorrido_etapa >= dur_et:
-            p["etapa_idx"] += 1
-            p["etapa_start"] = time.time()
-
-        st.session_state.params_cardio = p
         time.sleep(1)
         st.rerun()
 
@@ -797,10 +621,9 @@ with aba2:
 # ═══════════════════════════════
 
 with aba3:
-    st.info("📊 " + frase_aba("painel"))
+    st.info("📊 " + _frase("painel"))
     try:
-        res_h = supabase.table("historico_treinos").select("*,exercicios(nome)")\
-            .eq("user_id", user_id()).order("data_execucao", desc=True).execute()
+        res_h = buscar_historico_completo(supabase, uid())
 
         if not res_h.data:
             st.info("📭 Nenhum treino registrado ainda. Bora começar!")
@@ -818,11 +641,6 @@ with aba3:
             km_a,  min_a,  kg_a   = extrair_stats(df_sem_atual)
             km_ant, min_ant, kg_ant = extrair_stats(df_sem_ant)
 
-            def delta_str(atual, anterior, fmt="{:.0f}"):
-                if anterior == 0: return None
-                diff = atual - anterior
-                return ("+" if diff >= 0 else "") + fmt.format(diff)
-
             meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
                        7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 
@@ -839,31 +657,31 @@ with aba3:
 
             if so_hoje:
                 ini_sel = fim_sel = hoje_agora.date()
-                fim_dt = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
-                ini_dt = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
-                df_f = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
+                fim_dt  = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
+                ini_dt  = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
+                df_f    = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
                 titulo_resumo = "RESUMO — HOJE, " + hoje_agora.strftime("%d/%m/%Y")
 
             elif modo_filtro == "Mês":
-                anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
-                c1, c2 = st.columns(2)
+                anos    = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
+                c1, c2  = st.columns(2)
                 ano_sel = c1.selectbox("Ano", anos)
                 meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
                 mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
-                df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
+                df_f    = df[(df["data_execucao"].dt.month==mes_sel) & (df["data_execucao"].dt.year==ano_sel)]
                 titulo_resumo = "RESUMO — " + meses_n[mes_sel].upper()
 
             else:
-                c1, c2 = st.columns(2)
+                c1, c2      = st.columns(2)
                 ini_default = max(data_min, data_max - timedelta(days=6))
-                ini_sel = c1.date_input("De", value=ini_default, min_value=data_min, max_value=data_max, key="dt_ini")
-                fim_sel = c2.date_input("Até", value=data_max,   min_value=data_min, max_value=data_max, key="dt_fim")
+                ini_sel     = c1.date_input("De",   value=ini_default, min_value=data_min, max_value=data_max, key="dt_ini")
+                fim_sel     = c2.date_input("Até",  value=data_max,    min_value=data_min, max_value=data_max, key="dt_fim")
                 if ini_sel > fim_sel:
                     st.warning("A data inicial deve ser anterior à final.")
                     ini_sel = fim_sel
                 fim_dt = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
                 ini_dt = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
-                df_f = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
+                df_f   = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
                 titulo_resumo = "RESUMO — " + (ini_sel.strftime("%d/%m/%Y") if ini_sel == fim_sel
                                                else ini_sel.strftime("%d/%m") + " a " + fim_sel.strftime("%d/%m/%Y"))
 
@@ -873,26 +691,25 @@ with aba3:
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("🏋️ Atividades", len(df_f))
             c2.metric("🏋️ Vol. Total",  f"{kg_f:,.0f} kg")
-            c3.metric("⏱ Tempo",       fmt_tempo(min_f))
-            c4.metric("🛣️ Distância",  str(round(km_f,1)) + " km")
+            c3.metric("⏱ Tempo",        fmt_tempo(min_f))
+            c4.metric("🛣️ Distância",   str(round(km_f, 1)) + " km")
 
-            # Comparativo semanal
             if kg_ant == 0 and km_ant == 0 and min_ant == 0:
                 st.info("📅 Sem dados da semana passada para comparar ainda. Bora criar um histórico! 💪")
             else:
                 partes = []
                 if kg_ant > 0:
                     diff_kg = kg_ant - kg_a
-                    if diff_kg > 0:   partes.append(f"**{diff_kg:,.0f} kg** de volume de treino")
-                    elif diff_kg < 0: partes.append(f"~~peso~~ já superou em **{abs(diff_kg):,.0f} kg** 🔥")
+                    if diff_kg > 0:    partes.append(f"**{diff_kg:,.0f} kg** de volume de treino")
+                    elif diff_kg < 0:  partes.append(f"~~peso~~ já superou em **{abs(diff_kg):,.0f} kg** 🔥")
                 if min_ant > 0:
                     diff_min = min_ant - min_a
                     if diff_min > 0:   partes.append(f"**{fmt_tempo(diff_min)}** de tempo ativo")
                     elif diff_min < 0: partes.append(f"~~tempo~~ já superou em **{fmt_tempo(abs(diff_min))}** 🔥")
                 if km_ant > 0:
                     diff_km = round(km_ant - km_a, 1)
-                    if diff_km > 0:   partes.append(f"**{diff_km} km** de distância")
-                    elif diff_km < 0: partes.append(f"~~distância~~ já superou em **{abs(diff_km)} km** 🔥")
+                    if diff_km > 0:    partes.append(f"**{diff_km} km** de distância")
+                    elif diff_km < 0:  partes.append(f"~~distância~~ já superou em **{abs(diff_km)} km** 🔥")
 
                 faltam  = [p for p in partes if not p.startswith("~~")]
                 superou = [p for p in partes if p.startswith("~~")]
@@ -903,7 +720,7 @@ with aba3:
                 else:
                     msg = "💡 Ainda falta " + ", ".join(faltam) + " pra se equiparar à semana passada."
                     if superou:
-                        msg += " Mas " + ", ".join(s.replace("~~","") for s in superou) + "!"
+                        msg += " Mas " + ", ".join(s.replace("~~", "") for s in superou) + "!"
                     st.warning(msg)
 
             st.caption("ATIVIDADES — " + titulo_resumo.replace("RESUMO — ", ""))
@@ -911,7 +728,8 @@ with aba3:
                 st.info("Nenhum registro neste período.")
             else:
                 df_show = df_f.copy()
-                if "exercicios.nome" not in df_show.columns: df_show["exercicios.nome"] = "Cardio"
+                if "exercicios.nome" not in df_show.columns:
+                    df_show["exercicios.nome"] = "Cardio"
                 df_show["exercicios.nome"] = df_show["exercicios.nome"].fillna("Cardio")
                 df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m %H:%M")
                 st.dataframe(df_show[["Data","exercicios.nome","detalhes"]].rename(
@@ -931,7 +749,7 @@ with aba3:
                 st.error("⚠️ Esta ação apaga todo o histórico permanentemente.")
                 c1, c2 = st.columns(2)
                 if c1.button("Sim, apagar tudo"):
-                    supabase.table("historico_treinos").delete().eq("user_id", user_id()).execute()
+                    supabase.table("historico_treinos").delete().eq("user_id", uid()).execute()
                     st.session_state["confirmar_historico"] = False
                     st.success("Histórico apagado."); st.rerun()
                 if c2.button("Cancelar"):
@@ -947,23 +765,23 @@ with aba3:
 # ═══════════════════════════════
 
 with aba4:
-    st.info("📈 " + frase_aba("evolucao"))
+    st.info("📈 " + _frase("evolucao"))
 
     sub1, sub2, sub3 = st.tabs(["🏋️ Progressão por exercício", "⚖️ Peso corporal", "📏 Medidas"])
 
     with sub1:
         try:
             exs_todos = supabase.table("exercicios").select("id,nome,serie_tipo")\
-                .eq("user_id", user_id()).order("nome").execute()
+                .eq("user_id", uid()).order("nome").execute()
             if not exs_todos.data:
                 st.info("Nenhum exercício cadastrado ainda.")
             else:
-                nomes_ex = [f"{e['nome']} (Série {e['serie_tipo']})" for e in exs_todos.data]
-                sel      = st.selectbox("Escolha o exercício", nomes_ex)
-                ex_id_sel = exs_todos.data[nomes_ex.index(sel)]["id"]
+                nomes_ex   = [f"{e['nome']} (Série {e['serie_tipo']})" for e in exs_todos.data]
+                sel        = st.selectbox("Escolha o exercício", nomes_ex)
+                ex_id_sel  = exs_todos.data[nomes_ex.index(sel)]["id"]
 
                 hist_ex = supabase.table("historico_treinos").select("data_execucao,detalhes")\
-                    .eq("user_id", user_id()).eq("exercicio_id", ex_id_sel)\
+                    .eq("user_id", uid()).eq("exercicio_id", ex_id_sel)\
                     .order("data_execucao").execute()
 
                 if not hist_ex.data:
@@ -971,15 +789,15 @@ with aba4:
                 else:
                     rows = []
                     for h in hist_ex.data:
-                        m_kg = _re.search(r"([\d.]+)kg", str(h.get("detalhes","")))
+                        m_kg = _re.search(r"([\d.]+)kg", str(h.get("detalhes", "")))
                         if m_kg:
                             rows.append({
-                                "Data": pd.to_datetime(h["data_execucao"]).astimezone(fuso).strftime("%d/%m/%y"),
+                                "Data":     pd.to_datetime(h["data_execucao"]).astimezone(fuso).strftime("%d/%m/%y"),
                                 "Peso (kg)": float(m_kg.group(1)),
-                                "PR": "🏆" if "PR" in str(h.get("detalhes","")) else "",
+                                "PR":        "🏆" if "PR" in str(h.get("detalhes","")) else "",
                             })
                     if rows:
-                        df_ex = pd.DataFrame(rows)
+                        df_ex  = pd.DataFrame(rows)
                         st.line_chart(df_ex.set_index("Data")["Peso (kg)"], use_container_width=True)
                         pr_max = df_ex["Peso (kg)"].max()
                         st.caption(f"🏆 Recorde pessoal: **{pr_max} kg**  ·  {len(df_ex)} registros")
@@ -990,23 +808,24 @@ with aba4:
     with sub2:
         try:
             with st.form("form_peso"):
-                c1, c2 = st.columns(2)
+                c1, c2    = st.columns(2)
                 peso_val  = c1.number_input("Peso (kg)", value=60.0, step=0.1, min_value=20.0, max_value=300.0)
                 peso_data = c2.date_input("Data", value=hoje_agora.date())
                 peso_obs  = st.text_input("Observação (opcional)", placeholder="Em jejum, após treino...")
                 if st.form_submit_button("Registrar peso", use_container_width=True):
                     supabase.table("peso_corporal").insert({
-                        "user_id": user_id(), "peso_kg": peso_val,
-                        "data": peso_data.isoformat(), "observacao": peso_obs.strip() or None,
+                        "user_id":     uid(), "peso_kg": peso_val,
+                        "data":        peso_data.isoformat(),
+                        "observacao":  peso_obs.strip() or None,
                     }).execute()
-                    desbloquear_conquista("peso_registrado")
+                    _desbloquear("peso_registrado")
                     st.success("✅ Peso registrado!"); st.rerun()
 
             res_peso = supabase.table("peso_corporal").select("*")\
-                .eq("user_id", user_id()).order("data").execute()
+                .eq("user_id", uid()).order("data").execute()
 
             if res_peso.data:
-                df_peso = pd.DataFrame(res_peso.data)
+                df_peso      = pd.DataFrame(res_peso.data)
                 df_peso["data"] = pd.to_datetime(df_peso["data"])
                 df_peso_plot = df_peso.copy()
                 df_peso_plot.index = df_peso_plot["data"].dt.strftime("%d/%m/%y")
@@ -1037,35 +856,35 @@ with aba4:
 
     with sub3:
         MEDIDAS = [
-            ("cintura_cm",    "Cintura (cm)"),
-            ("quadril_cm",    "Quadril (cm)"),
-            ("busto_cm",      "Busto (cm)"),
-            ("braco_d_cm",    "Braço D (cm)"),
-            ("braco_e_cm",    "Braço E (cm)"),
-            ("coxa_d_cm",     "Coxa D (cm)"),
-            ("coxa_e_cm",     "Coxa E (cm)"),
-            ("panturrilha_cm","Panturrilha (cm)"),
-            ("pescoco_cm",    "Pescoço (cm)"),
+            ("cintura_cm",     "Cintura (cm)"),
+            ("quadril_cm",     "Quadril (cm)"),
+            ("busto_cm",       "Busto (cm)"),
+            ("braco_d_cm",     "Braço D (cm)"),
+            ("braco_e_cm",     "Braço E (cm)"),
+            ("coxa_d_cm",      "Coxa D (cm)"),
+            ("coxa_e_cm",      "Coxa E (cm)"),
+            ("panturrilha_cm", "Panturrilha (cm)"),
+            ("pescoco_cm",     "Pescoço (cm)"),
         ]
         try:
             with st.form("form_medidas"):
                 st.caption("Preencha apenas as medidas que deseja registrar.")
-                data_med = st.date_input("Data da medição", value=hoje_agora.date())
-                cols_med = st.columns(3)
-                vals_med = {}
+                data_med  = st.date_input("Data da medição", value=hoje_agora.date())
+                cols_med  = st.columns(3)
+                vals_med  = {}
                 for i, (campo, label) in enumerate(MEDIDAS):
                     vals_med[campo] = cols_med[i % 3].number_input(label, value=0.0, step=0.5, min_value=0.0)
                 obs_med = st.text_input("Observação (opcional)")
                 if st.form_submit_button("Registrar medidas", use_container_width=True):
-                    payload = {"user_id": user_id(), "data": data_med.isoformat(),
+                    payload = {"user_id": uid(), "data": data_med.isoformat(),
                                "observacao": obs_med.strip() or None}
                     payload.update({k: v if v > 0 else None for k, v in vals_med.items()})
                     supabase.table("medidas_corporais").insert(payload).execute()
-                    desbloquear_conquista("medidas_registradas")
+                    _desbloquear("medidas_registradas")
                     st.success("✅ Medidas registradas!"); st.rerun()
 
             res_med = supabase.table("medidas_corporais").select("*")\
-                .eq("user_id", user_id()).order("data").execute()
+                .eq("user_id", uid()).order("data").execute()
 
             if res_med.data:
                 df_med = pd.DataFrame(res_med.data)
@@ -1081,7 +900,7 @@ with aba4:
                     st.line_chart(df_plot_m[campo_key], use_container_width=True)
 
                 colunas_show = ["data"] + [c for c, _ in MEDIDAS if c in df_med.columns]
-                df_tab_m = df_med[colunas_show].copy()
+                df_tab_m     = df_med[colunas_show].copy()
                 df_tab_m["data"] = df_med["data"].dt.strftime("%d/%m/%Y")
                 rename_m = {"data": "Data"}
                 rename_m.update({c: l for c, l in MEDIDAS})
@@ -1099,19 +918,20 @@ with aba4:
 # ═══════════════════════════════
 
 with aba5:
-    st.info("🏆 " + frase_aba("conquistas"))
+    st.info("🏆 " + _frase("conquistas"))
 
     try:
         res_conq = supabase.table("conquistas").select("conquista_id,desbloqueada_em")\
-            .eq("user_id", user_id()).execute()
+            .eq("user_id", uid()).execute()
         desbloqueadas = {r["conquista_id"]: r["desbloqueada_em"] for r in (res_conq.data or [])}
 
         res_all_h = supabase.table("historico_treinos").select("data_execucao")\
-            .eq("user_id", user_id()).execute()
+            .eq("user_id", uid()).execute()
         df_all_h = pd.json_normalize(res_all_h.data) if res_all_h.data else pd.DataFrame()
         if not df_all_h.empty:
             df_all_h["data_execucao"] = pd.to_datetime(df_all_h["data_execucao"])
-        streak_atual  = calcular_streak(df_all_h)
+
+        streak_atual  = calcular_streak(df_all_h, hoje_agora.date())
         total_treinos = len(df_all_h)
 
         st.caption(f"🔥 Streak atual: **{streak_atual} dia(s)**  ·  🏋️ Total de treinos: **{total_treinos}**")
@@ -1141,7 +961,7 @@ with aba5:
 
         try:
             res_metas = supabase.table("metas_mensais").select("*")\
-                .eq("user_id", user_id())\
+                .eq("user_id", uid())\
                 .eq("mes", hoje_agora.month).eq("ano", hoje_agora.year).execute()
             meta_atual = res_metas.data[0] if res_metas.data else {}
         except Exception:
@@ -1150,21 +970,21 @@ with aba5:
         with st.expander("✏️ Definir metas deste mês"):
             with st.form("form_metas"):
                 c1, c2, c3 = st.columns(3)
-                m_treinos = c1.number_input("Treinos",           value=int(meta_atual.get("treinos",12)),         min_value=1)
-                m_km      = c2.number_input("Distância (km)",    value=float(meta_atual.get("distancia_km",30.0)), step=1.0)
-                m_min     = c3.number_input("Tempo ativo (min)", value=int(meta_atual.get("tempo_min",300)),       min_value=1)
+                m_treinos = c1.number_input("Treinos",           value=int(meta_atual.get("treinos", 12)),          min_value=1)
+                m_km      = c2.number_input("Distância (km)",    value=float(meta_atual.get("distancia_km", 30.0)), step=1.0)
+                m_min     = c3.number_input("Tempo ativo (min)", value=int(meta_atual.get("tempo_min", 300)),        min_value=1)
                 if st.form_submit_button("Salvar metas", use_container_width=True):
                     supabase.table("metas_mensais").upsert({
-                        "user_id": user_id(), "mes": hoje_agora.month, "ano": hoje_agora.year,
+                        "user_id": uid(), "mes": hoje_agora.month, "ano": hoje_agora.year,
                         "treinos": m_treinos, "distancia_km": m_km, "tempo_min": m_min,
                     }).execute()
                     st.success("✅ Metas salvas!"); st.rerun()
 
         if meta_atual:
-            ini_mes = hoje_agora.replace(day=1,hour=0,minute=0,second=0,microsecond=0)
+            ini_mes = hoje_agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             try:
                 res_mes = supabase.table("historico_treinos").select("detalhes")\
-                    .eq("user_id", user_id()).gte("data_execucao", ini_mes.isoformat()).execute()
+                    .eq("user_id", uid()).gte("data_execucao", ini_mes.isoformat()).execute()
                 df_mes = pd.json_normalize(res_mes.data) if res_mes.data else pd.DataFrame()
                 km_mes, min_mes, _ = extrair_stats(df_mes)
                 tr_mes = len(df_mes)
@@ -1172,9 +992,9 @@ with aba5:
                 km_mes = 0.0; min_mes = 0; tr_mes = 0
 
             c1, c2, c3 = st.columns(3)
-            pct_tr = min(int(tr_mes / max(meta_atual.get("treinos",1),1) * 100), 100)
-            pct_km = min(int(km_mes / max(float(meta_atual.get("distancia_km",1)),0.01) * 100), 100)
-            pct_mn = min(int(min_mes / max(meta_atual.get("tempo_min",1),1) * 100), 100)
+            pct_tr = min(int(tr_mes  / max(meta_atual.get("treinos", 1), 1) * 100), 100)
+            pct_km = min(int(km_mes  / max(float(meta_atual.get("distancia_km", 1)), 0.01) * 100), 100)
+            pct_mn = min(int(min_mes / max(meta_atual.get("tempo_min", 1), 1) * 100), 100)
 
             with c1:
                 st.caption("🏋️ Treinos")
@@ -1201,30 +1021,25 @@ with aba5:
 # ═══════════════════════════════
 
 with aba6:
-    st.info("⚙️ " + frase_aba("perfil"))
+    st.info("⚙️ " + _frase("perfil"))
 
     email_atual = st.session_state.usuario["email"]
     nome_atual  = st.session_state.usuario["nome"]
 
     try:
-        rp = supabase.table("perfis").select("nome,telefone,cidade,estado").eq("user_id", user_id()).execute()
+        rp = supabase.table("perfis").select("nome,telefone,cidade,estado").eq("user_id", uid()).execute()
         dp = rp.data[0] if rp.data else {}
     except Exception:
         dp = {}
 
     st.subheader("⚙️ Meu Perfil")
-
     st.markdown("""
     <style>
-    .perfil-card {
-        background: #13131f; border: 1px solid #2d2d45; border-radius: 10px;
-        padding: 12px 16px; margin-bottom: 8px; display: flex;
-        align-items: center; gap: 10px; font-size: 0.92rem;
-    }
-    .perfil-label { color: #888; font-size: 0.75rem; text-transform: uppercase;
-        letter-spacing: 0.05em; margin-bottom: 2px; }
-    .perfil-valor { color: #e2e8f0; font-size: 0.95rem; font-weight: 500; }
-    .perfil-icon  { font-size: 1.2rem; flex-shrink: 0; }
+    .perfil-card { background:#13131f;border:1px solid #2d2d45;border-radius:10px;
+        padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;font-size:0.92rem; }
+    .perfil-label { color:#888;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px; }
+    .perfil-valor { color:#e2e8f0;font-size:0.95rem;font-weight:500; }
+    .perfil-icon  { font-size:1.2rem;flex-shrink:0; }
     </style>""", unsafe_allow_html=True)
 
     def card_perfil(icon, label, valor):
@@ -1244,9 +1059,9 @@ with aba6:
 
     with st.expander("✏️ Editar dados pessoais"):
         with st.form("form_dados"):
-            ed_nome   = st.text_input("Nome", value=dp.get("nome", nome_atual))
+            ed_nome   = st.text_input("Nome",     value=dp.get("nome", nome_atual))
             ed_tel    = st.text_input("Telefone", value=dp.get("telefone",""), placeholder="(28) 99999-9999")
-            ed_cidade = st.text_input("Cidade", value=dp.get("cidade",""))
+            ed_cidade = st.text_input("Cidade",   value=dp.get("cidade",""))
             ests      = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
                          "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"]
             idx_e     = ests.index(dp.get("estado","ES")) if dp.get("estado","ES") in ests else 7
@@ -1256,13 +1071,15 @@ with aba6:
                     try:
                         supabase.auth.update_user({"data": {"nome": ed_nome.strip()}})
                         supabase.table("perfis").upsert({
-                            "user_id": user_id(), "nome": ed_nome.strip(),
+                            "user_id":  uid(), "nome":   ed_nome.strip(),
                             "telefone": ed_tel.strip(), "cidade": ed_cidade.strip(), "estado": ed_estado,
                         }).execute()
                         st.session_state.usuario["nome"] = ed_nome.strip()
                         st.success("✅ Dados atualizados!"); st.rerun()
-                    except Exception as e: st.error("Erro: " + str(e))
-                else: st.warning("Preencha todos os campos.")
+                    except Exception as e:
+                        st.error("Erro: " + str(e))
+                else:
+                    st.warning("Preencha todos os campos.")
 
     with st.expander("📧 Alterar email"):
         st.caption("Você receberá um link de confirmação em ambos os emails.")
@@ -1270,8 +1087,10 @@ with aba6:
             novo_email  = st.text_input("Novo email", placeholder="novo@email.com")
             senha_email = st.text_input("Senha atual", type="password")
             if st.form_submit_button("Enviar confirmações", use_container_width=True):
-                if not novo_email.strip() or "@" not in novo_email: st.warning("Email inválido.")
-                elif not senha_email: st.warning("Digite sua senha.")
+                if not novo_email.strip() or "@" not in novo_email:
+                    st.warning("Email inválido.")
+                elif not senha_email:
+                    st.warning("Digite sua senha.")
                 else:
                     try:
                         supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_email})
@@ -1282,19 +1101,20 @@ with aba6:
 
     with st.expander("🔒 Alterar senha"):
         with st.form("form_senha"):
-            s_antiga = st.text_input("Senha atual", type="password")
-            s_nova   = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
+            s_antiga = st.text_input("Senha atual",       type="password")
+            s_nova   = st.text_input("Nova senha",         type="password", placeholder="mínimo 8 caracteres")
             s_conf   = st.text_input("Confirmar nova senha", type="password")
             if st.form_submit_button("Salvar nova senha", use_container_width=True):
-                if not s_antiga: st.warning("Digite a senha atual.")
-                elif len(s_nova) < 8: st.warning("Mínimo 8 caracteres.")
-                elif s_nova != s_conf: st.error("Senhas não coincidem.")
+                if not s_antiga:           st.warning("Digite a senha atual.")
+                elif len(s_nova) < 8:      st.warning("Mínimo 8 caracteres.")
+                elif s_nova != s_conf:     st.error("Senhas não coincidem.")
                 else:
                     try:
                         supabase.auth.sign_in_with_password({"email": email_atual, "password": s_antiga})
                         supabase.auth.update_user({"password": s_nova})
                         st.success("✅ Senha alterada com sucesso!")
-                    except Exception: st.error("Senha atual incorreta.")
+                    except Exception:
+                        st.error("Senha atual incorreta.")
 
     st.divider()
 
@@ -1304,8 +1124,10 @@ with aba6:
             conf_txt   = st.text_input("Digite APAGAR para confirmar", placeholder="APAGAR")
             senha_conf = st.text_input("Sua senha", type="password")
             if st.form_submit_button("Apagar conta permanentemente", use_container_width=True):
-                if conf_txt.strip().upper() != "APAGAR": st.error("Digite APAGAR em maiúsculas.")
-                elif not senha_conf: st.warning("Digite sua senha.")
+                if conf_txt.strip().upper() != "APAGAR":
+                    st.error("Digite APAGAR em maiúsculas.")
+                elif not senha_conf:
+                    st.warning("Digite sua senha.")
                 else:
                     try:
                         rl    = supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_conf})
@@ -1319,7 +1141,9 @@ with aba6:
                         with _ur.urlopen(req, context=_ssl.create_default_context(), timeout=15) as rr:
                             body = _js.loads(rr.read())
                         if body.get("success"):
-                            st.success("Conta apagada. Até logo! 👋"); time.sleep(1); fazer_logout()
+                            st.success("Conta apagada. Até logo! 👋")
+                            time.sleep(1)
+                            fazer_logout(supabase, cookies, DEFAULTS)
                         else:
                             st.error("Erro: " + str(body.get("error", body)))
                     except Exception as e:

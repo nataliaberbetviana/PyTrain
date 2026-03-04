@@ -1,93 +1,158 @@
-# cardio.py
+"""
+pytrain/cardio.py
+Lógica de treino de cardio/esteira.
+- Geração de etapas
+- Timer baseado em tempo real (não em contagem de reruns)
+- Cálculo de distância por etapa
+"""
 
-def gerar_treino_esteira(t_total, t_correr, t_descanso, t_pre_pos, v_andar, v_correr):
+import time
+
+
+# ── Geração de etapas ──────────────────────────────────────────────────────────
+
+def gerar_etapas(n_ciclos: int, t_anda: float, v_anda: float,
+                 t_corre: float, v_corre: float) -> list[tuple]:
     """
-    Gera o cronograma onde o Aquecimento e Desaceleração estão DENTRO do tempo total.
+    Gera a lista de etapas do treino intervalado.
+    Cada etapa é uma tupla: (nome: str, duracao_seg: int, velocidade: float)
     """
-    cronograma = []
+    etapas = []
+    total = int(n_ciclos)
+    for i in range(total):
+        etapas.append((
+            f"Caminhada {i+1}/{total}",
+            int(t_anda * 60),
+            v_anda,
+        ))
+        etapas.append((
+            f"Corrida {i+1}/{total}",
+            int(t_corre * 60),
+            v_corre,
+        ))
+    return etapas
 
-    # 1. Validação de segurança: o pré + pós não pode ser maior que o total
-    if (t_pre_pos * 2) >= t_total:
-        return [
-            {"acao": "ERRO", "minutos": 0, "mensagem": "Tempo de aquecimento/desaceleração muito alto para o total!"}]
 
-    # 2. Aquecimento Inicial
-    cronograma.append({"acao": "AQUECIMENTO (ANDAR)", "minutos": t_pre_pos, "velocidade": v_andar})
+def distancia_ciclo(t_anda: float, v_anda: float, t_corre: float, v_corre: float) -> float:
+    """Distância percorrida em um ciclo completo (km)."""
+    return (v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60))
 
-    # 3. Cálculo do tempo disponível para os ciclos (MIOLO)
-    tempo_miolo_restante = t_total - (t_pre_pos * 2)
-    tempo_decorrido_miolo = 0
 
-    while tempo_decorrido_miolo < tempo_miolo_restante:
-        # Bloco de Corrida 🔥
-        duracao_corrida = min(t_correr, tempo_miolo_restante - tempo_decorrido_miolo)
-        if duracao_corrida > 0:
-            cronograma.append({"acao": "CORRER", "minutos": duracao_corrida, "velocidade": v_correr})
-            tempo_decorrido_miolo += duracao_corrida
+# ── Timer em tempo real ────────────────────────────────────────────────────────
 
-        if tempo_decorrido_miolo >= tempo_miolo_restante:
+def calcular_estado_cardio(params: dict) -> dict:
+    """
+    Calcula o estado atual do cardio usando `time.time()` como referência,
+    independente da frequência de reruns do Streamlit.
+
+    Recebe `params` (dict salvo em session_state) e retorna um dict com:
+      - etapa_idx: int          índice atual
+      - seg_restantes: int      segundos restantes na etapa
+      - dist_real: float        distância percorrida até agora (km)
+      - nome_etapa: str
+      - velocidade: float
+      - concluido: bool
+      - params: dict            params atualizados (com etapa_start)
+    """
+    etapas   = params["etapas"]
+    idx      = params["etapa_idx"]
+
+    # Garante que o timestamp de início da etapa existe
+    if "etapa_start" not in params:
+        params["etapa_start"] = time.time()
+
+    agora            = time.time()
+    decorrido_etapa  = agora - params["etapa_start"]
+
+    # Avança etapas se o tempo real já passou
+    while idx < len(etapas) and decorrido_etapa >= etapas[idx][1]:
+        decorrido_etapa -= etapas[idx][1]
+        idx += 1
+        params["etapa_start"] = agora - decorrido_etapa   # ajusta o início da nova etapa
+        params["etapa_idx"]   = idx
+
+    # Treino concluído
+    if idx >= len(etapas):
+        dist = _calcular_distancia_total(etapas, len(etapas), 0)
+        return {
+            "concluido":     True,
+            "etapa_idx":     idx,
+            "seg_restantes": 0,
+            "dist_real":     dist,
+            "nome_etapa":    "",
+            "velocidade":    0.0,
+            "params":        params,
+        }
+
+    nome_et, dur_et, vel_et = etapas[idx]
+    seg_restantes = max(0, int(dur_et - decorrido_etapa))
+    dist_real     = _calcular_distancia_total(etapas, idx, decorrido_etapa)
+
+    return {
+        "concluido":     False,
+        "etapa_idx":     idx,
+        "seg_restantes": seg_restantes,
+        "dist_real":     dist_real,
+        "nome_etapa":    nome_et,
+        "velocidade":    vel_et,
+        "params":        params,
+    }
+
+
+def _calcular_distancia_total(etapas: list, idx_atual: int, decorrido_atual: float) -> float:
+    """Soma a distância de todas as etapas concluídas + fração da etapa atual."""
+    dist = 0.0
+    for i, (_, dur, vel) in enumerate(etapas):
+        if i < idx_atual:
+            dist += vel * (dur / 3600)
+        elif i == idx_atual:
+            frac = min(decorrido_atual, dur)
+            dist += vel * (frac / 3600)
             break
+    return dist
 
-        # Bloco de Descanso 🧊
-        duracao_descanso = min(t_descanso, tempo_miolo_restante - tempo_decorrido_miolo)
-        if duracao_descanso > 0:
-            cronograma.append({"acao": "DESCANSAR (ANDAR)", "minutos": duracao_descanso, "velocidade": v_andar})
-            tempo_decorrido_miolo += duracao_descanso
 
-    # 4. Desaceleração Final
+# ── Gerador de cronograma (terminal / cardio.py original) ─────────────────────
+
+def gerar_treino_esteira(t_total, t_correr, t_descanso, t_pre_pos,
+                         v_andar, v_correr) -> list[dict]:
+    """
+    Gera cronograma com Aquecimento e Desaceleração dentro do tempo total.
+    Compatível com o cardio.py original.
+    """
+    if (t_pre_pos * 2) >= t_total:
+        return [{"acao": "ERRO", "minutos": 0,
+                 "mensagem": "Tempo de aquecimento/desaceleração muito alto para o total!"}]
+
+    cronograma = [{"acao": "AQUECIMENTO (ANDAR)", "minutos": t_pre_pos, "velocidade": v_andar}]
+
+    tempo_miolo = t_total - (t_pre_pos * 2)
+    decorrido   = 0
+
+    while decorrido < tempo_miolo:
+        dur_c = min(t_correr,   tempo_miolo - decorrido)
+        if dur_c > 0:
+            cronograma.append({"acao": "CORRER", "minutos": dur_c, "velocidade": v_correr})
+            decorrido += dur_c
+        if decorrido >= tempo_miolo:
+            break
+        dur_d = min(t_descanso, tempo_miolo - decorrido)
+        if dur_d > 0:
+            cronograma.append({"acao": "DESCANSAR (ANDAR)", "minutos": dur_d, "velocidade": v_andar})
+            decorrido += dur_d
+
     cronograma.append({"acao": "DESACELERAR (ANDAR)", "minutos": t_pre_pos, "velocidade": v_andar})
-
     return cronograma
 
 
-def formatar_cronograma(plano):
+def formatar_cronograma(plano: list[dict]) -> str:
     if plano[0].get("acao") == "ERRO":
         return f"❌ {plano[0]['mensagem']}"
 
     resultado = "\n--- 🏃 PLANO DE CARDIO (TEMPO TOTAL FIXO) ---\n"
-    tempo_calculado = sum(etapa['minutos'] for etapa in plano)
-
     for i, etapa in enumerate(plano):
-        emoji = "🔥" if "CORRER" in etapa['acao'] else "🚶"
-        resultado += f"{i + 1}. {etapa['acao']} {emoji} | {etapa['minutos']} min | Vel: {etapa['velocidade']} km/h\n"
-
-    resultado += f"---------------------------------------------\n"
-    resultado += f"Tempo Total de Esteira: {tempo_calculado} min\n"
+        emoji = "🔥" if "CORRER" in etapa["acao"] else "🚶"
+        resultado += f"{i+1}. {etapa['acao']} {emoji} | {etapa['minutos']} min | Vel: {etapa['velocidade']} km/h\n"
+    resultado += f"-------------------------------------------\n"
+    resultado += f"Tempo Total: {sum(e['minutos'] for e in plano)} min\n"
     return resultado
-
-
-import time
-import sys
-
-
-def executar_cronometro_treino(plano):
-    """
-    Executa o treino em tempo real com contagem regressiva no terminal.
-    """
-    print("\n🚀 PREPARE-SE! O TREINO VAI COMEÇAR...")
-    time.sleep(2)  # Pequena pausa para você subir na esteira
-
-    for etapa in plano:
-        acao = etapa['acao']
-        minutos = etapa['minutos']
-        vel = etapa['velocidade']
-        segundos_totais = int(minutos * 60)
-
-        print(f"\n--- 🔔 MUDANÇA DE RITMO! ---")
-        print(f"AGORA: {acao}")
-        print(f"VELOCIDADE: {vel} km/h")
-        # Emite um "beep" no sistema (funciona na maioria dos terminais Linux)
-        print('\a', end='', flush=True)
-
-        # Contagem regressiva interna
-        while segundos_totais > 0:
-            mins, segs = divmod(segundos_totais, 60)
-            # Formata o tempo como 00:00 e sobrescreve a mesma linha
-            sys.stdout.write(f"\r⏱️ Tempo restante nesta etapa: {mins:02d}:{segs:02d} ")
-            sys.stdout.flush()
-            time.sleep(1)
-            segundos_totais -= 1
-
-        print(f"\n✅ Etapa concluída!")
-
-    print("\n🏁 TREINO FINALIZADO! PARABÉNS, NATÁLIA! 🔥")
