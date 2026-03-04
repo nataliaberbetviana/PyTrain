@@ -10,20 +10,85 @@ from supabase import create_client, Client
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
 
-# Fuso horário de Brasília
-fuso = pytz.timezone('America/Sao_Paulo')
-hoje = datetime.now(fuso)
-
-# Estética CSS para Mobile
+# Estética CSS Customizada: Tema Roxo e Preto
 st.markdown("""
     <style>
-    [data-testid="column"] { min-width: 14% !important; }
-    div.stButton > button { height: 3.5em; width: 100%; font-size: 18px !important; font-weight: bold; }
-    .stCheckbox { display: flex; justify-content: center; }
+    /* Fundo principal e containers */
+    .stApp {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+
+    /* Estilização das Tabs (Abas) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: #0e1117;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: #1e1e2e;
+        border-radius: 10px 10px 0px 0px;
+        color: #ffffff;
+        border: none;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #7d33ff !important;
+        font-weight: bold;
+    }
+
+    /* Botões Grandes e Roxos */
+    div.stButton > button {
+        background-color: #7d33ff;
+        color: white;
+        border-radius: 12px;
+        height: 3.5em;
+        width: 100%;
+        font-size: 18px !important;
+        font-weight: bold;
+        border: none;
+        transition: 0.3s;
+    }
+    div.stButton > button:hover {
+        background-color: #a366ff;
+        border: 1px solid #ffffff;
+    }
+
+    /* Inputs e Cards */
+    .stNumberInput div div input {
+        background-color: #1e1e2e !important;
+        color: #e066ff !important;
+        font-size: 20px !important;
+    }
+
+    /* Estilo do Checklist Semanal Horizontal */
+    [data-testid="column"] { 
+        min-width: 14% !important; 
+    }
+    .stCheckbox { 
+        display: flex; 
+        justify-content: center; 
+        background-color: #1e1e2e;
+        padding: 5px;
+        border-radius: 8px;
+    }
+
+    /* Radio buttons customizados */
+    div[data-testid="stMarkdownContainer"] p {
+        font-weight: bold;
+    }
+
+    /* Info e Warning boxes */
+    .stAlert {
+        background-color: #1e1e2e;
+        border: 1px solid #7d33ff;
+        color: white;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONEXÃO SUPABASE ---
+# --- CONFIGURAÇÕES DE DATA E CONEXÃO ---
+fuso = pytz.timezone('America/Sao_Paulo')
+hoje = datetime.now(fuso)
 load_dotenv()
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
@@ -40,35 +105,40 @@ def registrar_historico(ex_id, detalhes, tipo="musculacao"):
 
 
 # --- INTERFACE PRINCIPAL ---
-st.title("🏋️ PyTrain PRO")
+st.title("💜 PyTrain PRO")
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📜 Histórico", "⚙️ Menu"])
 
-# --- ABA 1: TREINO (ORDEM CORRIGIDA) ---
+# --- ABA 1: TREINO ---
 with aba1:
-    st.subheader("🗓️ Checklist Semanal")
+    st.markdown("### 🗓️ Checklist Semanal")
     dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
     cols = st.columns(7)
     for i, dia in enumerate(dias):
         st.session_state[f"manual_{dia}"] = cols[i].checkbox(dia, key=f"c_{dia}")
 
     st.divider()
-
-    # Define a série antes do botão
     serie = st.radio("Série de hoje:", ["A", "B", "C", "D"], horizontal=True)
 
     if st.button(f"🚀 INICIAR SÉRIE {serie}"):
         st.session_state.treino_ativo = True
         st.session_state.indice_ex = 0
-        st.session_state.inicio_timer = time.time()  # Inicia o tempo da SESSÃO aqui
+        st.session_state.inicio_timer = time.time()
         st.rerun()
 
     if st.session_state.get("treino_ativo"):
         res = supabase.table("exercicios").select("*").eq("serie_tipo", serie).execute()
         if res.data:
             ex_atual = res.data[st.session_state.indice_ex]
-            st.markdown(f"### Exercício {st.session_state.indice_ex + 1} de {len(res.data)}")
-            st.info(f"🏋️ **{ex_atual['nome']}**")
 
+            # Card do Exercício
+            st.markdown(f"""
+                <div style="background-color: #1e1e2e; padding: 20px; border-radius: 15px; border-left: 5px solid #7d33ff;">
+                    <h4 style="color: gray; margin:0;">Exercício {st.session_state.indice_ex + 1} de {len(res.data)}</h4>
+                    <h2 style="color: #ffffff; margin-top:5px;">{ex_atual['nome']}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.write("")
             c1, c2, c3 = st.columns(3)
             p = c1.number_input("Carga (kg)", value=int(ex_atual['peso_kg']), step=1,
                                 key=f"p_{st.session_state.indice_ex}")
@@ -76,28 +146,23 @@ with aba1:
             r = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1,
                                 key=f"r_{st.session_state.indice_ex}")
 
-            # --- CRONÔMETRO TOTAL (NÃO ZERA) ---
-            timer_place = st.empty()
+            # Cronômetro Total da Sessão
             tempo_total_seg = int(time.time() - st.session_state.inicio_timer)
             m, seg = divmod(tempo_total_seg, 60)
-
-            timer_place.markdown(f"""
-                <div style="text-align: center; padding: 10px; border: 2px solid #e066ff; border-radius: 10px; background: #1e1e1e;">
-                    <span style="font-size: 20px; color: gray;">Tempo Total de Treino:</span><br>
-                    <span style="font-size: 35px; color: #e066ff; font-weight: bold;">{m:02d}:{seg:02d}</span>
+            st.markdown(f"""
+                <div style="text-align: center; padding: 15px; background: #1e1e2e; border-radius: 10px; margin: 20px 0; border: 1px solid #7d33ff;">
+                    <span style="color: #a366ff; font-size: 18px;">⏱️ TEMPO TOTAL DE TREINO</span><br>
+                    <span style="font-size: 45px; font-weight: bold; color: white;">{m:02d}:{seg:02d}</span>
                 </div>
             """, unsafe_allow_html=True)
 
-            if st.button("PRÓXIMO EXERCÍCIO ➡️", use_container_width=True):
-                # Apenas registramos o momento no histórico, mas não zeramos o timer global
+            if st.button("PRÓXIMO EXERCÍCIO ➡️"):
                 tempo_parcial_min = max(1, tempo_total_seg // 60)
                 registrar_historico(ex_atual['id'], f"{p}kg | {s}x{r} | {tempo_parcial_min}min")
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual['id']).execute()
 
                 if st.session_state.indice_ex + 1 < len(res.data):
                     st.session_state.indice_ex += 1
-                    # REMOVIDO: st.session_state.inicio_timer = time.time()
-                    # Ao remover a linha acima, o tempo continua contando do início da série
                     st.rerun()
                 else:
                     st.session_state.treino_ativo = False
@@ -108,221 +173,95 @@ with aba1:
             time.sleep(1)
             st.rerun()
 
-# --- ABA 2: CARDIO (SALVAMENTO NA INTERRUPÇÃO) ---
+# --- ABA 2: CARDIO ---
 with aba2:
-    st.header("🏃 Controle de Esteira")
+    st.markdown("### 🏃 Controle de Esteira")
+    modo = st.radio("Planejar por:", ["Distância Alvo (km)", "Número de Ciclos"], horizontal=True)
 
-    # Seletor de Modo de Planejamento
-    modo_planejamento = st.radio(
-        "Como deseja planejar seu treino?",
-        ["Por Distância Alvo (km)", "Por Número de Ciclos"],
-        horizontal=True
-    )
+    col1, col2 = st.columns(2)
+    t_anda = col1.number_input("Minutos Andando", 5.0, step=1.0)
+    v_anda = col1.number_input("Vel. Andando", 5.0, step=0.5)
+    t_corre = col2.number_input("Minutos Correndo", 2.0, step=1.0)
+    v_corre = col2.number_input("Vel. Correndo", 9.0, step=0.5)
 
-    st.divider()
+    dist_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
 
-    # Configurações do Ciclo Base
-    c1, c2 = st.columns(2)
-    t_anda = c1.number_input("Minutos Andando", value=5.0, step=1.0, key="t_anda_base")
-    v_anda = c1.number_input("Vel. Andando (km/h)", value=5.0, step=0.5, key="v_anda_base")
-
-    t_corre = c2.number_input("Minutos Correndo", value=2.0, step=1.0, key="t_corre_base")
-    v_corre = c2.number_input("Vel. Correndo (km/h)", value=9.0, step=0.5, key="v_corre_base")
-
-    # Distância de um único ciclo (Data Science mode)
-    dist_por_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
-
-    # Lógica Condicional de Entrada
-    if modo_planejamento == "Por Distância Alvo (km)":
-        distancia_alvo = st.number_input("Qual a distância total desejada (km)?", value=5.0, step=0.5)
-        if dist_por_ciclo > 0:
-            n_ciclos = int(distancia_alvo / dist_por_ciclo)
-            if (distancia_alvo % dist_por_ciclo) > 0.05:  # Pequena margem para arredondar
-                n_ciclos += 1
-        else:
-            n_ciclos = 0
+    if modo == "Distância Alvo (km)":
+        dist_alvo = st.number_input("Meta (km)", 5.0, step=0.5)
+        n_ciclos = int(dist_alvo / dist_ciclo) + (1 if dist_alvo % dist_ciclo > 0.05 else 0)
     else:
-        n_ciclos = st.number_input("Quantas repetições do ciclo?", value=1, min_value=1, step=1)
-        distancia_alvo = dist_por_ciclo * n_ciclos
+        n_ciclos = st.number_input("Ciclos", 1, min_value=1)
+        dist_alvo = dist_ciclo * n_ciclos
 
-    # Métricas calculadas para visualização antes do Play
-    tempo_total_estimado = (t_anda + t_corre) * n_ciclos
+    st.markdown(f"""
+        <div style="background:#1e1e2e; padding:15px; border-radius:10px; border-left: 5px solid #e066ff;">
+            <b>Resumo:</b> {n_ciclos} ciclos | Meta Final: {dist_alvo:.2f} km
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.info(f"📋 Resumo: **{n_ciclos} ciclos** de treino.")
-    col_m1, col_m2 = st.columns(2)
-    col_m1.metric("⏱️ Tempo Total", f"{int(tempo_total_estimado)} min")
-    col_m2.metric("📍 Distância Final", f"{distancia_alvo:.2f} km")
-
-    # --- LÓGICA DE EXECUÇÃO ---
     if "cardio_ativo" not in st.session_state: st.session_state.cardio_ativo = False
-    if "dist_real" not in st.session_state: st.session_state.dist_real = 0.0
 
-    st.divider()
-    btn_start, btn_stop = st.columns(2)
-
-    if btn_start.button("🚀 INICIAR CARDIO", use_container_width=True):
+    c_start, c_stop = st.columns(2)
+    if c_start.button("🚀 INICIAR"):
         st.session_state.cardio_ativo = True
         st.session_state.dist_real = 0.0
 
-    if btn_stop.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
+    if c_stop.button("🛑 ENCERRAR"):
         if st.session_state.cardio_ativo:
-            registrar_historico(None, f"Cardio Interrompido: {st.session_state.dist_real:.2f}km", tipo="cardio")
+            registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km", tipo="cardio")
         st.session_state.cardio_ativo = False
         st.rerun()
 
-    if st.session_state.cardio_ativo:
+    if st.session_state.get("cardio_ativo"):
         ph = st.empty()
         etapas = []
-        # Montagem da lista de tarefas do treino
         for i in range(n_ciclos):
-            if t_anda > 0: etapas.append((f"🚶 Caminhada ({i + 1}/{n_ciclos})", t_anda * 60, v_anda))
-            if t_corre > 0: etapas.append((f"⚡ Corrida ({i + 1}/{n_ciclos})", t_corre * 60, v_corre))
+            etapas.append((f"🚶 Caminhada ({i + 1}/{n_ciclos})", t_anda * 60, v_anda))
+            etapas.append((f"⚡ Corrida ({i + 1}/{n_ciclos})", t_corre * 60, v_corre))
 
         for nome, segs, vel in etapas:
-            if not st.session_state.cardio_ativo: break
             while segs > 0 and st.session_state.cardio_ativo:
                 st.session_state.dist_real += vel / 3600
                 m, s = divmod(int(segs), 60)
                 ph.markdown(f"""
-                    <div style="text-align:center;border:3px solid #e066ff;padding:20px;border-radius:15px;background:#1e1e1e;">
-                        <h2 style="color:#e066ff">{nome}</h2>
-                        <h1 style="font-size:80px;color:white;">{m:02d}:{s:02d}</h1>
-                        <h3 style="color:#66ffe0;">Progresso: {st.session_state.dist_real:.2f} / {distancia_alvo:.2f} km</h3>
+                    <div style="text-align:center; border:2px solid #7d33ff; padding:20px; border-radius:15px; background:#000000;">
+                        <h2 style="color:#a366ff">{nome}</h2>
+                        <h1 style="font-size:70px; color:white;">{m:02d}:{s:02d}</h1>
+                        <h3 style="color:#e066ff">{st.session_state.dist_real:.2f} / {dist_alvo:.2f} km</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
                 segs -= 1
 
         if st.session_state.cardio_ativo:
-            registrar_historico(None, f"Cardio Finalizado: {st.session_state.dist_real:.2f}km", tipo="cardio")
-            st.success("🎉 Treino concluído!")
+            registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km", tipo="cardio")
             st.session_state.cardio_ativo = False
+            st.success("Percurso Concluído!")
 
-# --- ABA 3: HISTÓRICO CORRIGIDO ---
+# --- ABA 3: HISTÓRICO ---
 with aba3:
-    st.header("📊 Painel de Performance")
-
+    st.markdown("### 📊 Painel de Performance")
     try:
         res_h = supabase.table("historico_treinos").select("*, exercicios(nome)").order("data_execucao",
                                                                                         desc=True).execute()
-
         if res_h.data:
             df = pd.json_normalize(res_h.data)
             df['data_execucao'] = pd.to_datetime(df['data_execucao']).dt.tz_convert('America/Sao_Paulo')
 
-            # --- CÁLCULOS DE PERÍODO ---
-            hoje_dt = datetime.now(fuso)
-            inicio_semana = (hoje_dt - timedelta(days=hoje_dt.weekday())).replace(hour=0, minute=0, second=0)
+            # Métricas
+            df_hoje = df[df['data_execucao'].dt.date == hoje.date()]
 
-            df_hoje = df[df['data_execucao'].dt.date == hoje_dt.date()]
-            df_semana = df[df['data_execucao'] >= inicio_semana]
-            df_mes = df[df['data_execucao'].dt.month == hoje_dt.month]
+            st.markdown(f"""
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <div style="background:#1e1e2e; padding:15px; border-radius:10px; flex:1; text-align:center; border-bottom: 3px solid #7d33ff;">
+                        <span style="color:gray;">Hoje</span><br><b style="font-size:20px;">{len(df_hoje)} reg.</b>
+                    </div>
+                    <div style="background:#1e1e2e; padding:15px; border-radius:10px; flex:1; text-align:center; border-bottom: 3px solid #7d33ff;">
+                        <span style="color:gray;">Mês</span><br><b style="font-size:20px;">{hoje.strftime('%B')}</b>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
-
-            # --- FUNÇÕES DE EXTRAÇÃO DE DADOS ---
-            def calcular_metricas(dataframe):
-                if 'detalhes' in dataframe.columns:
-                    # 1. Extrair KM
-                    kms = dataframe[dataframe['tipo'] == 'cardio']['detalhes'].str.extract(r'(\d+\.\d+)km').astype(
-                        float)
-                    total_km = kms.sum()[0] if not kms.empty else 0.0
-
-                    # 2. Extrair Tempo (Procura por 'min' nos detalhes)
-                    # Ex: "Cardio: 1.2km | 20min" ou "Musculação: 10kg | 3x12 | 5min"
-                    tempos = dataframe['detalhes'].str.extract(r'(\d+)min').astype(float)
-                    total_min = tempos.sum()[0] if not tempos.empty else 0.0
-
-                    return total_km, total_min
-                return 0.0, 0.0
-
-
-            # --- EXIBIÇÃO ---
-            st.subheader("📅 Resumo de Atividades")
-            tab_hoje, tab_semana, tab_mes = st.columns(3)
-
-            # Métricas Hoje
-            km_h, min_h = calcular_metricas(df_hoje)
-            tab_hoje.metric("Hoje", f"{len(df_hoje)} registros")
-            tab_hoje.write(f"🏃 {km_h:.2f} km | ⏱️ {int(min_h)} min")
-
-            # Métricas Semana
-            km_s, min_s = calcular_metricas(df_semana)
-            tab_semana.metric("Na Semana", f"{len(df_semana)}x")
-            tab_semana.write(f"🏃 {km_s:.2f} km | ⏱️ {int(min_s)} min")
-
-            # Métricas Mês
-            km_m, min_m = calcular_metricas(df_mes)
-            tab_mes.metric("No Mês", f"{len(df_mes)}x")
-            tab_mes.write(f"🏃 {km_m:.2f} km | ⏱️ {int(min_m)} min")
-
-            # --- GRÁFICO DE RENDIMENTO (Opcional para análise visual) ---
-            st.divider()
-            st.subheader("📜 Detalhes do Dia")
-            if not df_hoje.empty:
-                if 'exercicios.nome' not in df_hoje.columns:
-                    df_hoje['exercicios.nome'] = "🏃 Cardio"
-                df_hoje['exercicios.nome'] = df_hoje['exercicios.nome'].fillna("🏃 Cardio")
-
-                st.dataframe(
-                    df_hoje[['data_execucao', 'exercicios.nome', 'detalhes']],
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.info("Nenhum dado registrado hoje.")
-
-    except Exception as e:
-        st.error(f"Erro ao carregar indicadores: {e}")
-
-# --- ABA 4: CONFIGURAÇÕES ---
-with aba4:
-    st.header("⚙️ Gerenciamento do Sistema")
-
-    # 1. Adicionar Novo Exercício (Com suporte a Série D)
-    with st.expander("✨ Cadastrar Novo Exercício"):
-        with st.form("form_cadastro"):
-            n_nome = st.text_input("Nome do Exercício")
-            # Adicionei "D" nas opções abaixo
-            n_serie = st.selectbox("Série", ["A", "B", "C", "D"])
-            n_peso = st.number_input("Peso Inicial (kg)", value=0)
-            if st.form_submit_button("Salvar no Catálogo"):
-                if n_nome:
-                    supabase.table("exercicios").insert({
-                        "nome": n_nome,
-                        "serie_tipo": n_serie,
-                        "peso_kg": n_peso,
-                        "series": 3,
-                        "repeticoes": 12
-                    }).execute()
-                    st.success(f"✅ {n_nome} adicionado à Série {n_serie}!")
-                    st.rerun()  # Atualiza a tela para mostrar a nova série
-
-    # 2. Editar/Excluir Exercícios do Catálogo
-    with st.expander("📝 Editar ou Remover Exercícios"):
-        res_cat = supabase.table("exercicios").select("*").order("serie_tipo").execute()
-        if res_cat.data:
-            for ex_cat in res_cat.data:
-                col_n, col_d = st.columns([3, 1])
-                col_n.write(f"**{ex_cat['nome']}** (Série {ex_cat['serie_tipo']})")
-                if col_d.button("🗑️", key=f"del_{ex_cat['id']}"):
-                    supabase.table("exercicios").delete().eq("id", ex_cat['id']).execute()
-                    st.error(f"Excluído: {ex_cat['nome']}")
-                    st.rerun()
-
-    st.divider()
-
-    # 3. Zona de Perigo (Limpar Dados)
-    st.subheader("🚨 Zona de Perigo")
-
-    col_h, col_p = st.columns(2)
-
-    if col_h.button("🗑️ Apagar Todo Histórico"):
-        # Deleta tudo onde o ID não é zero (ou seja, tudo)
-        supabase.table("historico_treinos").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        st.success("Histórico limpo com sucesso!")
-        st.rerun()
-
-    if col_p.button("🔄 Resetar Todos os Pesos"):
-        supabase.table("exercicios").update({"peso_kg": 0}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        st.success("Pesos resetados para 0kg!")
-        st.rerun()
+            st.dataframe(df[['data_execucao', 'exercicios.nome', 'detalhes']].head(20), use_container_width=True)
+    except:
+        st.error("Erro ao carregar dados.")
