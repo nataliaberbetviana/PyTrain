@@ -8,88 +8,340 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 
-# ─────────────────────────────────────────────
-# CONFIGURAÇÃO DA PÁGINA
-# ─────────────────────────────────────────────
 st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
 
-fuso = pytz.timezone("America/Sao_Paulo")
-hoje_agora = datetime.now(fuso)
-
-# ── Cookie manager — deve vir antes de qualquer conteúdo ─────────────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 _COOKIE_PWD  = os.getenv("COOKIE_PASSWORD", "pytrain-2024-x7k")
+
+# Cookie manager — primeiro render faz round-trip ao browser, st.stop() é normal
 cookies = EncryptedCookieManager(prefix="pt_", password=_COOKIE_PWD)
 if not cookies.ready():
-    # Primeiro load: aguarda round-trip do browser (comportamento normal)
     st.stop()
 
-# ─────────────────────────────────────────────
-# CSS
-# ─────────────────────────────────────────────
+fuso      = pytz.timezone("America/Sao_Paulo")
+hoje_agora = datetime.now(fuso)
+
+# ═══════════════════════════════════════════════════════════════════
+# CSS — Dark Athletic / refined fitness aesthetic
+# Fonte: DM Sans (display) + DM Mono (números)
+# Paleta: #0a0a0f base · #7c3aed roxo · #a78bfa roxo claro · #e2e8f0 texto
+# ═══════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-.stApp { background-color: #0e1117; color: #ffffff; }
-.block-container { padding-top: 1rem !important; }
-div.stButton > button {
-    background-color: #7d33ff;
-    color: white;
-    border-radius: 12px;
-    height: 3.5em;
-    width: 100%;
-    font-weight: bold;
-    border: none;
-}
-.foco-container {
-    background-color: #1e1e2e;
-    padding: 20px;
-    border-radius: 15px;
-    border: 2px solid #7d33ff;
-    text-align: center;
-    margin-bottom: 20px;
-}
-.login-box {
-    max-width: 420px;
-    margin: 80px auto;
-    background: #1e1e2e;
-    border: 2px solid #7d33ff;
-    border-radius: 16px;
-    padding: 40px 32px;
-}
-.stNumberInput div div input {
-    background-color: #1e1e2e !important;
-    color: #e066ff !important;
-    font-size: 22px !important;
-}
-.stTabs [data-baseweb="tab-list"] { gap: 5px; }
-.stTabs [data-baseweb="tab"] {
-    background-color: #1e1e2e;
-    border-radius: 8px 8px 0 0;
-    color: white;
-}
-.stTabs [aria-selected="true"] { background-color: #7d33ff !important; }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-/* Esconde toolbar do Streamlit Cloud que cobre o topo */
-header[data-testid="stHeader"] { display: none !important; }
-#MainMenu { display: none !important; }
-footer { display: none !important; }
+/* ── Reset & base ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
-/* Botão Sair pequeno */
-div[data-testid="stButton"] button[kind="secondary"] {
-    background-color: transparent !important;
-    border: 1px solid #7d33ff !important;
+.stApp {
+    background: #0a0a0f !important;
+    font-family: 'DM Sans', sans-serif !important;
+    color: #e2e8f0 !important;
+}
+.block-container {
+    padding: 1rem 1rem 2rem !important;
+    max-width: 680px !important;
+    margin: 0 auto !important;
+}
+header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
+
+/* ── Tipografia global ────────────────────────────────── */
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp p,
+.stApp span,.stApp div,.stApp label {
+    font-family: 'DM Sans', sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* ── Labels de inputs ─────────────────────────────────── */
+.stApp label,
+.stApp [data-testid="stWidgetLabel"] p,
+.stApp [data-testid="stWidgetLabel"] {
+    color: #94a3b8 !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    opacity: 1 !important;
+}
+
+/* ── Inputs ───────────────────────────────────────────── */
+.stApp input[type="text"],
+.stApp input[type="password"],
+.stApp input[type="email"],
+.stApp input[type="number"],
+.stApp textarea,
+.stApp [data-baseweb="input"] input,
+.stApp [data-baseweb="base-input"] input {
+    background: #13131a !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #2d2d3d !important;
+    border-radius: 10px !important;
+    font-size: 1rem !important;
+    font-family: 'DM Sans', sans-serif !important;
+    padding: 0.65rem 0.9rem !important;
+    transition: border-color 0.2s !important;
+}
+.stApp [data-baseweb="input"],
+.stApp [data-baseweb="base-input"] {
+    background: #13131a !important;
+    border: 1px solid #2d2d3d !important;
+    border-radius: 10px !important;
+}
+.stApp input:focus,
+.stApp [data-baseweb="input"]:focus-within {
+    border-color: #7c3aed !important;
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.15) !important;
+}
+
+/* ── Number input ─────────────────────────────────────── */
+.stApp .stNumberInput div div input {
+    background: #13131a !important;
     color: #a78bfa !important;
-    height: 2.2em !important;
-    font-size: 0.85em !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 1.5rem !important;
+    font-weight: 500 !important;
+    border: 1px solid #2d2d3d !important;
+    border-radius: 10px !important;
+}
+.stApp [data-testid="stNumberInput"] button {
+    background: #1e1e2e !important;
+    color: #a78bfa !important;
+    border: 1px solid #2d2d3d !important;
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+}
+.stApp [data-testid="stNumberInput"] button:hover {
+    background: #2d2040 !important;
+    border-color: #7c3aed !important;
+}
+
+/* ── Selectbox ────────────────────────────────────────── */
+.stApp [data-baseweb="select"] > div {
+    background: #13131a !important;
+    border: 1px solid #2d2d3d !important;
+    border-radius: 10px !important;
+    color: #e2e8f0 !important;
+}
+.stApp [data-baseweb="select"] span,
+.stApp [data-baseweb="select"] div { color: #e2e8f0 !important; }
+
+/* ── Botões primários ─────────────────────────────────── */
+.stApp .stButton > button,
+.stApp .stFormSubmitButton > button,
+.stApp [data-testid="baseButton-primary"],
+.stApp [data-testid="baseButton-secondary"],
+.stApp [data-testid="baseButton-formSubmit"],
+.stApp [data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.03em !important;
+    height: 3em !important;
+    width: 100% !important;
+    transition: opacity 0.15s, transform 0.1s !important;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.3) !important;
+}
+.stApp .stButton > button:hover,
+.stApp .stFormSubmitButton > button:hover {
+    opacity: 0.9 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(124,58,237,0.4) !important;
+}
+.stApp .stButton > button:active { transform: translateY(0) !important; }
+.stApp .stButton > button:disabled {
+    background: #1e1e2e !important;
+    color: #4a4a6a !important;
+    box-shadow: none !important;
+}
+
+/* ── Tabs ─────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px !important;
+    background: #13131a !important;
+    padding: 4px !important;
+    border-radius: 12px !important;
+    margin-bottom: 1.5rem !important;
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    border-radius: 9px !important;
+    color: #64748b !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+    font-family: 'DM Sans', sans-serif !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s !important;
+}
+.stTabs [aria-selected="true"] {
+    background: #7c3aed !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(124,58,237,0.4) !important;
+}
+
+/* ── Expanders ────────────────────────────────────────── */
+.stApp [data-testid="stExpander"] {
+    background: #13131a !important;
+    border: 1px solid #1e1e2e !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    margin-bottom: 0.5rem !important;
+}
+.stApp [data-testid="stExpander"] summary,
+.stApp details summary,
+.stApp .streamlit-expanderHeader {
+    background: #13131a !important;
+    color: #c4b5fd !important;
+    font-size: 0.92rem !important;
+    font-weight: 600 !important;
+    padding: 0.9rem 1rem !important;
+}
+.stApp [data-testid="stExpander"] summary:hover { background: #1a1a2a !important; }
+.stApp [data-testid="stExpander"] summary p { color: #c4b5fd !important; }
+
+/* ── Alertas ──────────────────────────────────────────── */
+.stApp [data-testid="stAlert"],
+.stApp [data-testid="stAlert"] * { color: #e2e8f0 !important; font-size: 0.9rem !important; }
+.stApp [data-testid="stInfo"]    { background: #0d1f33 !important; border: none !important; border-left: 3px solid #3b82f6 !important; border-radius: 10px !important; }
+.stApp [data-testid="stWarning"] { background: #1f1500 !important; border: none !important; border-left: 3px solid #f59e0b !important; border-radius: 10px !important; }
+.stApp [data-testid="stError"]   { background: #1f0808 !important; border: none !important; border-left: 3px solid #ef4444 !important; border-radius: 10px !important; }
+.stApp [data-testid="stSuccess"] { background: #071f10 !important; border: none !important; border-left: 3px solid #10b981 !important; border-radius: 10px !important; }
+
+/* ── Radio ────────────────────────────────────────────── */
+.stApp .stRadio > div { gap: 0.4rem !important; }
+.stApp .stRadio label {
+    background: #13131a !important;
+    border: 1px solid #2d2d3d !important;
+    border-radius: 8px !important;
+    padding: 0.4rem 0.8rem !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+    color: #94a3b8 !important;
+    font-size: 0.88rem !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+.stApp .stRadio label:has(input:checked) {
+    background: rgba(124,58,237,0.15) !important;
+    border-color: #7c3aed !important;
+    color: #c4b5fd !important;
+}
+
+/* ── Métricas ─────────────────────────────────────────── */
+[data-testid="stMetric"] {
+    background: #13131a !important;
+    border: 1px solid #1e1e2e !important;
+    border-radius: 12px !important;
+    padding: 1rem !important;
+}
+[data-testid="stMetricValue"] {
+    font-family: 'DM Mono', monospace !important;
+    font-size: 1.6rem !important;
+    color: #e2e8f0 !important;
+}
+[data-testid="stMetricLabel"] { color: #64748b !important; font-size: 0.78rem !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; }
+
+/* ── Divider ──────────────────────────────────────────── */
+.stApp hr { border-color: #1e1e2e !important; margin: 1.5rem 0 !important; }
+
+/* ── Caption / small ──────────────────────────────────── */
+.stApp .stCaption, .stApp [data-testid="stCaptionContainer"] p {
+    color: #475569 !important;
+    font-size: 0.82rem !important;
+}
+
+/* ── Custom classes ───────────────────────────────────── */
+.pt-card {
+    background: #13131a;
+    border: 1px solid #1e1e2e;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+}
+.pt-card-accent {
+    background: linear-gradient(135deg,#13131a,#170f2e);
+    border: 1px solid #3b1f72;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+}
+.pt-label {
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 2px;
+}
+.pt-value {
+    color: #e2e8f0;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+.pt-ex-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #13131a;
+    border: 1px solid #1e1e2e;
+    border-radius: 10px;
+    padding: 0.7rem 1rem;
+    margin: 0.35rem 0;
+    transition: border-color 0.15s;
+}
+.pt-ex-row:hover { border-color: #3b1f72; }
+.pt-ex-name { color: #e2e8f0; font-weight: 600; font-size: 0.95rem; }
+.pt-ex-meta { color: #7c3aed; font-size: 0.82rem; font-family: 'DM Mono', monospace; }
+.pt-timer {
+    text-align: center;
+    background: #0d0d14;
+    border: 1px solid #1e1e2e;
+    border-radius: 14px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+.pt-timer-label { color: #475569; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.pt-timer-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 3.2rem;
+    font-weight: 500;
+    color: #e2e8f0;
+    line-height: 1.1;
+}
+.pt-badge {
+    display: inline-block;
+    background: rgba(124,58,237,0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(124,58,237,0.3);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+}
+.pt-section-title {
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 1.5rem 0 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e1e2e;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# CONEXÃO SUPABASE
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# SUPABASE
+# ═══════════════════════════════════════════════════════════════════
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("⚠️ Variáveis SUPABASE_URL e SUPABASE_KEY não encontradas.")
     st.stop()
@@ -97,307 +349,252 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 @st.cache_resource
 def get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
-
 supabase = get_supabase()
 
-# ─────────────────────────────────────────────
-# INICIALIZAÇÃO DO SESSION STATE
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# SESSION STATE
+# ═══════════════════════════════════════════════════════════════════
 defaults = {
-    # Auth
-    "usuario":        None,   # dict com id, email, nome
-    "access_token":   None,
-    "refresh_token":  None,
-    # Treino
-    "treino_ativo":   False,
-    "serie_atual":    "A",
-    "indice_ex":      0,
-    "inicio_timer":   0.0,
-    # Cardio
-    "cardio_ativo":   False,
-    "params_cardio":  None,
-    "dist_real":      0.0,
-    "t_cardio_start": 0.0,
-    "cardio_salvo":   False,
-    # UI
-    "confirmar_historico": False,
-    # Perfil
-    "perfil_completo": None,   # None = ainda não verificado, True/False após check
+    "usuario": None, "access_token": None, "refresh_token": None,
+    "treino_ativo": False, "serie_atual": "A", "indice_ex": 0, "inicio_timer": 0.0,
+    "cardio_ativo": False, "params_cardio": None, "dist_real": 0.0,
+    "t_cardio_start": 0.0, "cardio_salvo": False,
+    "confirmar_historico": False, "perfil_completo": None,
     "sessao_restaurada": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ─────────────────────────────────────────────
-# HELPERS — AUTH
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# AUTH HELPERS
+# ═══════════════════════════════════════════════════════════════════
+def _cookie_get(key: str) -> str:
+    """Lê cookie com fallback seguro."""
+    try:
+        val = cookies[key]
+        return val if val else ""
+    except Exception:
+        return ""
+
+def _cookie_set(key: str, val: str):
+    try:
+        cookies[key] = val
+        cookies.save()
+    except Exception:
+        pass
+
 def fazer_login(email: str, senha: str) -> bool:
-    """Autentica com Supabase Auth e guarda sessão."""
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": senha})
         st.session_state.access_token  = res.session.access_token
         st.session_state.refresh_token = res.session.refresh_token
         st.session_state.usuario = {
-            "id":    res.user.id,
-            "email": res.user.email,
-            "nome":  res.user.user_metadata.get("nome", email.split("@")[0]),
+            "id": res.user.id, "email": res.user.email,
+            "nome": res.user.user_metadata.get("nome", email.split("@")[0]),
         }
-        # Persiste refresh_token no cookie
-        try:
-            cookies["rt"] = res.session.refresh_token
-            cookies.save()
-        except Exception:
-            pass
+        _cookie_set("rt", res.session.refresh_token)
         return True
     except Exception:
         st.error("❌ Email ou senha incorretos.")
         return False
 
-
 def restaurar_sessao() -> bool:
-    """Tenta restaurar sessão a partir do refresh_token no cookie."""
     if st.session_state.sessao_restaurada:
         return False
     st.session_state.sessao_restaurada = True
+    rt = _cookie_get("rt")
+    if not rt:
+        return False
     try:
-        rt = cookies.get("rt", "")
-        if not rt:
-            return False
         res = supabase.auth.refresh_session(rt)
         if not res or not res.session or not res.user:
-            cookies["rt"] = ""; cookies.save()
+            _cookie_set("rt", "")
             return False
         st.session_state.access_token  = res.session.access_token
         st.session_state.refresh_token = res.session.refresh_token
         st.session_state.usuario = {
-            "id":    res.user.id,
-            "email": res.user.email,
-            "nome":  res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
+            "id": res.user.id, "email": res.user.email,
+            "nome": res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
         }
-        cookies["rt"] = res.session.refresh_token
-        cookies.save()
+        _cookie_set("rt", res.session.refresh_token)
         return True
     except Exception:
-        try:
-            cookies["rt"] = ""; cookies.save()
-        except Exception:
-            pass
+        _cookie_set("rt", "")
         return False
 
-
 def fazer_logout():
-    try:
-        cookies["rt"] = ""
-        cookies.save()
-    except Exception:
-        pass
-    try:
-        supabase.auth.sign_out()
-    except Exception:
-        pass
+    _cookie_set("rt", "")
+    try: supabase.auth.sign_out()
+    except Exception: pass
     for k in list(defaults.keys()):
         st.session_state[k] = defaults[k]
     st.rerun()
 
 def user_id() -> str:
-    """Retorna o UUID do utilizador logado."""
     return st.session_state.usuario["id"]
 
 def verificar_perfil() -> bool:
-    """Retorna True se o perfil já foi preenchido (tem telefone e cidade)."""
     try:
-        res = (
-            supabase.table("perfis")
-            .select("telefone, cidade")
-            .eq("user_id", user_id())
-            .execute()
-        )
-        if res.data and res.data[0].get("telefone") and res.data[0].get("cidade"):
-            return True
-        return False
+        res = supabase.table("perfis").select("telefone,cidade").eq("user_id", user_id()).execute()
+        return bool(res.data and res.data[0].get("telefone") and res.data[0].get("cidade"))
     except Exception:
         return False
 
-def tela_completar_perfil():
-    """Tela exibida uma única vez após o primeiro login."""
-    col_l, col_c, col_r = st.columns([1, 2, 1])
-    with col_c:
-        st.markdown("""
-            <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:16px;
-                        padding:32px;text-align:center;margin-bottom:20px;">
-                <h2 style="color:#e066ff;margin-bottom:6px;">🏋️ Bem-vinda ao PyTrain PRO!</h2>
-                <p style="color:gray;">Complete o seu perfil para continuar.</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        with st.form("form_perfil"):
-            nome_p    = st.text_input("👤 Nome completo", placeholder="Seu nome completo")
-            telefone  = st.text_input("📱 Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
-            cidade    = st.text_input("🏙️ Cidade", placeholder="Cidade onde mora")
-            estado    = st.selectbox("🗺️ Estado", [
-                "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-                "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-                "RS","RO","RR","SC","SP","SE","TO"
-            ], index=7)  # ES por padrão
-
-            salvar = st.form_submit_button("Salvar e Entrar 🚀", use_container_width=True)
-
-        if salvar:
-            if not nome_p.strip() or not telefone.strip() or not cidade.strip():
-                st.warning("Preencha todos os campos para continuar.")
-            else:
-                try:
-                    # Atualiza nome nos metadados do Auth
-                    supabase.auth.update_user({"data": {"nome": nome_p.strip()}})
-                    st.session_state.usuario["nome"] = nome_p.strip()
-
-                    # Upsert na tabela perfis
-                    supabase.table("perfis").upsert({
-                        "user_id":   user_id(),
-                        "nome":      nome_p.strip(),
-                        "telefone":  telefone.strip(),
-                        "cidade":    cidade.strip(),
-                        "estado":    estado,
-                    }).execute()
-
-                    st.session_state.perfil_completo = True
-                    st.success("✅ Perfil salvo!")
-                    time.sleep(0.8)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar perfil: {e}")
-
-# ─────────────────────────────────────────────
-# HELPERS — DADOS
-# Todas as queries incluem user_id para isolamento
-# ─────────────────────────────────────────────
-def registrar_historico(ex_id, detalhes: str, tipo: str = "musculacao") -> None:
+# ═══════════════════════════════════════════════════════════════════
+# DATA HELPERS
+# ═══════════════════════════════════════════════════════════════════
+def registrar_historico(ex_id, detalhes: str, tipo: str = "musculacao"):
     supabase.table("historico_treinos").insert({
-        "user_id":        user_id(),
-        "exercicio_id":   ex_id,
-        "data_execucao":  datetime.now(fuso).isoformat(),
-        "detalhes":       detalhes,
-        "tipo":           tipo,
+        "user_id": user_id(), "exercicio_id": ex_id,
+        "data_execucao": datetime.now(fuso).isoformat(),
+        "detalhes": detalhes, "tipo": tipo,
     }).execute()
 
-def extrair_stats(dataframe: pd.DataFrame) -> tuple[float, int]:
-    if dataframe.empty or "detalhes" not in dataframe.columns:
+def extrair_stats(df: pd.DataFrame):
+    if df.empty or "detalhes" not in df.columns:
         return 0.0, 0
-    kms  = dataframe["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
-    mins = dataframe["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
-    return (float(kms) if not pd.isna(kms) else 0.0), (int(mins) if not pd.isna(mins) else 0)
+    km = df["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
+    mn = df["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
+    return (float(km) if not pd.isna(km) else 0.0), (int(mn) if not pd.isna(mn) else 0)
 
-# ─────────────────────────────────────────────
-# TELA DE LOGIN
-# ─────────────────────────────────────────────
+def rodape():
+    st.markdown("""
+        <div style="margin-top:3rem;padding-top:1rem;border-top:1px solid #1e1e2e;text-align:center;">
+            <p style="margin:0;color:#334155;font-size:0.78rem;">
+                Dúvidas → <a href="mailto:nabevia@gmail.com" style="color:#7c3aed;text-decoration:none;">nabevia@gmail.com</a>
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════
+# TELAS PRÉ-LOGIN
+# ═══════════════════════════════════════════════════════════════════
 def tela_login():
     st.markdown("""
-        <div class="login-box">
-            <h2 style="text-align:center;color:#e066ff;margin-bottom:8px;">🏋️ PyTrain PRO</h2>
-            <p style="text-align:center;color:gray;margin-bottom:24px;">Entre com sua conta para continuar</p>
+        <div style="text-align:center;padding:2.5rem 0 1.5rem;">
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">🏋️</div>
+            <h1 style="font-size:1.8rem;font-weight:700;color:#e2e8f0;margin:0;">PyTrain PRO</h1>
+            <p style="color:#475569;font-size:0.9rem;margin-top:0.4rem;">Seu treino, sua evolução.</p>
         </div>
     """, unsafe_allow_html=True)
 
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        # Tabs: Entrar | Esqueci a Senha
-        tab_login, tab_reset = st.tabs(["🔑 Entrar", "🔓 Esqueci a Senha"])
-
+        tab_login, tab_reset = st.tabs(["Entrar", "Recuperar senha"])
         with tab_login:
             with st.form("form_login"):
-                email = st.text_input("📧 Email", placeholder="seu@email.com")
-                senha = st.text_input("🔒 Senha", type="password", placeholder="••••••••")
+                st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+                email = st.text_input("Email", placeholder="seu@email.com")
+                senha = st.text_input("Senha", type="password", placeholder="••••••••")
+                st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
                 entrar = st.form_submit_button("Entrar", use_container_width=True)
             if entrar:
                 if email and senha:
-                    with st.spinner("Autenticando..."):
+                    with st.spinner(""):
                         if fazer_login(email, senha):
                             st.rerun()
                 else:
                     st.warning("Preencha email e senha.")
-
         with tab_reset:
-            st.caption("Insere o teu email e enviaremos um link para redefinir a senha.")
+            st.caption("Enviaremos um link para redefinir sua senha.")
             with st.form("form_reset"):
-                email_reset = st.text_input("📧 Email cadastrado", placeholder="seu@email.com")
-                enviar = st.form_submit_button("Enviar link de recuperação", use_container_width=True)
+                email_reset = st.text_input("Email", placeholder="seu@email.com")
+                enviar = st.form_submit_button("Enviar link", use_container_width=True)
             if enviar:
                 if email_reset and "@" in email_reset:
                     try:
                         supabase.auth.reset_password_email(email_reset.strip())
-                        st.success(f"✅ Link enviado para **{email_reset}**. Verifique a caixa de entrada.")
+                        st.success(f"Link enviado para {email_reset}.")
                     except Exception as e:
-                        st.error(f"Erro ao enviar: {e}")
+                        st.error(f"Erro: {e}")
                 else:
                     st.warning("Digite um email válido.")
 
-# ─────────────────────────────────────────────
-# FLUXO DE CONVITE — define senha pela primeira vez
-# Recebe access_token + refresh_token via query params
-# vindos da página de redirect no GitHub Pages
-# ─────────────────────────────────────────────
 def tela_definir_senha(access_token: str, refresh_token: str):
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
         st.markdown("""
-            <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:16px;
-                        padding:40px 32px;text-align:center;margin-bottom:24px;">
-                <h2 style="color:#e066ff;">🏋️ PyTrain PRO</h2>
-                <p style="color:gray;">Bem-vinda! Define a tua senha para activar a conta.</p>
+            <div style="text-align:center;padding:2rem 0 1rem;">
+                <div style="font-size:2rem;margin-bottom:0.5rem;">🏋️</div>
+                <h2 style="color:#e2e8f0;font-size:1.4rem;font-weight:700;margin:0;">Ativar conta</h2>
+                <p style="color:#475569;font-size:0.88rem;margin-top:0.3rem;">Crie sua senha para começar.</p>
             </div>
         """, unsafe_allow_html=True)
-
         with st.form("form_definir_senha"):
-            nova_senha  = st.text_input("🔒 Nova Senha", type="password", placeholder="mínimo 8 caracteres")
-            conf_senha  = st.text_input("🔒 Confirmar Senha", type="password", placeholder="repita a senha")
-            salvar      = st.form_submit_button("Activar Conta", use_container_width=True)
-
-        if salvar:
-            if not nova_senha or len(nova_senha) < 8:
-                st.warning("A senha deve ter pelo menos 8 caracteres.")
+            nova = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
+            conf = st.text_input("Confirmar senha", type="password")
+            ok   = st.form_submit_button("Ativar conta", use_container_width=True)
+        if ok:
+            if not nova or len(nova) < 8:
+                st.warning("Mínimo 8 caracteres.")
                 return
-            if nova_senha != conf_senha:
-                st.error("As senhas não coincidem.")
+            if nova != conf:
+                st.error("Senhas não coincidem.")
                 return
-
             try:
-                # Autentica com o token do convite
                 supabase.auth.set_session(access_token, refresh_token)
-                # Actualiza a senha
-                supabase.auth.update_user({"password": nova_senha})
-
-                # Faz login imediato com a nova sessão
+                supabase.auth.update_user({"password": nova})
                 user = supabase.auth.get_user()
                 st.session_state.access_token  = access_token
                 st.session_state.refresh_token = refresh_token
                 st.session_state.usuario = {
-                    "id":    user.user.id,
-                    "email": user.user.email,
-                    "nome":  user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
+                    "id": user.user.id, "email": user.user.email,
+                    "nome": user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
                 }
-                st.success("✅ Senha definida! A entrar...")
-                time.sleep(1)
-                # Limpa os query params e reentra no app
+                _cookie_set("rt", refresh_token)
+                st.success("Conta ativada!")
+                time.sleep(0.8)
                 st.query_params.clear()
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao definir senha: {e}")
+                st.error(f"Erro: {e}")
 
-# ─────────────────────────────────────────────
+def tela_completar_perfil():
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("""
+            <div style="text-align:center;padding:2rem 0 1rem;">
+                <div style="font-size:2rem;">👋</div>
+                <h2 style="color:#e2e8f0;font-size:1.4rem;font-weight:700;margin:0.3rem 0 0;">Bem-vinda!</h2>
+                <p style="color:#475569;font-size:0.88rem;margin-top:0.3rem;">Complete seu perfil para continuar.</p>
+            </div>
+        """, unsafe_allow_html=True)
+        with st.form("form_perfil"):
+            nome_p   = st.text_input("Nome completo", placeholder="Seu nome")
+            telefone = st.text_input("Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
+            cidade   = st.text_input("Cidade", placeholder="Onde você mora")
+            estado   = st.selectbox("Estado", [
+                "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+                "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=7)
+            salvar = st.form_submit_button("Salvar e entrar →", use_container_width=True)
+        if salvar:
+            if not nome_p.strip() or not telefone.strip() or not cidade.strip():
+                st.warning("Preencha todos os campos.")
+            else:
+                try:
+                    supabase.auth.update_user({"data": {"nome": nome_p.strip()}})
+                    st.session_state.usuario["nome"] = nome_p.strip()
+                    supabase.table("perfis").upsert({
+                        "user_id": user_id(), "nome": nome_p.strip(),
+                        "telefone": telefone.strip(), "cidade": cidade.strip(), "estado": estado,
+                    }).execute()
+                    st.session_state.perfil_completo = True
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro: {e}")
+
+# ═══════════════════════════════════════════════════════════════════
 # FLUXO PRINCIPAL
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+qp = st.query_params
+url_at = qp.get("access_token")
+url_rt = qp.get("refresh_token")
 
-qp          = st.query_params
-url_token   = qp.get("access_token")
-url_refresh = qp.get("refresh_token")
-
-# Convite / recuperação de senha
-if url_token and url_refresh and not st.session_state.usuario:
-    tela_definir_senha(url_token, url_refresh)
+if url_at and url_rt and not st.session_state.usuario:
+    tela_definir_senha(url_at, url_rt)
     st.stop()
 
-# Tenta restaurar sessão via cookie (só uma vez por sessão Python)
 if not st.session_state.usuario and not st.session_state.sessao_restaurada:
     if restaurar_sessao():
         st.rerun()
@@ -406,7 +603,6 @@ if not st.session_state.usuario:
     tela_login()
     st.stop()
 
-# Verifica se o perfil está completo (apenas uma vez por sessão)
 if st.session_state.perfil_completo is None:
     st.session_state.perfil_completo = verificar_perfil()
 
@@ -414,189 +610,106 @@ if not st.session_state.perfil_completo:
     tela_completar_perfil()
     st.stop()
 
-# ─────────────────────────────────────────────
-# APP PRINCIPAL (só chega aqui se estiver logado e com perfil completo)
-# ─────────────────────────────────────────────
-nome_usuario = st.session_state.usuario["nome"]
-hora_atual   = hoje_agora.hour
+# ═══════════════════════════════════════════════════════════════════
+# APP PRINCIPAL
+# ═══════════════════════════════════════════════════════════════════
+nome_usuario = st.session_state.usuario["nome"].split()[0]  # só primeiro nome
+hora         = hoje_agora.hour
+saudacao     = "Bom dia" if hora < 12 else "Boa tarde" if hora < 18 else "Boa noite"
+emoji_hora   = "🌅" if hora < 12 else "☀️" if hora < 18 else "🌙"
 
-# Saudação baseada no horário
-if hora_atual < 12:
-    saudacao = "Bom dia"
-    emoji_hora = "🌅"
-elif hora_atual < 18:
-    saudacao = "Boa tarde"
-    emoji_hora = "☀️"
-else:
-    saudacao = "Boa noite"
-    emoji_hora = "🌙"
-
-# Contagem de treinos do mês atual para motivação
 try:
-    res_streak = (
-        supabase.table("historico_treinos")
-        .select("data_execucao")
-        .eq("user_id", user_id())
-        .gte("data_execucao", hoje_agora.replace(day=1, hour=0, minute=0, second=0).isoformat())
-        .execute()
-    )
-    treinos_mes = len(res_streak.data) if res_streak.data else 0
+    r = supabase.table("historico_treinos").select("data_execucao").eq("user_id", user_id())\
+        .gte("data_execucao", hoje_agora.replace(day=1,hour=0,minute=0,second=0).isoformat()).execute()
+    treinos_mes = len(r.data) if r.data else 0
 except Exception:
     treinos_mes = 0
 
-if treinos_mes == 0:
-    msg_motivacao = "Que tal começar o mês com tudo? 💪"
-elif treinos_mes < 5:
-    msg_motivacao = f"Já tens **{treinos_mes} treinos** este mês. Continue assim! 🔥"
-elif treinos_mes < 10:
-    msg_motivacao = f"**{treinos_mes} treinos** este mês — você está voando! 🚀"
-else:
-    msg_motivacao = f"Impressionante! **{treinos_mes} treinos** este mês. Você é uma máquina! 🏆"
+msg = (
+    "Vamos começar o mês forte! 💪" if treinos_mes == 0 else
+    f"{treinos_mes} treino{'s' if treinos_mes>1 else ''} este mês — continue! 🔥" if treinos_mes < 5 else
+    f"{treinos_mes} treinos — você está em chamas! 🚀" if treinos_mes < 10 else
+    f"{treinos_mes} treinos este mês. Lendária! 🏆"
+)
 
-# ── Banner de saudação ───────────────────────────────────────────
-# Botão Sair como link HTML dentro do banner para evitar corte em mobile
+# Banner
 st.markdown(f"""
-    <div style="
-        background:linear-gradient(135deg,#1e1e2e 0%,#2a1a3e 100%);
-        border:2px solid #7d33ff;
-        border-radius:14px;
-        padding:16px 20px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        box-sizing:border-box;
-        margin-bottom:8px;
-    ">
-        <div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1;">
-            <div style="font-size:2em;line-height:1;flex-shrink:0;">{emoji_hora}</div>
-            <div style="min-width:0;">
-                <p style="margin:0;color:#a78bfa;font-size:0.72em;letter-spacing:1px;text-transform:uppercase;">
-                    🏋️ PyTrain PRO
-                </p>
-                <p style="margin:2px 0 3px;color:#fff;font-size:1.15em;font-weight:700;">
-                    {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
-                </p>
-                <p style="margin:0;color:#aaa;font-size:0.82em;">
-                    {msg_motivacao}
-                </p>
-            </div>
+    <div class="pt-card-accent" style="display:flex;align-items:center;gap:1rem;margin-bottom:0.25rem;">
+        <div style="font-size:2.2rem;line-height:1;">{emoji_hora}</div>
+        <div style="flex:1;min-width:0;">
+            <div class="pt-badge">PyTrain PRO</div>
+            <p style="margin:4px 0 2px;font-size:1.15rem;font-weight:700;color:#e2e8f0;">
+                {saudacao}, <span style="color:#a78bfa;">{nome_usuario}</span>
+            </p>
+            <p style="margin:0;font-size:0.82rem;color:#64748b;">{msg}</p>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-# Botão Sair separado, abaixo do banner — único jeito confiável no Streamlit
-if st.button("🚪 Sair", key="btn_sair"):
-    fazer_logout()
+col_sair, _ = st.columns([1, 3])
+with col_sair:
+    if st.button("Sair →", key="btn_sair"):
+        fazer_logout()
 
-# Se veio do botão "Cadastrar exercícios agora", abre direto na aba Menu
-_tab_default = 3 if st.session_state.get("ir_para_menu") else 0
-if st.session_state.get("ir_para_menu"):
-    st.session_state["ir_para_menu"] = False
+aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Perfil"])
 
-aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
-
-# ── Rodapé global (aparece em todas as abas) ─────────────────────────
-def rodape():
-    st.markdown("""
-        <div style="margin-top:48px;padding:16px 0 8px;border-top:1px solid #2a2a3e;
-                    text-align:center;">
-            <p style="margin:0;color:#555;font-size:0.8em;">
-                Dúvidas ou sugestões? Entre em contato →
-                <a href="mailto:nabevia@gmail.com" style="color:#a78bfa;text-decoration:none;">
-                    nabevia@gmail.com
-                </a>
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 # ABA 1 — TREINO
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 with aba1:
     if not st.session_state.treino_ativo:
-        st.subheader("Escolha sua Série")
-        serie = st.radio("Selecione:", ["A", "B", "C", "D"], horizontal=True)
+        serie = st.radio("Série", ["A", "B", "C", "D"], horizontal=True, label_visibility="collapsed")
 
-        # Exercícios filtrados pelo user_id
-        preview = (
-            supabase.table("exercicios")
-            .select("nome, series, repeticoes, peso_kg")
-            .eq("serie_tipo", serie)
-            .eq("user_id", user_id())
-            .execute()
-        )
+        exs = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
+            .eq("serie_tipo", serie).eq("user_id", user_id()).execute()
 
-        # Busca com id para poder deletar
-        preview_full = (
-            supabase.table("exercicios")
-            .select("id, nome, series, repeticoes, peso_kg")
-            .eq("serie_tipo", serie)
-            .eq("user_id", user_id())
-            .execute()
-        )
-
-        if preview_full.data:
-            st.markdown(f"#### 📋 Série {serie} — {len(preview_full.data)} exercícios")
-            for i, ex in enumerate(preview_full.data, 1):
-                col_ex, col_del = st.columns([5, 1])
-                with col_ex:
-                    st.markdown(
-                        f"""<div style="background:#1e1e2e;border-left:3px solid #7d33ff;
-                            border-radius:8px;padding:10px 16px;margin:4px 0;
-                            display:flex;justify-content:space-between;align-items:center;">
-                            <span style="color:white;font-weight:bold;">{i}. {ex['nome']}</span>
-                            <span style="color:#a78bfa;font-size:0.85em;">
-                                {ex['series']}x{ex['repeticoes']} &nbsp;|&nbsp; {ex['peso_kg']} kg
-                            </span>
-                        </div>""",
-                        unsafe_allow_html=True,
-                    )
-                with col_del:
-                    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-                    if st.button("🗑️", key=f"del_prev_{ex['id']}", help=f"Remover {ex['nome']}"):
+        if exs.data:
+            st.markdown(f'<p class="pt-section-title">Série {serie} · {len(exs.data)} exercícios</p>', unsafe_allow_html=True)
+            for i, ex in enumerate(exs.data, 1):
+                c1, c2 = st.columns([6, 1])
+                with c1:
+                    st.markdown(f"""
+                        <div class="pt-ex-row">
+                            <span class="pt-ex-name">{i}. {ex['nome']}</span>
+                            <span class="pt-ex-meta">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']}kg</span>
+                        </div>""", unsafe_allow_html=True)
+                with c2:
+                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                    if st.button("✕", key=f"del_{ex['id']}", help="Remover"):
                         supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
                         st.rerun()
             pode_iniciar = True
         else:
-            st.info(f"Série {serie} vazia.")
+            st.markdown(f'<p class="pt-section-title">Série {serie} · vazia</p>', unsafe_allow_html=True)
             pode_iniciar = False
 
-        # Formulário de cadastro sempre visível na aba Treino
-        with st.expander("➕ Adicionar exercício à Série " + serie, expanded=not pode_iniciar):
-            with st.form(f"form_treino_cadastro_{serie}"):
-                r_nome   = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
-                c1r, c2r, c3r = st.columns(3)
-                r_peso   = c1r.number_input("Peso (kg)", value=0, min_value=0)
-                r_series = c2r.number_input("Séries", value=3, min_value=1)
-                r_reps   = c3r.number_input("Reps", value=12, min_value=1)
-                if st.form_submit_button("✅ Adicionar", use_container_width=True):
+        with st.expander(f"＋ Adicionar exercício — Série {serie}", expanded=not pode_iniciar):
+            with st.form(f"form_add_{serie}"):
+                r_nome = st.text_input("Nome", placeholder="Ex: Supino Reto")
+                c1, c2, c3 = st.columns(3)
+                r_peso   = c1.number_input("Peso kg", value=0, min_value=0)
+                r_series = c2.number_input("Séries",  value=3, min_value=1)
+                r_reps   = c3.number_input("Reps",    value=12, min_value=1)
+                if st.form_submit_button("Adicionar", use_container_width=True):
                     if r_nome.strip():
-                        existe = (
-                            supabase.table("exercicios")
-                            .select("id")
-                            .ilike("nome", r_nome.strip())
-                            .eq("serie_tipo", serie)
-                            .eq("user_id", user_id())
-                            .execute()
-                        )
-                        if existe.data:
+                        dup = supabase.table("exercicios").select("id")\
+                            .ilike("nome", r_nome.strip()).eq("serie_tipo", serie)\
+                            .eq("user_id", user_id()).execute()
+                        if dup.data:
                             st.warning(f"'{r_nome}' já existe na Série {serie}.")
                         else:
                             supabase.table("exercicios").insert({
-                                "user_id":    user_id(),
-                                "nome":       r_nome.strip(),
-                                "serie_tipo": serie,
-                                "peso_kg":    r_peso,
-                                "series":     r_series,
-                                "repeticoes": r_reps,
+                                "user_id": user_id(), "nome": r_nome.strip(),
+                                "serie_tipo": serie, "peso_kg": r_peso,
+                                "series": r_series, "repeticoes": r_reps,
                             }).execute()
-                            st.success(f"✅ '{r_nome}' adicionado!")
+                            st.success(f"✓ '{r_nome}' adicionado!")
                             st.rerun()
                     else:
-                        st.warning("Digite o nome do exercício.")
+                        st.warning("Digite o nome.")
 
-        if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True, disabled=not pode_iniciar):
+        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+        if st.button(f"Iniciar Série {serie} →", use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
             st.session_state.serie_atual  = serie
             st.session_state.indice_ex    = 0
@@ -604,64 +717,58 @@ with aba1:
             st.rerun()
 
     else:
-        res = (
-            supabase.table("exercicios")
-            .select("*")
-            .eq("serie_tipo", st.session_state.serie_atual)
-            .eq("user_id", user_id())
-            .execute()
-        )
+        res = supabase.table("exercicios").select("*")\
+            .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", user_id()).execute()
 
         if not res.data:
-            st.warning("Nenhum exercício cadastrado para esta série.")
+            st.warning("Nenhum exercício nesta série.")
             if st.button("Voltar"):
                 st.session_state.treino_ativo = False
                 st.rerun()
         else:
-            total_ex = len(res.data)
-            indice   = st.session_state.indice_ex
+            total  = len(res.data)
+            idx    = st.session_state.indice_ex
 
-            if indice >= total_ex:
+            if idx >= total:
                 st.session_state.treino_ativo = False
                 st.balloons()
                 st.success("🎉 Treino concluído!")
                 st.rerun()
 
-            ex_atual = res.data[indice]
+            ex = res.data[idx]
+            pct = int((idx / total) * 100)
 
             st.markdown(f"""
-                <div class="foco-container">
-                    <h4 style="color:gray;margin:0;">
-                        Série {st.session_state.serie_atual} | {indice + 1} de {total_ex}
-                    </h4>
-                    <h1 style="color:#e066ff;margin:10px 0;font-size:28px;">{ex_atual['nome']}</h1>
+                <div class="pt-card-accent" style="text-align:center;padding:1.5rem;">
+                    <div class="pt-badge">Série {st.session_state.serie_atual} · {idx+1} / {total}</div>
+                    <div style="background:#1e1e2e;border-radius:6px;height:4px;margin:0.75rem 0;">
+                        <div style="background:#7c3aed;width:{pct}%;height:100%;border-radius:6px;"></div>
+                    </div>
+                    <h2 style="color:#e2e8f0;font-size:1.4rem;font-weight:700;margin:0.5rem 0 0;">{ex['nome']}</h2>
                 </div>
             """, unsafe_allow_html=True)
 
             c1, c2, c3 = st.columns(3)
-            p = c1.number_input("Kg",   value=int(ex_atual["peso_kg"]),   step=1, key=f"p_{indice}")
-            s = c2.number_input("Sets", value=int(ex_atual["series"]),     step=1, key=f"s_{indice}")
-            r = c3.number_input("Reps", value=int(ex_atual["repeticoes"]), step=1, key=f"r_{indice}")
+            p = c1.number_input("Kg",   value=int(ex["peso_kg"]),   step=1, key=f"p{idx}")
+            s = c2.number_input("Sets", value=int(ex["series"]),     step=1, key=f"s{idx}")
+            r = c3.number_input("Reps", value=int(ex["repeticoes"]), step=1, key=f"r{idx}")
 
-            tempo_total_seg = int(time.time() - st.session_state.inicio_timer)
-            m, seg = divmod(tempo_total_seg, 60)
+            elapsed = int(time.time() - st.session_state.inicio_timer)
+            m, sg   = divmod(elapsed, 60)
             st.markdown(f"""
-                <div style="text-align:center;padding:15px;border:1px solid #7d33ff;
-                            border-radius:12px;margin:15px 0;">
-                    <small style="color:gray;">TEMPO TOTAL</small><br>
-                    <span style="font-size:35px;font-weight:bold;color:white;">{m:02d}:{seg:02d}</span>
+                <div class="pt-timer">
+                    <div class="pt-timer-label">tempo de treino</div>
+                    <div class="pt-timer-val">{m:02d}:{sg:02d}</div>
                 </div>
             """, unsafe_allow_html=True)
 
-            col_prox, col_cancel = st.columns(2)
-
-            if col_prox.button("PRÓXIMO ➡️", use_container_width=True):
-                registrar_historico(ex_atual["id"], f"{p}kg | {s}x{r} | {tempo_total_seg // 60}min")
-                supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual["id"]).execute()
+            c_prox, c_cancel = st.columns(2)
+            if c_prox.button("Próximo →", use_container_width=True):
+                registrar_historico(ex["id"], f"{p}kg | {s}×{r} | {elapsed//60}min")
+                supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
                 st.session_state.indice_ex += 1
                 st.rerun()
-
-            if col_cancel.button("🛑 CANCELAR", type="secondary", use_container_width=True):
+            if c_cancel.button("Cancelar", use_container_width=True):
                 st.session_state.treino_ativo = False
                 st.rerun()
 
@@ -670,124 +777,108 @@ with aba1:
 
     rodape()
 
-
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 # ABA 2 — CARDIO
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 with aba2:
     if not st.session_state.cardio_ativo:
-        st.subheader("Configurar Esteira")
-        modo = st.radio("Objetivo:", ["Distância Alvo (km)", "Número de Ciclos"], horizontal=True)
+        st.markdown('<p class="pt-section-title">Configurar esteira</p>', unsafe_allow_html=True)
+        modo = st.radio("Modo", ["Distância (km)", "Número de ciclos"], horizontal=True, label_visibility="collapsed")
 
         c1, c2 = st.columns(2)
-        t_anda  = c1.number_input("Minutos Andando",  value=5.0, step=1.0)
-        v_anda  = c1.number_input("Vel. Andando",     value=5.0, step=0.5)
-        t_corre = c2.number_input("Minutos Correndo", value=2.0, step=1.0)
-        v_corre = c2.number_input("Vel. Correndo",    value=9.0, step=0.5)
+        t_anda  = c1.number_input("Min. Andando",  value=5.0, step=1.0)
+        v_anda  = c1.number_input("Vel. Andando",  value=5.0, step=0.5)
+        t_corre = c2.number_input("Min. Correndo", value=2.0, step=1.0)
+        v_corre = c2.number_input("Vel. Correndo", value=9.0, step=0.5)
 
-        dist_ciclo = (v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60))
+        dist_ciclo = (v_anda*(t_anda/60)) + (v_corre*(t_corre/60))
         if dist_ciclo <= 0:
-            st.warning("Verifique as velocidades e tempos configurados.")
+            st.warning("Verifique velocidades e tempos.")
             st.stop()
 
-        if modo == "Distância Alvo (km)":
-            dist_alvo = st.number_input("Meta (km)", value=5.0, step=0.5, min_value=0.1)
+        if modo == "Distância (km)":
+            dist_alvo = st.number_input("Meta em km", value=5.0, step=0.5, min_value=0.1)
             n_ciclos  = max(1, round(dist_alvo / dist_ciclo))
-            tempo_total_min = n_ciclos * (t_anda + t_corre)
-            st.info(f"Estimativa: **{n_ciclos} ciclos** → ~{dist_ciclo * n_ciclos:.2f} km | ~{int(tempo_total_min)} min")
         else:
             n_ciclos  = st.number_input("Ciclos", value=1, min_value=1, step=1)
             dist_alvo = dist_ciclo * n_ciclos
-            tempo_total_min = n_ciclos * (t_anda + t_corre)
-            st.info(f"Estimativa: ~{dist_alvo:.2f} km | ~{int(tempo_total_min)} min")
 
-        if st.button("🚀 INICIAR CARDIO", use_container_width=True):
+        km_est  = dist_ciclo * n_ciclos
+        min_est = int(n_ciclos * (t_anda + t_corre))
+        st.info(f"{n_ciclos} ciclos · ~{km_est:.2f} km · ~{min_est} min")
+
+        if st.button("Iniciar cardio →", use_container_width=True):
             etapas = []
             for i in range(int(n_ciclos)):
-                etapas.append((f"🚶 Caminhada ({i+1}/{int(n_ciclos)})", int(t_anda * 60),  v_anda))
-                etapas.append((f"⚡ Corrida   ({i+1}/{int(n_ciclos)})", int(t_corre * 60), v_corre))
-
-            st.session_state.cardio_ativo   = True
-            st.session_state.cardio_salvo   = False
-            st.session_state.dist_real      = 0.0
-            st.session_state.t_cardio_start = time.time()
-            st.session_state.params_cardio  = {
-                "etapas":        etapas,
-                "dist_alvo":     dist_alvo,
-                "etapa_idx":     0,
-                "seg_restantes": etapas[0][1] if etapas else 0,
-            }
+                etapas += [
+                    (f"🚶 Caminhada {i+1}/{int(n_ciclos)}", int(t_anda*60), v_anda),
+                    (f"⚡ Corrida {i+1}/{int(n_ciclos)}",   int(t_corre*60), v_corre),
+                ]
+            st.session_state.update({
+                "cardio_ativo": True, "cardio_salvo": False,
+                "dist_real": 0.0, "t_cardio_start": time.time(),
+                "params_cardio": {"etapas": etapas, "dist_alvo": dist_alvo,
+                                  "etapa_idx": 0, "seg_restantes": etapas[0][1]},
+            })
             st.rerun()
-
     else:
-        params    = st.session_state.params_cardio
-        etapas    = params["etapas"]
-        dist_alvo = params["dist_alvo"]
-        idx       = params["etapa_idx"]
+        p  = st.session_state.params_cardio
+        et = p["etapas"]; da = p["dist_alvo"]; idx = p["etapa_idx"]
 
-        if st.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
+        if st.button("Encerrar e salvar", use_container_width=True):
             if not st.session_state.cardio_salvo:
-                t_final = int((time.time() - st.session_state.t_cardio_start) / 60)
-                registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+                tf = int((time.time()-st.session_state.t_cardio_start)/60)
+                registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km | {tf}min", tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
             st.rerun()
 
-        if idx >= len(etapas):
+        if idx >= len(et):
             if not st.session_state.cardio_salvo:
-                t_final = int((time.time() - st.session_state.t_cardio_start) / 60)
-                registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+                tf = int((time.time()-st.session_state.t_cardio_start)/60)
+                registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km | {tf}min", tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
-            st.success("🎉 Objetivo concluído!")
-            st.balloons()
+            st.balloons(); st.success("🎉 Objetivo concluído!")
             st.rerun()
 
-        nome_etapa, _, vel_etapa = etapas[idx]
-        seg = params["seg_restantes"]
-        m, s = divmod(seg, 60)
+        nome_et, _, vel_et = et[idx]
+        seg = p["seg_restantes"]; m, s = divmod(seg, 60)
+        pct = int((st.session_state.dist_real / da) * 100) if da > 0 else 0
 
         st.markdown(f"""
-            <div class="foco-container" style="border-color:#e066ff;background:black;">
-                <h2 style="color:#e066ff;margin:0;">{nome_etapa}</h2>
-                <h1 style="font-size:70px;margin:10px 0;">{m:02d}:{s:02d}</h1>
-                <h3 style="color:#66ffe0;">
-                    {st.session_state.dist_real:.2f} / {dist_alvo:.2f} km
-                </h3>
+            <div class="pt-card-accent" style="text-align:center;padding:1.5rem;">
+                <h3 style="color:#a78bfa;margin:0 0 0.5rem;font-size:1rem;">{nome_et}</h3>
+                <div style="background:#1e1e2e;border-radius:6px;height:4px;margin:0.5rem auto;max-width:200px;">
+                    <div style="background:#7c3aed;width:{min(pct,100)}%;height:100%;border-radius:6px;"></div>
+                </div>
+                <div class="pt-timer-val" style="font-size:4rem;">{m:02d}:{s:02d}</div>
+                <p style="color:#10b981;font-family:'DM Mono',monospace;font-size:1.1rem;margin:0.5rem 0 0;">
+                    {st.session_state.dist_real:.2f} / {da:.2f} km
+                </p>
             </div>
         """, unsafe_allow_html=True)
 
         time.sleep(1)
-        st.session_state.dist_real += vel_etapa / 3600
-
+        st.session_state.dist_real += vel_et / 3600
         if seg <= 1:
-            params["etapa_idx"] += 1
-            next_idx = params["etapa_idx"]
-            params["seg_restantes"] = etapas[next_idx][1] if next_idx < len(etapas) else 0
+            p["etapa_idx"] += 1
+            ni = p["etapa_idx"]
+            p["seg_restantes"] = et[ni][1] if ni < len(et) else 0
         else:
-            params["seg_restantes"] -= 1
-
-        st.session_state.params_cardio = params
+            p["seg_restantes"] -= 1
+        st.session_state.params_cardio = p
         st.rerun()
 
     rodape()
 
-
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 # ABA 3 — PAINEL
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 with aba3:
-    st.header("📊 Performance & Histórico")
-
     try:
-        # Histórico filtrado pelo user_id
-        res_h = (
-            supabase.table("historico_treinos")
-            .select("*, exercicios(nome)")
-            .eq("user_id", user_id())
-            .order("data_execucao", desc=True)
-            .execute()
-        )
+        res_h = supabase.table("historico_treinos").select("*,exercicios(nome)")\
+            .eq("user_id", user_id()).order("data_execucao", desc=True).execute()
 
         if not res_h.data:
             st.info("Nenhum treino registado ainda.")
@@ -795,270 +886,197 @@ with aba3:
             df = pd.json_normalize(res_h.data)
             df["data_execucao"] = pd.to_datetime(df["data_execucao"]).dt.tz_convert("America/Sao_Paulo")
 
-            st.subheader("📅 Filtrar Período")
-            col_f1, col_f2 = st.columns(2)
-
             anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
-            ano_sel = col_f1.selectbox("Ano", anos)
+            c1, c2 = st.columns(2)
+            ano_sel = c1.selectbox("Ano", anos)
+            meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
+                       7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
+            meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
+            mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
 
-            meses_nomes = {
-                1: "Janeiro", 2: "Fevereiro", 3: "Março",     4: "Abril",
-                5: "Maio",    6: "Junho",     7: "Julho",     8: "Agosto",
-                9: "Setembro",10: "Outubro",  11: "Novembro", 12: "Dezembro",
-            }
-            meses_disp = sorted(
-                df[df["data_execucao"].dt.year == ano_sel]["data_execucao"].dt.month.unique(),
-                reverse=True,
-            )
-            mes_sel = col_f2.selectbox("Mês", meses_disp, format_func=lambda x: meses_nomes[x])
+            df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
+            km_f, min_f = extrair_stats(df_f)
 
-            df_filtrado = df[
-                (df["data_execucao"].dt.month == mes_sel) &
-                (df["data_execucao"].dt.year  == ano_sel)
-            ]
-
-            st.markdown(f"#### 📈 Resumo de {meses_nomes[mes_sel]}/{ano_sel}")
             c1, c2, c3 = st.columns(3)
-            km_f, min_f = extrair_stats(df_filtrado)
-            c1.metric("Treinos",     len(df_filtrado))
-            c2.metric("Distância",   f"{km_f:.2f} km")
-            c3.metric("Tempo Total", f"{min_f} min")
+            c1.metric("Treinos", len(df_f))
+            c2.metric("Distância", f"{km_f:.1f} km")
+            c3.metric("Tempo", f"{min_f} min")
 
-            df_hoje    = df[df["data_execucao"].dt.date == hoje_agora.date()]
-            inicio_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-            df_semana  = df[df["data_execucao"] >= inicio_sem]
+            df_h = df[df["data_execucao"].dt.date == hoje_agora.date()]
+            ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
+            df_s = df[df["data_execucao"] >= ini_sem]
 
-            with st.expander("📌 Ver Hoje e Esta Semana"):
-                km_h, min_h = extrair_stats(df_hoje)
-                km_s, min_s = extrair_stats(df_semana)
-                st.markdown(f"""
-**Hoje:** {len(df_hoje)} atividades | {km_h:.2f} km | {min_h} min
-**Esta Semana:** {len(df_semana)} atividades | {km_s:.2f} km | {min_s} min
-                """)
+            with st.expander("Hoje e esta semana"):
+                km_h, min_h = extrair_stats(df_h)
+                km_s, min_s = extrair_stats(df_s)
+                col1, col2 = st.columns(2)
+                col1.markdown(f"""
+                    <div class="pt-card" style="padding:0.75rem 1rem;">
+                        <p class="pt-label">Hoje</p>
+                        <p class="pt-value">{len(df_h)} atividades · {km_h:.1f}km · {min_h}min</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                col2.markdown(f"""
+                    <div class="pt-card" style="padding:0.75rem 1rem;">
+                        <p class="pt-label">Esta semana</p>
+                        <p class="pt-value">{len(df_s)} atividades · {km_s:.1f}km · {min_s}min</p>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            st.divider()
-            st.subheader(f"📜 Atividades em {meses_nomes[mes_sel]}")
-
-            if df_filtrado.empty:
-                st.info(f"Nenhum registo em {meses_nomes[mes_sel]}.")
+            st.markdown(f'<p class="pt-section-title">Atividades — {meses_n[mes_sel]}</p>', unsafe_allow_html=True)
+            if df_f.empty:
+                st.info(f"Nenhum registro em {meses_n[mes_sel]}.")
             else:
-                df_show = df_filtrado.copy()
+                df_show = df_f.copy()
                 if "exercicios.nome" not in df_show.columns:
-                    df_show["exercicios.nome"] = "🏃 Cardio"
-                df_show["exercicios.nome"] = df_show["exercicios.nome"].fillna("🏃 Cardio")
-                df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m/%Y %H:%M")
-                st.dataframe(df_show[["Data", "exercicios.nome", "detalhes"]], use_container_width=True, hide_index=True)
+                    df_show["exercicios.nome"] = "Cardio"
+                df_show["exercicios.nome"] = df_show["exercicios.nome"].fillna("Cardio")
+                df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m %H:%M")
+                st.dataframe(df_show[["Data","exercicios.nome","detalhes"]].rename(
+                    columns={"exercicios.nome":"Exercício","detalhes":"Detalhes"}),
+                    use_container_width=True, hide_index=True)
 
-            st.divider()
-            if st.button("🗑️ Apagar todo o histórico", use_container_width=True):
+            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+            if st.button("Apagar histórico completo", use_container_width=True):
                 st.session_state["confirmar_historico"] = True
-
             if st.session_state.get("confirmar_historico"):
-                st.error("Tens a certeza? Esta acção apaga **todo** o teu histórico.")
-                c_sim, c_nao = st.columns(2)
-                if c_sim.button("✅ Sim, apagar"):
+                st.error("Esta ação apaga todo o seu histórico permanentemente.")
+                c1, c2 = st.columns(2)
+                if c1.button("Sim, apagar"):
                     supabase.table("historico_treinos").delete().eq("user_id", user_id()).execute()
                     st.session_state["confirmar_historico"] = False
-                    st.success("Histórico limpo.")
+                    st.success("Histórico apagado.")
                     st.rerun()
-                if c_nao.button("❌ Cancelar"):
+                if c2.button("Cancelar"):
                     st.session_state["confirmar_historico"] = False
                     st.rerun()
 
     except Exception as e:
-        st.error(f"Erro ao carregar histórico: {e}")
+        st.error(f"Erro: {e}")
 
     rodape()
 
-
-# ═══════════════════════════════════════════
-# ABA 4 — MENU / PERFIL
-# ═══════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# ABA 4 — PERFIL / MENU
+# ═══════════════════════════════════════════════════════════════════
 with aba4:
     email_atual = st.session_state.usuario["email"]
     nome_atual  = st.session_state.usuario["nome"]
 
-    # ── Busca dados do perfil no banco ───────────────────────────────
     try:
-        res_perfil = (
-            supabase.table("perfis")
-            .select("nome, telefone, cidade, estado")
-            .eq("user_id", user_id())
-            .execute()
-        )
-        dados_perfil = res_perfil.data[0] if res_perfil.data else {}
+        rp = supabase.table("perfis").select("nome,telefone,cidade,estado").eq("user_id", user_id()).execute()
+        dp = rp.data[0] if rp.data else {}
     except Exception:
-        dados_perfil = {}
+        dp = {}
 
-    # ── Card com dados actuais ────────────────────────────────────────
+    # Card de perfil
     st.markdown(f"""
-        <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:14px;
-                    padding:24px 28px;margin-bottom:20px;">
-            <p style="margin:0 0 16px;color:#a78bfa;font-size:0.8em;
-                      text-transform:uppercase;letter-spacing:1px;">👤 Meus Dados</p>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">NOME</p>
-                    <p style="margin:0;color:white;font-weight:600;">{dados_perfil.get('nome', nome_atual)}</p>
-                </div>
-                <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">EMAIL</p>
-                    <p style="margin:0;color:white;font-weight:600;">{email_atual}</p>
-                </div>
-                <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">TELEFONE</p>
-                    <p style="margin:0;color:white;font-weight:600;">{dados_perfil.get('telefone', '—')}</p>
-                </div>
-                <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">CIDADE / ESTADO</p>
-                    <p style="margin:0;color:white;font-weight:600;">
-                        {dados_perfil.get('cidade', '—')} / {dados_perfil.get('estado', '—')}
-                    </p>
-                </div>
+        <div class="pt-card-accent">
+            <p class="pt-label" style="margin-bottom:1rem;">Meu perfil</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <div><p class="pt-label">Nome</p><p class="pt-value">{dp.get('nome', nome_atual)}</p></div>
+                <div><p class="pt-label">Email</p><p class="pt-value" style="font-size:0.88rem;word-break:break-all;">{email_atual}</p></div>
+                <div><p class="pt-label">Telefone</p><p class="pt-value">{dp.get('telefone','—')}</p></div>
+                <div><p class="pt-label">Cidade / Estado</p><p class="pt-value">{dp.get('cidade','—')} · {dp.get('estado','—')}</p></div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    # ── Formulário de edição ──────────────────────────────────────────
-    with st.expander("✏️ Alterar dados pessoais"):
-        with st.form("form_dados_pessoais"):
-            ed_nome     = st.text_input("Nome completo",      value=dados_perfil.get("nome", nome_atual))
-            ed_telefone = st.text_input("Telefone com DDD",   value=dados_perfil.get("telefone", ""), placeholder="(28) 99999-9999")
-            ed_cidade   = st.text_input("Cidade",             value=dados_perfil.get("cidade", ""))
-            estados = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-                       "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-                       "RS","RO","RR","SC","SP","SE","TO"]
-            idx_estado = estados.index(dados_perfil.get("estado", "ES")) if dados_perfil.get("estado", "ES") in estados else 7
-            ed_estado   = st.selectbox("Estado", estados, index=idx_estado)
-            if st.form_submit_button("💾 Salvar alterações", use_container_width=True):
-                if ed_nome.strip() and ed_telefone.strip() and ed_cidade.strip():
+    with st.expander("Editar dados pessoais"):
+        with st.form("form_dados"):
+            ed_nome     = st.text_input("Nome", value=dp.get("nome", nome_atual))
+            ed_tel      = st.text_input("Telefone", value=dp.get("telefone",""), placeholder="(28) 99999-9999")
+            ed_cidade   = st.text_input("Cidade", value=dp.get("cidade",""))
+            ests        = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+                           "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"]
+            idx_e       = ests.index(dp.get("estado","ES")) if dp.get("estado","ES") in ests else 7
+            ed_estado   = st.selectbox("Estado", ests, index=idx_e)
+            if st.form_submit_button("Salvar", use_container_width=True):
+                if ed_nome.strip() and ed_tel.strip() and ed_cidade.strip():
                     try:
                         supabase.auth.update_user({"data": {"nome": ed_nome.strip()}})
                         supabase.table("perfis").upsert({
-                            "user_id":  user_id(),
-                            "nome":     ed_nome.strip(),
-                            "telefone": ed_telefone.strip(),
-                            "cidade":   ed_cidade.strip(),
-                            "estado":   ed_estado,
+                            "user_id": user_id(), "nome": ed_nome.strip(),
+                            "telefone": ed_tel.strip(), "cidade": ed_cidade.strip(), "estado": ed_estado,
                         }).execute()
                         st.session_state.usuario["nome"] = ed_nome.strip()
-                        st.success("✅ Dados atualizados!")
+                        st.success("✓ Dados atualizados!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro: {e}")
                 else:
                     st.warning("Preencha todos os campos.")
 
-    # ── Alterar email ─────────────────────────────────────────────────
-    with st.expander("📧 Alterar email"):
-        st.info(
-            "O processo tem **2 etapas**:\n"
-            "1. Você recebe um link de confirmação no **email atual**\n"
-            "2. Após confirmar, recebe outro link no **novo email**\n\n"
-            "Só após as duas confirmações o email será alterado."
-        )
+    with st.expander("Alterar email"):
+        st.caption("Você receberá links de confirmação no email atual e no novo.")
         with st.form("form_email"):
-            novo_email = st.text_input("Novo email", placeholder="novo@email.com")
-            senha_email = st.text_input("Confirme sua senha", type="password")
+            novo_email  = st.text_input("Novo email", placeholder="novo@email.com")
+            senha_email = st.text_input("Sua senha atual", type="password")
             if st.form_submit_button("Enviar confirmações", use_container_width=True):
                 if not novo_email.strip() or "@" not in novo_email:
-                    st.warning("Digite um email válido.")
+                    st.warning("Email inválido.")
                 elif not senha_email:
-                    st.warning("Confirme sua senha para continuar.")
+                    st.warning("Digite sua senha.")
                 else:
                     try:
-                        # Valida senha antes de iniciar troca de email
                         supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_email})
                         supabase.auth.update_user({"email": novo_email.strip()})
-                        st.success(
-                            f"✅ Confirmações enviadas! Verifique **{email_atual}** "
-                            f"e depois **{novo_email.strip()}** para concluir a alteração."
-                        )
+                        st.success("Confirmações enviadas! Verifique ambos os emails.")
                     except Exception as e:
-                        if "Invalid login" in str(e) or "invalid_credentials" in str(e):
-                            st.error("❌ Senha incorreta.")
-                        else:
-                            st.error(f"Erro: {e}")
+                        st.error("Senha incorreta." if "invalid" in str(e).lower() else f"Erro: {e}")
 
-    # ── Alterar senha ─────────────────────────────────────────────────
-    with st.expander("🔒 Alterar senha"):
+    with st.expander("Alterar senha"):
         with st.form("form_senha"):
-            senha_antiga = st.text_input("Senha atual",        type="password")
-            nova_senha   = st.text_input("Nova senha",         type="password", placeholder="mínimo 8 caracteres")
-            conf_senha   = st.text_input("Confirmar nova senha", type="password")
+            s_antiga = st.text_input("Senha atual", type="password")
+            s_nova   = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
+            s_conf   = st.text_input("Confirmar nova senha", type="password")
             if st.form_submit_button("Salvar senha", use_container_width=True):
-                if not senha_antiga:
+                if not s_antiga:
                     st.warning("Digite a senha atual.")
-                elif len(nova_senha) < 8:
-                    st.warning("A nova senha deve ter pelo menos 8 caracteres.")
-                elif nova_senha != conf_senha:
-                    st.error("As senhas não coincidem.")
+                elif len(s_nova) < 8:
+                    st.warning("Mínimo 8 caracteres.")
+                elif s_nova != s_conf:
+                    st.error("Senhas não coincidem.")
                 else:
                     try:
-                        supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_antiga})
-                        supabase.auth.update_user({"password": nova_senha})
-                        st.success("✅ Senha alterada!")
+                        supabase.auth.sign_in_with_password({"email": email_atual, "password": s_antiga})
+                        supabase.auth.update_user({"password": s_nova})
+                        st.success("✓ Senha alterada!")
                     except Exception:
-                        st.error("❌ Senha atual incorreta.")
+                        st.error("Senha atual incorreta.")
 
     st.divider()
 
-    # ── Apagar conta ──────────────────────────────────────────────────
-    with st.expander("🚨 Apagar minha conta"):
-        st.warning("Esta acção é **irreversível**. Todos os teus treinos, histórico e acesso serão removidos permanentemente.")
-        with st.form("form_apagar_conta"):
-            conf_texto = st.text_input("Digite **APAGAR** para confirmar", placeholder="APAGAR")
-            senha_conf = st.text_input("Confirme sua senha", type="password")
-            if st.form_submit_button("🗑️ Apagar conta permanentemente", use_container_width=True):
-                if conf_texto.strip().upper() != "APAGAR":
-                    st.error("Digite APAGAR em maiúsculas para confirmar.")
+    with st.expander("⚠️ Apagar minha conta"):
+        st.warning("Ação irreversível. Todos os dados serão removidos permanentemente.")
+        with st.form("form_del_conta"):
+            conf_txt   = st.text_input("Digite APAGAR para confirmar", placeholder="APAGAR")
+            senha_conf = st.text_input("Sua senha", type="password")
+            if st.form_submit_button("Apagar conta", use_container_width=True):
+                if conf_txt.strip().upper() != "APAGAR":
+                    st.error("Digite APAGAR em maiúsculas.")
                 elif not senha_conf:
-                    st.warning("Confirme sua senha.")
+                    st.warning("Digite sua senha.")
                 else:
                     try:
-                        # 1. Valida senha e obtém token fresco
-                        res_login = supabase.auth.sign_in_with_password({
-                            "email": email_atual, "password": senha_conf
-                        })
-                        token = res_login.session.access_token
-                        uid   = user_id()
-
-                        # 2. Tenta chamar a Edge Function
-                        edge_ok = False
-                        edge_url = f"{SUPABASE_URL}/functions/v1/delete-account"
-                        try:
-                            import urllib.request as _ur, json as _json, ssl as _ssl
-                            _req = _ur.Request(
-                                edge_url,
-                                data=b"{}",
-                                headers={
-                                    "Authorization": f"Bearer {token}",
-                                    "apikey":         SUPABASE_KEY,
-                                    "Content-Type":  "application/json",
-                                },
-                                method="POST",
-                            )
-                            ctx = _ssl.create_default_context()
-                            with _ur.urlopen(_req, context=ctx, timeout=15) as _r:
-                                _body = _json.loads(_r.read())
-                            if _body.get("success"):
-                                edge_ok = True
-                            else:
-                                st.error(f"Erro na Edge Function: {_body.get('error', _body)}")
-                        except Exception as edge_err:
-                            st.error(f"❌ Erro: {edge_err}")
-
-                        # 3. Se Edge Function OK, faz logout
-                        if edge_ok:
-                            st.success("✅ Conta apagada. Até logo! 👋")
+                        rl    = supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_conf})
+                        token = rl.session.access_token
+                        import urllib.request as _ur, json as _js, ssl as _ssl
+                        req = _ur.Request(
+                            f"{SUPABASE_URL}/functions/v1/delete-account",
+                            data=b"{}",
+                            headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+                            method="POST",
+                        )
+                        with _ur.urlopen(req, context=_ssl.create_default_context(), timeout=15) as rr:
+                            body = _js.loads(rr.read())
+                        if body.get("success"):
+                            st.success("Conta apagada. Até logo! 👋")
                             time.sleep(1)
                             fazer_logout()
-
-                    except Exception as e:
-                        err = str(e)
-                        if "invalid_credentials" in err or "Invalid login" in err or "invalid" in err.lower():
-                            st.error("❌ Senha incorreta.")
                         else:
-                            st.error(f"Erro inesperado: {err}")
+                            st.error(f"Erro: {body.get('error', body)}")
+                    except Exception as e:
+                        st.error("Senha incorreta." if "invalid" in str(e).lower() else f"Erro: {e}")
 
     rodape()
