@@ -237,6 +237,38 @@ def exportar_dados_csv():
     except Exception as e:
         print(f"❌ Erro ao exportar: {e}")
 
+def calcular_volume_treino():
+    print("\n--- 📊 MÉTRICAS DE HOJE ---")
+    hoje = datetime.now().date().isoformat()
+    volume_total = 0
+
+    try:
+        # Busca o que foi feito hoje
+        res = supabase.table("historico_treinos")\
+            .select("detalhes, exercicios(series, repeticoes)")\
+            .gte("data_execucao", hoje).execute()
+
+        if not res.data:
+            print("Sem dados para calcular o volume hoje.")
+            return
+
+        for item in res.data:
+            # Se for musculação (tem link com a tabela exercicios)
+            if item['exercicios']:
+                try:
+                    # Pega o peso da string "80kg | 3x12"
+                    peso = int(item['detalhes'].split('kg')[0])
+                    # Volume = Peso * Séries * Repetições
+                    vol_ex = peso * item['exercicios']['series'] * item['exercicios']['repeticoes']
+                    volume_total += vol_ex
+                except:
+                    continue
+
+        print(f"💪 Volume Total Movido: {volume_total} kg")
+        print("------------------------------")
+    except Exception as e:
+        print(f"⚠️ Erro ao calcular volume: {e}")
+
 # --- MENU ---
 
 if __name__ == "__main__":
@@ -271,7 +303,8 @@ if __name__ == "__main__":
                     registrar_no_historico(ex['id'], f"{peso_atual}kg | {ex['series']}x{ex['repeticoes']}")
 
                 print("\n🏆 Treino Concluído!")
-                resumo_do_dia()  # Mostra o resumo logo após terminar a série
+                resumo_do_dia()  # Mostra o que você fez
+                calcular_volume_treino()  # Mostra o peso total movido
 
         elif opcao == "2":
             cadastrar_novo_exercicio()
