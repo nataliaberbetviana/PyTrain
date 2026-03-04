@@ -444,6 +444,20 @@ if st.session_state.get("ir_para_menu"):
 
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
 
+# ── Rodapé global (aparece em todas as abas) ─────────────────────────
+def rodape():
+    st.markdown("""
+        <div style="margin-top:48px;padding:16px 0 8px;border-top:1px solid #2a2a3e;
+                    text-align:center;">
+            <p style="margin:0;color:#555;font-size:0.8em;">
+                Dúvidas ou sugestões? Entre em contato →
+                <a href="mailto:nabevia@gmail.com" style="color:#a78bfa;text-decoration:none;">
+                    nabevia@gmail.com
+                </a>
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
 # ═══════════════════════════════════════════
 # ABA 1 — TREINO
 # ═══════════════════════════════════════════
@@ -602,6 +616,8 @@ with aba1:
             time.sleep(1)
             st.rerun()
 
+    rodape()
+
 
 # ═══════════════════════════════════════════
 # ABA 2 — CARDIO
@@ -702,6 +718,8 @@ with aba2:
         st.session_state.params_cardio = params
         st.rerun()
 
+    rodape()
+
 
 # ═══════════════════════════════════════════
 # ABA 3 — PAINEL
@@ -798,90 +816,148 @@ with aba3:
     except Exception as e:
         st.error(f"Erro ao carregar histórico: {e}")
 
+    rodape()
+
 
 # ═══════════════════════════════════════════
-# ABA 4 — CONFIGURAÇÕES
+# ABA 4 — MENU / PERFIL
 # ═══════════════════════════════════════════
 with aba4:
-    st.header("⚙️ Gerenciamento do Sistema")
+    email_atual = st.session_state.usuario["email"]
+    nome_atual  = st.session_state.usuario["nome"]
 
-    # ── Perfil do utilizador ──────────────────────────────────────────
-    with st.expander("👤 Meu Perfil"):
-        email_atual = st.session_state.usuario["email"]
-        nome_atual  = st.session_state.usuario["nome"]
+    # ── Busca dados do perfil no banco ───────────────────────────────
+    try:
+        res_perfil = (
+            supabase.table("perfis")
+            .select("nome, telefone, cidade, estado")
+            .eq("user_id", user_id())
+            .execute()
+        )
+        dados_perfil = res_perfil.data[0] if res_perfil.data else {}
+    except Exception:
+        dados_perfil = {}
 
-        st.markdown(f"**Email atual:** `{email_atual}`")
-        st.markdown("---")
+    # ── Card com dados actuais ────────────────────────────────────────
+    st.markdown(f"""
+        <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:14px;
+                    padding:24px 28px;margin-bottom:20px;">
+            <p style="margin:0 0 16px;color:#a78bfa;font-size:0.8em;
+                      text-transform:uppercase;letter-spacing:1px;">👤 Meus Dados</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <p style="margin:0;color:gray;font-size:0.78em;">NOME</p>
+                    <p style="margin:0;color:white;font-weight:600;">{dados_perfil.get('nome', nome_atual)}</p>
+                </div>
+                <div>
+                    <p style="margin:0;color:gray;font-size:0.78em;">EMAIL</p>
+                    <p style="margin:0;color:white;font-weight:600;">{email_atual}</p>
+                </div>
+                <div>
+                    <p style="margin:0;color:gray;font-size:0.78em;">TELEFONE</p>
+                    <p style="margin:0;color:white;font-weight:600;">{dados_perfil.get('telefone', '—')}</p>
+                </div>
+                <div>
+                    <p style="margin:0;color:gray;font-size:0.78em;">CIDADE / ESTADO</p>
+                    <p style="margin:0;color:white;font-weight:600;">
+                        {dados_perfil.get('cidade', '—')} / {dados_perfil.get('estado', '—')}
+                    </p>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-        # Alterar nome
-        with st.form("form_nome"):
-            st.markdown("##### ✏️ Alterar Nome")
-            novo_nome = st.text_input("Novo nome", value=nome_atual, placeholder="Seu nome")
-            if st.form_submit_button("Salvar Nome", use_container_width=True):
-                if novo_nome.strip():
+    # ── Formulário de edição ──────────────────────────────────────────
+    with st.expander("✏️ Alterar dados pessoais"):
+        with st.form("form_dados_pessoais"):
+            ed_nome     = st.text_input("Nome completo",      value=dados_perfil.get("nome", nome_atual))
+            ed_telefone = st.text_input("Telefone com DDD",   value=dados_perfil.get("telefone", ""), placeholder="(28) 99999-9999")
+            ed_cidade   = st.text_input("Cidade",             value=dados_perfil.get("cidade", ""))
+            estados = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
+                       "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
+                       "RS","RO","RR","SC","SP","SE","TO"]
+            idx_estado = estados.index(dados_perfil.get("estado", "ES")) if dados_perfil.get("estado", "ES") in estados else 7
+            ed_estado   = st.selectbox("Estado", estados, index=idx_estado)
+            if st.form_submit_button("💾 Salvar alterações", use_container_width=True):
+                if ed_nome.strip() and ed_telefone.strip() and ed_cidade.strip():
                     try:
-                        supabase.auth.update_user({"data": {"nome": novo_nome.strip()}})
-                        st.session_state.usuario["nome"] = novo_nome.strip()
-                        st.success("✅ Nome atualizado!")
+                        supabase.auth.update_user({"data": {"nome": ed_nome.strip()}})
+                        supabase.table("perfis").upsert({
+                            "user_id":  user_id(),
+                            "nome":     ed_nome.strip(),
+                            "telefone": ed_telefone.strip(),
+                            "cidade":   ed_cidade.strip(),
+                            "estado":   ed_estado,
+                        }).execute()
+                        st.session_state.usuario["nome"] = ed_nome.strip()
+                        st.success("✅ Dados atualizados!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro: {e}")
                 else:
-                    st.warning("Digite um nome válido.")
+                    st.warning("Preencha todos os campos.")
 
-        st.markdown("---")
-
-        # Alterar email
+    # ── Alterar email ─────────────────────────────────────────────────
+    with st.expander("📧 Alterar email"):
         with st.form("form_email"):
-            st.markdown("##### 📧 Alterar Email")
             novo_email = st.text_input("Novo email", placeholder="novo@email.com")
-            if st.form_submit_button("Salvar Email", use_container_width=True):
+            if st.form_submit_button("Enviar confirmação", use_container_width=True):
                 if novo_email.strip() and "@" in novo_email:
                     try:
                         supabase.auth.update_user({"email": novo_email.strip()})
-                        st.success("✅ Confirmação enviada para o novo email. Verifique a caixa de entrada.")
+                        st.success("✅ Confirmação enviada. Verifique a caixa de entrada.")
                     except Exception as e:
                         st.error(f"Erro: {e}")
                 else:
                     st.warning("Digite um email válido.")
 
-        st.markdown("---")
-
-        # Alterar senha (exige senha antiga para confirmar identidade)
+    # ── Alterar senha ─────────────────────────────────────────────────
+    with st.expander("🔒 Alterar senha"):
         with st.form("form_senha"):
-            st.markdown("##### 🔒 Alterar Senha")
-            senha_antiga = st.text_input("Senha atual", type="password", placeholder="sua senha atual")
-            nova_senha   = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
-            conf_senha   = st.text_input("Confirmar nova senha", type="password", placeholder="repita a nova senha")
-            if st.form_submit_button("Salvar Senha", use_container_width=True):
+            senha_antiga = st.text_input("Senha atual",        type="password")
+            nova_senha   = st.text_input("Nova senha",         type="password", placeholder="mínimo 8 caracteres")
+            conf_senha   = st.text_input("Confirmar nova senha", type="password")
+            if st.form_submit_button("Salvar senha", use_container_width=True):
                 if not senha_antiga:
                     st.warning("Digite a senha atual.")
-                elif not nova_senha or len(nova_senha) < 8:
+                elif len(nova_senha) < 8:
                     st.warning("A nova senha deve ter pelo menos 8 caracteres.")
                 elif nova_senha != conf_senha:
                     st.error("As senhas não coincidem.")
                 else:
                     try:
-                        # Reautentica com a senha antiga para validar
-                        email_atual2 = st.session_state.usuario["email"]
-                        supabase.auth.sign_in_with_password({"email": email_atual2, "password": senha_antiga})
-                        # Se passou, atualiza para a nova
+                        supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_antiga})
                         supabase.auth.update_user({"password": nova_senha})
-                        st.success("✅ Senha alterada com sucesso!")
+                        st.success("✅ Senha alterada!")
                     except Exception:
                         st.error("❌ Senha atual incorreta.")
 
-
-
     st.divider()
 
-    st.info("💡 Para adicionar ou remover exercícios, use a aba **🚀 Treino**.")
+    # ── Apagar conta ──────────────────────────────────────────────────
+    with st.expander("🚨 Apagar minha conta"):
+        st.warning("Esta acção é **irreversível**. Todos os teus dados e acesso serão removidos.")
+        with st.form("form_apagar_conta"):
+            conf_apagar = st.text_input("Digite **APAGAR** para confirmar", placeholder="APAGAR")
+            senha_conf  = st.text_input("Confirme sua senha", type="password")
+            if st.form_submit_button("🗑️ Apagar conta permanentemente", use_container_width=True):
+                if conf_apagar.strip().upper() != "APAGAR":
+                    st.error("Digite APAGAR em maiúsculas para confirmar.")
+                elif not senha_conf:
+                    st.warning("Confirme sua senha.")
+                else:
+                    try:
+                        # Valida senha antes de apagar
+                        supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_conf})
+                        uid = user_id()
+                        # Apaga dados relacionados
+                        supabase.table("historico_treinos").delete().eq("user_id", uid).execute()
+                        supabase.table("exercicios").delete().eq("user_id", uid).execute()
+                        supabase.table("perfis").delete().eq("user_id", uid).execute()
+                        # Apaga o utilizador via Admin API (requer service_role key no backend)
+                        supabase.auth.admin.delete_user(uid)
+                        fazer_logout()
+                    except Exception as e:
+                        st.error(f"Erro ao apagar conta: {e}")
 
-    st.divider()
-    st.subheader("🚨 Zona de Perigo")
-    st.warning("Esta acção é irreversível.")
-
-    if st.button("🔄 Resetar Todos os Pesos", use_container_width=True):
-        supabase.table("exercicios").update({"peso_kg": 0}).eq("user_id", user_id()).execute()
-        st.success("Pesos resetados para 0 kg!")
-        st.rerun()
+    rodape()
