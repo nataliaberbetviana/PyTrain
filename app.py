@@ -68,6 +68,7 @@ DEFAULTS = {
     "frase_idx": 0, "aba_anterior": None,
     "treino_livre_exs": [],
     "ultimo_idx_registrado": -1,
+    "ordem_exercicios": [],  # IDs na ordem atual do treino
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -391,19 +392,23 @@ with aba1:
                 st.session_state.indice_ex    = 0
                 st.session_state.inicio_timer = time.time()
                 st.session_state.timer_descanso_ativo = False
+                st.session_state.ordem_exercicios = [e["id"] for e in exs.data]
                 st.rerun()
 
         else:
-            res   = supabase.table("exercicios").select("*")\
-                .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", uid())\
-                .order("id").execute()
+            # Busca todos e reordena conforme ordem_exercicios (permite pular)
+            _res_todos = supabase.table("exercicios").select("*").eq("serie_tipo", st.session_state.serie_atual).eq("user_id", uid()).order("id").execute()
 
-            if not res.data:
+            if not _res_todos.data:
                 st.warning("Nenhum exercício nesta série.")
                 if st.button("Voltar"):
                     st.session_state.treino_ativo = False; st.rerun()
             else:
-                total = len(res.data)
+                _ex_map  = {e["id"]: e for e in _res_todos.data}
+                ordem    = st.session_state.get("ordem_exercicios") or [e["id"] for e in _res_todos.data]
+                res_data = [_ex_map[i] for i in ordem if i in _ex_map]
+
+                total = len(res_data)
                 idx   = st.session_state.indice_ex
 
                 if idx >= total:
@@ -425,12 +430,18 @@ with aba1:
                     st.info("💜 " + random.choice(FRASES))
                     st.rerun()
 
-                ex  = res.data[idx]
+                ex  = res_data[idx]
                 pct = int((idx / total) * 100)
 
                 st.caption("SÉRIE " + st.session_state.serie_atual + "  ·  " + str(idx+1) + " de " + str(total))
                 st.progress(pct)
-                st.subheader("💪 " + ex["nome"])
+
+                col_titulo, col_pular = st.columns([5, 1])
+                col_titulo.subheader("💪 " + ex["nome"])
+                if col_pular.button("⏭ Pular", key=f"pular_{idx}", help="Mover para o final"):
+                    nova_ordem = [eid for eid in ordem if eid != ex["id"]] + [ex["id"]]
+                    st.session_state.ordem_exercicios = nova_ordem
+                    st.rerun()
 
                 ult_det, ult_data = _ultima_carga(ex["id"])
                 if ult_det:
