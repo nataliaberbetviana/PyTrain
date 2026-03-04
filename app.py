@@ -296,36 +296,33 @@ elif treinos_mes < 10:
 else:
     msg_motivacao = f"Impressionante! **{treinos_mes} treinos** este mês. Você é uma máquina! 🏆"
 
-# ── Banner de saudação ────────────────────────────────────────────
-col_banner, col_sair = st.columns([5, 1])
-
-with col_banner:
-    st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #1e1e2e 0%, #2a1a3e 100%);
-            border: 2px solid #7d33ff;
-            border-radius: 14px;
-            padding: 20px 28px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        ">
-            <div style="font-size: 3em; line-height: 1;">{emoji_hora}</div>
-            <div>
-                <p style="margin:0; color:#a78bfa; font-size:0.9em; letter-spacing:1px; text-transform:uppercase;">
-                    🏋️ PyTrain PRO
-                </p>
-                <h2 style="margin:4px 0 6px; color:#ffffff; font-size:1.6em;">
-                    {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
-                </h2>
-                <p style="margin:0; color:#aaa; font-size:0.95em;">{msg_motivacao}</p>
-            </div>
+# ── Banner de saudação (largura total) ───────────────────────────
+st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #1e1e2e 0%, #2a1a3e 100%);
+        border: 2px solid #7d33ff;
+        border-radius: 14px;
+        padding: 18px 24px;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    ">
+        <div style="font-size:2.4em; line-height:1; flex-shrink:0;">{emoji_hora}</div>
+        <div>
+            <p style="margin:0; color:#a78bfa; font-size:0.8em; letter-spacing:1px; text-transform:uppercase;">
+                🏋️ PyTrain PRO
+            </p>
+            <h2 style="margin:3px 0 4px; color:#ffffff; font-size:1.35em;">
+                {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
+            </h2>
+            <p style="margin:0; color:#aaa; font-size:0.88em;">{msg_motivacao}</p>
         </div>
-    """, unsafe_allow_html=True)
+    </div>
+""", unsafe_allow_html=True)
 
+col_esp, col_sair = st.columns([6, 1])
 with col_sair:
-    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
     if st.button("🚪 Sair", use_container_width=True):
         fazer_logout()
 
@@ -625,6 +622,79 @@ with aba3:
 # ═══════════════════════════════════════════
 with aba4:
     st.header("⚙️ Gerenciamento do Sistema")
+
+    # ── Perfil do utilizador ──────────────────────────────────────────
+    with st.expander("👤 Meu Perfil"):
+        email_atual = st.session_state.usuario["email"]
+        nome_atual  = st.session_state.usuario["nome"]
+
+        st.markdown(f"**Email atual:** `{email_atual}`")
+        st.markdown("---")
+
+        # Alterar nome
+        with st.form("form_nome"):
+            st.markdown("##### ✏️ Alterar Nome")
+            novo_nome = st.text_input("Novo nome", value=nome_atual, placeholder="Seu nome")
+            if st.form_submit_button("Salvar Nome", use_container_width=True):
+                if novo_nome.strip():
+                    try:
+                        supabase.auth.update_user({"data": {"nome": novo_nome.strip()}})
+                        st.session_state.usuario["nome"] = novo_nome.strip()
+                        st.success("✅ Nome atualizado!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+                else:
+                    st.warning("Digite um nome válido.")
+
+        st.markdown("---")
+
+        # Alterar email
+        with st.form("form_email"):
+            st.markdown("##### 📧 Alterar Email")
+            novo_email = st.text_input("Novo email", placeholder="novo@email.com")
+            if st.form_submit_button("Salvar Email", use_container_width=True):
+                if novo_email.strip() and "@" in novo_email:
+                    try:
+                        supabase.auth.update_user({"email": novo_email.strip()})
+                        st.success("✅ Confirmação enviada para o novo email. Verifique a caixa de entrada.")
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+                else:
+                    st.warning("Digite um email válido.")
+
+        st.markdown("---")
+
+        # Alterar senha
+        with st.form("form_senha"):
+            st.markdown("##### 🔒 Alterar Senha")
+            nova_senha  = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
+            conf_senha  = st.text_input("Confirmar senha", type="password", placeholder="repita a senha")
+            if st.form_submit_button("Salvar Senha", use_container_width=True):
+                if not nova_senha or len(nova_senha) < 8:
+                    st.warning("A senha deve ter pelo menos 8 caracteres.")
+                elif nova_senha != conf_senha:
+                    st.error("As senhas não coincidem.")
+                else:
+                    try:
+                        supabase.auth.update_user({"password": nova_senha})
+                        st.success("✅ Senha alterada com sucesso!")
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+        st.markdown("---")
+
+        # Recuperar senha por email
+        st.markdown("##### 🔑 Esqueci a Senha")
+        st.caption("Envia um link de recuperação para o teu email de cadastro.")
+        if st.button("Enviar link de recuperação", use_container_width=True):
+            try:
+                supabase.auth.reset_password_email(email_atual)
+                st.success(f"✅ Link enviado para **{email_atual}**. Verifique a caixa de entrada.")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    st.divider()
 
     with st.expander("✨ Cadastrar Novo Exercício"):
         with st.form("form_cadastro"):
