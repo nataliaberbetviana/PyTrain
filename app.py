@@ -15,7 +15,6 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 _COOKIE_PWD  = os.getenv("COOKIE_PASSWORD", "pytrain-2024-x7k")
 
-# Cookie manager — primeiro render faz round-trip ao browser, st.stop() é normal
 cookies = EncryptedCookieManager(prefix="pt_", password=_COOKIE_PWD)
 if not cookies.ready():
     st.stop()
@@ -23,16 +22,10 @@ if not cookies.ready():
 fuso      = pytz.timezone("America/Sao_Paulo")
 hoje_agora = datetime.now(fuso)
 
-# ═══════════════════════════════════════════════════════════════════
-# CSS — Dark Athletic / refined fitness aesthetic
-# Fonte: DM Sans (display) + DM Mono (números)
-# Paleta: #0a0a0f base · #7c3aed roxo · #a78bfa roxo claro · #e2e8f0 texto
-# ═══════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-/* ── Reset & base ─────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
 .stApp {
@@ -47,14 +40,12 @@ st.markdown("""
 }
 header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
 
-/* ── Tipografia global ────────────────────────────────── */
 .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp p,
 .stApp span,.stApp div,.stApp label {
     font-family: 'DM Sans', sans-serif !important;
     color: #e2e8f0 !important;
 }
 
-/* ── Labels de inputs ─────────────────────────────────── */
 .stApp label,
 .stApp [data-testid="stWidgetLabel"] p,
 .stApp [data-testid="stWidgetLabel"] {
@@ -66,7 +57,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     opacity: 1 !important;
 }
 
-/* ── Inputs ───────────────────────────────────────────── */
 .stApp input[type="text"],
 .stApp input[type="password"],
 .stApp input[type="email"],
@@ -95,7 +85,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     box-shadow: 0 0 0 3px rgba(124,58,237,0.15) !important;
 }
 
-/* ── Number input ─────────────────────────────────────── */
 .stApp .stNumberInput div div input {
     background: #13131a !important;
     color: #a78bfa !important;
@@ -117,7 +106,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     border-color: #7c3aed !important;
 }
 
-/* ── Selectbox ────────────────────────────────────────── */
 .stApp [data-baseweb="select"] > div {
     background: #13131a !important;
     border: 1px solid #2d2d3d !important;
@@ -127,7 +115,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
 .stApp [data-baseweb="select"] span,
 .stApp [data-baseweb="select"] div { color: #e2e8f0 !important; }
 
-/* ── Botões primários ─────────────────────────────────── */
 .stApp .stButton > button,
 .stApp .stFormSubmitButton > button,
 .stApp [data-testid="baseButton-primary"],
@@ -160,7 +147,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     box-shadow: none !important;
 }
 
-/* ── Tabs ─────────────────────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] {
     gap: 4px !important;
     background: #13131a !important;
@@ -184,7 +170,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     box-shadow: 0 2px 8px rgba(124,58,237,0.4) !important;
 }
 
-/* ── Expanders ────────────────────────────────────────── */
 .stApp [data-testid="stExpander"] {
     background: #13131a !important;
     border: 1px solid #1e1e2e !important;
@@ -204,7 +189,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
 .stApp [data-testid="stExpander"] summary:hover { background: #1a1a2a !important; }
 .stApp [data-testid="stExpander"] summary p { color: #c4b5fd !important; }
 
-/* ── Alertas ──────────────────────────────────────────── */
 .stApp [data-testid="stAlert"],
 .stApp [data-testid="stAlert"] * { color: #e2e8f0 !important; font-size: 0.9rem !important; }
 .stApp [data-testid="stInfo"]    { background: #0d1f33 !important; border: none !important; border-left: 3px solid #3b82f6 !important; border-radius: 10px !important; }
@@ -212,7 +196,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
 .stApp [data-testid="stError"]   { background: #1f0808 !important; border: none !important; border-left: 3px solid #ef4444 !important; border-radius: 10px !important; }
 .stApp [data-testid="stSuccess"] { background: #071f10 !important; border: none !important; border-left: 3px solid #10b981 !important; border-radius: 10px !important; }
 
-/* ── Radio ────────────────────────────────────────────── */
 .stApp .stRadio > div { gap: 0.4rem !important; }
 .stApp .stRadio label {
     background: #13131a !important;
@@ -232,7 +215,6 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     color: #c4b5fd !important;
 }
 
-/* ── Métricas ─────────────────────────────────────────── */
 [data-testid="stMetric"] {
     background: #13131a !important;
     border: 1px solid #1e1e2e !important;
@@ -246,16 +228,14 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
 }
 [data-testid="stMetricLabel"] { color: #64748b !important; font-size: 0.78rem !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; }
 
-/* ── Divider ──────────────────────────────────────────── */
 .stApp hr { border-color: #1e1e2e !important; margin: 1.5rem 0 !important; }
 
-/* ── Caption / small ──────────────────────────────────── */
 .stApp .stCaption, .stApp [data-testid="stCaptionContainer"] p {
     color: #475569 !important;
     font-size: 0.82rem !important;
 }
 
-/* ── Custom classes ───────────────────────────────────── */
+/* Custom classes usadas via unsafe_allow_html — funcionam bem em desktop e mobile */
 .pt-card {
     background: #13131a;
     border: 1px solid #1e1e2e;
@@ -336,12 +316,20 @@ header[data-testid="stHeader"],#MainMenu,footer { display:none !important; }
     padding-bottom: 0.5rem;
     border-bottom: 1px solid #1e1e2e;
 }
+/* Grid para perfil — responsivo no mobile */
+.pt-perfil-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 480px) {
+    .pt-perfil-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════════
-# SUPABASE
-# ═══════════════════════════════════════════════════════════════════
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("⚠️ Variáveis SUPABASE_URL e SUPABASE_KEY não encontradas.")
     st.stop()
@@ -351,9 +339,6 @@ def get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase = get_supabase()
 
-# ═══════════════════════════════════════════════════════════════════
-# SESSION STATE
-# ═══════════════════════════════════════════════════════════════════
 defaults = {
     "usuario": None, "access_token": None, "refresh_token": None,
     "treino_ativo": False, "serie_atual": "A", "indice_ex": 0, "inicio_timer": 0.0,
@@ -366,11 +351,7 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ═══════════════════════════════════════════════════════════════════
-# AUTH HELPERS
-# ═══════════════════════════════════════════════════════════════════
 def _cookie_get(key: str) -> str:
-    """Lê cookie com fallback seguro."""
     try:
         val = cookies[key]
         return val if val else ""
@@ -441,9 +422,6 @@ def verificar_perfil() -> bool:
     except Exception:
         return False
 
-# ═══════════════════════════════════════════════════════════════════
-# DATA HELPERS
-# ═══════════════════════════════════════════════════════════════════
 def registrar_historico(ex_id, detalhes: str, tipo: str = "musculacao"):
     supabase.table("historico_treinos").insert({
         "user_id": user_id(), "exercicio_id": ex_id,
@@ -467,9 +445,6 @@ def rodape():
         </div>
     """, unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════════
-# TELAS PRÉ-LOGIN
-# ═══════════════════════════════════════════════════════════════════
 def tela_login():
     st.markdown("""
         <div style="text-align:center;padding:2.5rem 0 1.5rem;">
@@ -584,9 +559,6 @@ def tela_completar_perfil():
                 except Exception as e:
                     st.error(f"Erro: {e}")
 
-# ═══════════════════════════════════════════════════════════════════
-# FLUXO PRINCIPAL
-# ═══════════════════════════════════════════════════════════════════
 qp = st.query_params
 url_at = qp.get("access_token")
 url_rt = qp.get("refresh_token")
@@ -610,10 +582,7 @@ if not st.session_state.perfil_completo:
     tela_completar_perfil()
     st.stop()
 
-# ═══════════════════════════════════════════════════════════════════
-# APP PRINCIPAL
-# ═══════════════════════════════════════════════════════════════════
-nome_usuario = st.session_state.usuario["nome"].split()[0]  # só primeiro nome
+nome_usuario = st.session_state.usuario["nome"].split()[0]
 hora         = hoje_agora.hour
 saudacao     = "Bom dia" if hora < 12 else "Boa tarde" if hora < 18 else "Boa noite"
 emoji_hora   = "🌅" if hora < 12 else "☀️" if hora < 18 else "🌙"
@@ -632,7 +601,6 @@ msg = (
     f"{treinos_mes} treinos este mês. Lendária! 🏆"
 )
 
-# Banner
 st.markdown(f"""
     <div class="pt-card-accent" style="display:flex;align-items:center;gap:1rem;margin-bottom:0.25rem;">
         <div style="font-size:2.2rem;line-height:1;">{emoji_hora}</div>
@@ -910,18 +878,13 @@ with aba3:
                 km_h, min_h = extrair_stats(df_h)
                 km_s, min_s = extrair_stats(df_s)
                 col1, col2 = st.columns(2)
-                col1.markdown(f"""
-                    <div class="pt-card" style="padding:0.75rem 1rem;">
-                        <p class="pt-label">Hoje</p>
-                        <p class="pt-value">{len(df_h)} atividades · {km_h:.1f}km · {min_h}min</p>
-                    </div>
-                """, unsafe_allow_html=True)
-                col2.markdown(f"""
-                    <div class="pt-card" style="padding:0.75rem 1rem;">
-                        <p class="pt-label">Esta semana</p>
-                        <p class="pt-value">{len(df_s)} atividades · {km_s:.1f}km · {min_s}min</p>
-                    </div>
-                """, unsafe_allow_html=True)
+                # ── Substituído: usando st.metric em vez de HTML raw com grid ──
+                with col1:
+                    st.markdown('<p class="pt-label">Hoje</p>', unsafe_allow_html=True)
+                    st.markdown(f'<p class="pt-value">{len(df_h)} atividades · {km_h:.1f}km · {min_h}min</p>', unsafe_allow_html=True)
+                with col2:
+                    st.markdown('<p class="pt-label">Esta semana</p>', unsafe_allow_html=True)
+                    st.markdown(f'<p class="pt-value">{len(df_s)} atividades · {km_s:.1f}km · {min_s}min</p>', unsafe_allow_html=True)
 
             st.markdown(f'<p class="pt-section-title">Atividades — {meses_n[mes_sel]}</p>', unsafe_allow_html=True)
             if df_f.empty:
@@ -957,7 +920,7 @@ with aba3:
     rodape()
 
 # ═══════════════════════════════════════════════════════════════════
-# ABA 4 — PERFIL / MENU
+# ABA 4 — PERFIL
 # ═══════════════════════════════════════════════════════════════════
 with aba4:
     email_atual = st.session_state.usuario["email"]
@@ -969,18 +932,23 @@ with aba4:
     except Exception:
         dp = {}
 
-    # Card de perfil
-    st.markdown(f"""
-        <div class="pt-card-accent">
-            <p class="pt-label" style="margin-bottom:1rem;">Meu perfil</p>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                <div><p class="pt-label">Nome</p><p class="pt-value">{dp.get('nome', nome_atual)}</p></div>
-                <div><p class="pt-label">Email</p><p class="pt-value" style="font-size:0.88rem;word-break:break-all;">{email_atual}</p></div>
-                <div><p class="pt-label">Telefone</p><p class="pt-value">{dp.get('telefone','—')}</p></div>
-                <div><p class="pt-label">Cidade / Estado</p><p class="pt-value">{dp.get('cidade','—')} · {dp.get('estado','—')}</p></div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # ── Card de perfil: usando colunas nativas do Streamlit ──────────
+    st.markdown('<div class="pt-card-accent">', unsafe_allow_html=True)
+    st.markdown('<p class="pt-label" style="margin-bottom:0.75rem;">Meu perfil</p>', unsafe_allow_html=True)
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown('<p class="pt-label">Nome</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="pt-value">{dp.get("nome", nome_atual)}</p>', unsafe_allow_html=True)
+        st.markdown('<p class="pt-label" style="margin-top:0.75rem;">Telefone</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="pt-value">{dp.get("telefone","—")}</p>', unsafe_allow_html=True)
+    with col_b:
+        st.markdown('<p class="pt-label">Email</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="pt-value" style="font-size:0.88rem;word-break:break-all;">{email_atual}</p>', unsafe_allow_html=True)
+        st.markdown('<p class="pt-label" style="margin-top:0.75rem;">Cidade / Estado</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="pt-value">{dp.get("cidade","—")} · {dp.get("estado","—")}</p>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
     with st.expander("Editar dados pessoais"):
         with st.form("form_dados"):
