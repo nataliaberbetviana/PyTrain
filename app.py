@@ -497,9 +497,6 @@ with aba1:
                 if c_cancel.button("Cancelar treino", use_container_width=True):
                     st.session_state.treino_ativo = False; st.rerun()
 
-                time.sleep(1)
-                st.rerun()
-
     rodape()
 
 # ═══════════════════════════════
