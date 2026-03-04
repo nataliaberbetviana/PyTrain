@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import os
+import random
 import pandas as pd
 from datetime import datetime, timedelta
 import pytz
@@ -9,7 +10,6 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 
 st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
-
 
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -23,8 +23,21 @@ if not cookies.ready():
 fuso       = pytz.timezone("America/Sao_Paulo")
 hoje_agora = datetime.now(fuso)
 
+FRASES = [
+    "O único treino ruim é aquele que não aconteceu. 💜",
+    "Cada rep te aproxima da melhor versão de você. 🔥",
+    "Consistência bate perfeição sempre. 🏆",
+    "Seu corpo consegue. É sua mente que precisa ser convencida. 💪",
+    "Pequenos progressos ainda são progressos. ⚡",
+    "Você não vai se arrepender de ter treinado. Promessa. 🌟",
+    "A dor de hoje é a força de amanhã. 🚀",
+    "Foco. Disciplina. Resultado. 🎯",
+    "Mais um dia, mais um treino, mais uma conquista. ✨",
+    "Você é mais forte do que imagina. Sempre. 💫",
+]
+
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("Variáveis SUPABASE_URL e SUPABASE_KEY não encontradas.")
+    st.error("Variáveis de ambiente não encontradas.")
     st.stop()
 
 @st.cache_resource
@@ -38,7 +51,7 @@ defaults = {
     "cardio_ativo": False, "params_cardio": None, "dist_real": 0.0,
     "t_cardio_start": 0.0, "cardio_salvo": False,
     "confirmar_historico": False, "perfil_completo": None,
-    "sessao_restaurada": False,
+    "sessao_restaurada": False, "frase_idx": 0,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -131,13 +144,15 @@ def extrair_stats(df):
 
 def rodape():
     st.divider()
-    st.caption("Duvidas: nabevia@gmail.com")
+    st.caption("Dúvidas: nabevia@gmail.com")
 
+# ═══════════════════════════════
 # TELAS PRE-LOGIN
+# ═══════════════════════════════
 
 def tela_login():
-    st.title("PyTrain PRO")
-    st.caption("Seu treino, sua evolucao.")
+    st.title("🏋️ PyTrain PRO")
+    st.caption("Seu treino, sua evolução.")
     st.divider()
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
@@ -167,23 +182,23 @@ def tela_login():
                     except Exception as e:
                         st.error("Erro: " + str(e))
                 else:
-                    st.warning("Digite um email valido.")
+                    st.warning("Digite um email válido.")
 
 def tela_definir_senha(access_token, refresh_token):
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        st.title("Ativar conta")
-        st.caption("Crie sua senha para comecar.")
+        st.title("🏋️ Ativar conta")
+        st.caption("Crie sua senha para começar.")
         with st.form("form_definir_senha"):
-            nova = st.text_input("Nova senha", type="password", placeholder="minimo 8 caracteres")
+            nova = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
             conf = st.text_input("Confirmar senha", type="password")
             ok   = st.form_submit_button("Ativar conta", use_container_width=True)
         if ok:
             if not nova or len(nova) < 8:
-                st.warning("Minimo 8 caracteres.")
+                st.warning("Mínimo 8 caracteres.")
                 return
             if nova != conf:
-                st.error("Senhas nao coincidem.")
+                st.error("Senhas não coincidem.")
                 return
             try:
                 supabase.auth.set_session(access_token, refresh_token)
@@ -206,16 +221,16 @@ def tela_definir_senha(access_token, refresh_token):
 def tela_completar_perfil():
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        st.title("Bem-vinda!")
+        st.title("👋 Bem-vinda!")
         st.caption("Complete seu perfil para continuar.")
         with st.form("form_perfil"):
             nome_p   = st.text_input("Nome completo", placeholder="Seu nome")
             telefone = st.text_input("Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
-            cidade   = st.text_input("Cidade", placeholder="Onde voce mora")
+            cidade   = st.text_input("Cidade", placeholder="Onde você mora")
             estado   = st.selectbox("Estado", [
                 "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
                 "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=7)
-            salvar = st.form_submit_button("Salvar e entrar", use_container_width=True)
+            salvar = st.form_submit_button("Salvar e entrar →", use_container_width=True)
         if salvar:
             if not nome_p.strip() or not telefone.strip() or not cidade.strip():
                 st.warning("Preencha todos os campos.")
@@ -232,7 +247,9 @@ def tela_completar_perfil():
                 except Exception as e:
                     st.error("Erro: " + str(e))
 
+# ═══════════════════════════════
 # FLUXO PRINCIPAL
+# ═══════════════════════════════
 
 qp = st.query_params
 url_at = qp.get("access_token")
@@ -257,7 +274,9 @@ if not st.session_state.perfil_completo:
     tela_completar_perfil()
     st.stop()
 
-# CABECALHO
+# ═══════════════════════════════
+# CABEÇALHO
+# ═══════════════════════════════
 
 nome_usuario = st.session_state.usuario["nome"].split()[0]
 hora         = hoje_agora.hour
@@ -272,29 +291,36 @@ except Exception:
     treinos_mes = 0
 
 if treinos_mes == 0:
-    msg = "Vamos comecar o mes forte! 💪"
+    msg_treinos = "Nenhum treino este mês ainda — bora começar! 💪"
 elif treinos_mes < 5:
-    msg = str(treinos_mes) + " treino(s) este mes — continue! 🔥"
+    msg_treinos = str(treinos_mes) + " treino(s) este mês. Continue assim! 🔥"
 elif treinos_mes < 10:
-    msg = str(treinos_mes) + " treinos — voce esta em chamas! 🚀"
+    msg_treinos = str(treinos_mes) + " treinos este mês. Você está em chamas! 🚀"
 else:
-    msg = str(treinos_mes) + " treinos este mes. Lendaria! 🏆"
+    msg_treinos = str(treinos_mes) + " treinos este mês. Lendária! 🏆"
 
 col_titulo, col_sair = st.columns([5, 1])
 with col_titulo:
-    st.subheader("🏋️ PyTrain PRO")
-    st.caption(saudacao + ", " + nome_usuario + "! " + emoji_hora + " · " + msg)
+    st.subheader(emoji_hora + " " + saudacao + ", " + nome_usuario + "!")
+    st.caption(msg_treinos)
 with col_sair:
     if st.button("Sair", key="btn_sair", use_container_width=True):
         fazer_logout()
 
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Perfil"])
 
-# ABA 1 - TREINO
+# ═══════════════════════════════
+# ABA 1 — TREINO
+# ═══════════════════════════════
 
 with aba1:
     if not st.session_state.treino_ativo:
-        serie = st.radio("Serie", ["A", "B", "C", "D"], horizontal=True, label_visibility="collapsed")
+
+        # Frase motivadora
+        frase = FRASES[hoje_agora.day % len(FRASES)]
+        st.info("✨ " + frase)
+
+        serie = st.radio("Série", ["A", "B", "C", "D"], horizontal=True, label_visibility="collapsed")
 
         exs = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
             .eq("serie_tipo", serie).eq("user_id", user_id()).execute()
@@ -302,11 +328,11 @@ with aba1:
         if exs.data:
             st.caption("SÉRIE " + serie + "  ·  " + str(len(exs.data)) + " exercícios")
             for i, ex in enumerate(exs.data, 1):
-                c1, c2 = st.columns([7, 1])
+                c1, c2 = st.columns([8, 1])
                 with c1:
                     st.info("**" + str(i) + ".  " + ex["nome"] + "**  ·  " + str(ex["series"]) + "×" + str(ex["repeticoes"]) + "  ·  " + str(ex["peso_kg"]) + " kg")
                 with c2:
-                    st.markdown(" ")
+                    st.write("")
                     if st.button("✕", key="del_" + str(ex["id"]), help="Remover"):
                         supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
                         st.rerun()
@@ -315,32 +341,33 @@ with aba1:
             st.caption("SÉRIE " + serie + "  ·  VAZIA")
             pode_iniciar = False
 
-        with st.expander("＋ Adicionar — Série " + serie, expanded=not pode_iniciar):
+        with st.expander("＋ Adicionar exercício — Série " + serie, expanded=not pode_iniciar):
             with st.form("form_add_" + serie):
-                r_nome = st.text_input("Nome", placeholder="Ex: Supino Reto")
+                r_nome = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
                 c1, c2, c3 = st.columns(3)
-                r_peso   = c1.number_input("Peso kg", value=0, min_value=0)
-                r_series = c2.number_input("Series",  value=3, min_value=1)
-                r_reps   = c3.number_input("Reps",    value=12, min_value=1)
-                if st.form_submit_button("Adicionar", use_container_width=True):
+                r_peso   = c1.number_input("Peso (kg)", value=0, min_value=0)
+                r_series = c2.number_input("Séries",    value=3, min_value=1)
+                r_reps   = c3.number_input("Reps",      value=12, min_value=1)
+                if st.form_submit_button("Adicionar exercício", use_container_width=True):
                     if r_nome.strip():
                         dup = supabase.table("exercicios").select("id")\
                             .ilike("nome", r_nome.strip()).eq("serie_tipo", serie)\
                             .eq("user_id", user_id()).execute()
                         if dup.data:
-                            st.warning("'" + r_nome + "' ja existe na Serie " + serie)
+                            st.warning("'" + r_nome + "' já existe na Série " + serie)
                         else:
                             supabase.table("exercicios").insert({
                                 "user_id": user_id(), "nome": r_nome.strip(),
                                 "serie_tipo": serie, "peso_kg": r_peso,
                                 "series": r_series, "repeticoes": r_reps,
                             }).execute()
-                            st.success("'" + r_nome + "' adicionado!")
+                            st.success("✅ '" + r_nome + "' adicionado!")
                             st.rerun()
                     else:
-                        st.warning("Digite o nome.")
+                        st.warning("Digite o nome do exercício.")
 
-        if st.button("Iniciar Serie " + serie, use_container_width=True, disabled=not pode_iniciar):
+        st.write("")
+        if st.button("🚀  Iniciar Série " + serie, use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
             st.session_state.serie_atual  = serie
             st.session_state.indice_ex    = 0
@@ -352,7 +379,7 @@ with aba1:
             .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", user_id()).execute()
 
         if not res.data:
-            st.warning("Nenhum exercicio nesta serie.")
+            st.warning("Nenhum exercício nesta série.")
             if st.button("Voltar"):
                 st.session_state.treino_ativo = False
                 st.rerun()
@@ -363,7 +390,8 @@ with aba1:
             if idx >= total:
                 st.session_state.treino_ativo = False
                 st.balloons()
-                st.success("Treino concluido!")
+                st.success("🎉 Treino concluído! Você arrasou hoje!")
+                st.info("💜 " + random.choice(FRASES))
                 st.rerun()
 
             ex  = res.data[idx]
@@ -374,26 +402,32 @@ with aba1:
             st.subheader("💪 " + ex["nome"])
 
             c1, c2, c3 = st.columns(3)
-            p = c1.number_input("Kg",   value=int(ex["peso_kg"]),   step=1, key="p" + str(idx))
-            s = c2.number_input("Sets", value=int(ex["series"]),     step=1, key="s" + str(idx))
-            r = c3.number_input("Reps", value=int(ex["repeticoes"]), step=1, key="r" + str(idx))
+            p = c1.number_input("Peso (kg)", value=int(ex["peso_kg"]),   step=1, key="p" + str(idx))
+            s = c2.number_input("Séries",    value=int(ex["series"]),    step=1, key="s" + str(idx))
+            r = c3.number_input("Reps",      value=int(ex["repeticoes"]), step=1, key="r" + str(idx))
 
             elapsed = int(time.time() - st.session_state.inicio_timer)
             m, sg   = divmod(elapsed, 60)
+
             st.divider()
             c_t1, c_t2, c_t3 = st.columns(3)
-            c_t1.metric("⏱ Treino", str(m).zfill(2) + ":" + str(sg).zfill(2))
-            c_t2.metric("🏋️ Exercício", str(idx+1) + "/" + str(total))
-            c_t3.metric("📦 Série", st.session_state.serie_atual)
+            c_t1.metric("⏱ Tempo", str(m).zfill(2) + ":" + str(sg).zfill(2))
+            c_t2.metric("🔢 Exercício", str(idx+1) + "/" + str(total))
+            c_t3.metric("📋 Série", st.session_state.serie_atual)
             st.divider()
 
+            # Frase motivadora durante o treino
+            if idx > 0:
+                st.caption("💬 " + FRASES[(hoje_agora.day + idx) % len(FRASES)])
+
+            st.write("")
             c_prox, c_cancel = st.columns(2)
             if c_prox.button("✅  Próximo →", use_container_width=True):
                 registrar_historico(ex["id"], str(p) + "kg | " + str(s) + "x" + str(r) + " | " + str(elapsed//60) + "min")
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex["id"]).execute()
                 st.session_state.indice_ex += 1
                 st.rerun()
-            if c_cancel.button("✕  Cancelar", use_container_width=True):
+            if c_cancel.button("Cancelar treino", use_container_width=True):
                 st.session_state.treino_ativo = False
                 st.rerun()
 
@@ -402,25 +436,30 @@ with aba1:
 
     rodape()
 
-# ABA 2 - CARDIO
+# ═══════════════════════════════
+# ABA 2 — CARDIO
+# ═══════════════════════════════
 
 with aba2:
     if not st.session_state.cardio_ativo:
+
+        st.info("🏃 " + FRASES[(hoje_agora.day + 3) % len(FRASES)])
         st.caption("CONFIGURAR ESTEIRA")
-        modo = st.radio("Modo", ["Distancia (km)", "Numero de ciclos"], horizontal=True, label_visibility="collapsed")
+
+        modo = st.radio("Modo", ["Distância (km)", "Número de ciclos"], horizontal=True, label_visibility="collapsed")
 
         c1, c2 = st.columns(2)
         t_anda  = c1.number_input("Min. Andando",  value=5.0, step=1.0)
-        v_anda  = c1.number_input("Vel. Andando",  value=5.0, step=0.5)
+        v_anda  = c1.number_input("Vel. Andando (km/h)",  value=5.0, step=0.5)
         t_corre = c2.number_input("Min. Correndo", value=2.0, step=1.0)
-        v_corre = c2.number_input("Vel. Correndo", value=9.0, step=0.5)
+        v_corre = c2.number_input("Vel. Correndo (km/h)", value=9.0, step=0.5)
 
         dist_ciclo = (v_anda*(t_anda/60)) + (v_corre*(t_corre/60))
         if dist_ciclo <= 0:
             st.warning("Verifique velocidades e tempos.")
             st.stop()
 
-        if modo == "Distancia (km)":
+        if modo == "Distância (km)":
             dist_alvo = st.number_input("Meta em km", value=5.0, step=0.5, min_value=0.1)
             n_ciclos  = max(1, round(dist_alvo / dist_ciclo))
         else:
@@ -429,9 +468,10 @@ with aba2:
 
         km_est  = dist_ciclo * n_ciclos
         min_est = int(n_ciclos * (t_anda + t_corre))
-        st.info(str(n_ciclos) + " ciclos · ~" + str(round(km_est,2)) + " km · ~" + str(min_est) + " min")
+        st.info("📊  " + str(n_ciclos) + " ciclos  ·  ~" + str(round(km_est,2)) + " km  ·  ~" + str(min_est) + " min")
 
-        if st.button("Iniciar cardio", use_container_width=True):
+        st.write("")
+        if st.button("🏃  Iniciar cardio", use_container_width=True):
             etapas = []
             for i in range(int(n_ciclos)):
                 etapas += [
@@ -449,7 +489,7 @@ with aba2:
         p  = st.session_state.params_cardio
         et = p["etapas"]; da = p["dist_alvo"]; idx = p["etapa_idx"]
 
-        if st.button("Encerrar e salvar", use_container_width=True):
+        if st.button("⏹  Encerrar e salvar", use_container_width=True):
             if not st.session_state.cardio_salvo:
                 tf = int((time.time()-st.session_state.t_cardio_start)/60)
                 registrar_historico(None, "Interrompido: " + str(round(st.session_state.dist_real,2)) + "km | " + str(tf) + "min", tipo="cardio")
@@ -460,11 +500,12 @@ with aba2:
         if idx >= len(et):
             if not st.session_state.cardio_salvo:
                 tf = int((time.time()-st.session_state.t_cardio_start)/60)
-                registrar_historico(None, "Concluido: " + str(round(st.session_state.dist_real,2)) + "km | " + str(tf) + "min", tipo="cardio")
+                registrar_historico(None, "Concluído: " + str(round(st.session_state.dist_real,2)) + "km | " + str(tf) + "min", tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
             st.balloons()
-            st.success("Objetivo concluido!")
+            st.success("🎉 Cardio concluído! Você foi incrível!")
+            st.info("💜 " + random.choice(FRASES))
             st.rerun()
 
         nome_et, _, vel_et = et[idx]
@@ -492,7 +533,9 @@ with aba2:
 
     rodape()
 
-# ABA 3 - PAINEL
+# ═══════════════════════════════
+# ABA 3 — PAINEL
+# ═══════════════════════════════
 
 with aba3:
     try:
@@ -500,7 +543,7 @@ with aba3:
             .eq("user_id", user_id()).order("data_execucao", desc=True).execute()
 
         if not res_h.data:
-            st.info("Nenhum treino registado ainda.")
+            st.info("📭 Nenhum treino registrado ainda. Bora começar!")
         else:
             df = pd.json_normalize(res_h.data)
             df["data_execucao"] = pd.to_datetime(df["data_execucao"]).dt.tz_convert("America/Sao_Paulo")
@@ -508,18 +551,19 @@ with aba3:
             anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
             c1, c2 = st.columns(2)
             ano_sel = c1.selectbox("Ano", anos)
-            meses_n = {1:"Janeiro",2:"Fevereiro",3:"Marco",4:"Abril",5:"Maio",6:"Junho",
+            meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
                        7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
             meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
-            mes_sel = c2.selectbox("Mes", meses_d, format_func=lambda x: meses_n[x])
+            mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
 
             df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
             km_f, min_f = extrair_stats(df_f)
 
+            st.caption("RESUMO — " + meses_n[mes_sel].upper())
             c1, c2, c3 = st.columns(3)
-            c1.metric("Treinos", len(df_f))
-            c2.metric("Distancia", str(round(km_f,1)) + " km")
-            c3.metric("Tempo", str(min_f) + " min")
+            c1.metric("🏋️ Treinos", len(df_f))
+            c2.metric("🛣️ Distância", str(round(km_f,1)) + " km")
+            c3.metric("⏱ Tempo", str(min_f) + " min")
 
             df_h = df[df["data_execucao"].dt.date == hoje_agora.date()]
             ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
@@ -528,13 +572,12 @@ with aba3:
             with st.expander("📅 Hoje e esta semana"):
                 km_h, min_h = extrair_stats(df_h)
                 km_s, min_s = extrair_stats(df_s)
-                col1, col2 = st.columns(2)
-                col1.metric("Hoje", str(len(df_h)) + " ativ · " + str(round(km_h,1)) + "km · " + str(min_h) + "min")
-                col2.metric("Esta semana", str(len(df_s)) + " ativ · " + str(round(km_s,1)) + "km · " + str(min_s) + "min")
+                st.metric("Hoje", str(len(df_h)) + " atividade(s)  ·  " + str(round(km_h,1)) + " km  ·  " + str(min_h) + " min")
+                st.metric("Esta semana", str(len(df_s)) + " atividade(s)  ·  " + str(round(km_s,1)) + " km  ·  " + str(min_s) + " min")
 
             st.caption("ATIVIDADES — " + meses_n[mes_sel].upper())
             if df_f.empty:
-                st.info("Nenhum registro em " + meses_n[mes_sel])
+                st.info("Nenhum registro em " + meses_n[mes_sel] + ".")
             else:
                 df_show = df_f.copy()
                 if "exercicios.nome" not in df_show.columns:
@@ -542,18 +585,19 @@ with aba3:
                 df_show["exercicios.nome"] = df_show["exercicios.nome"].fillna("Cardio")
                 df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m %H:%M")
                 st.dataframe(df_show[["Data","exercicios.nome","detalhes"]].rename(
-                    columns={"exercicios.nome":"Exercicio","detalhes":"Detalhes"}),
+                    columns={"exercicios.nome":"Exercício","detalhes":"Detalhes"}),
                     use_container_width=True, hide_index=True)
 
-            if st.button("Apagar historico completo", use_container_width=True):
+            st.write("")
+            if st.button("🗑️  Apagar histórico completo", use_container_width=True):
                 st.session_state["confirmar_historico"] = True
             if st.session_state.get("confirmar_historico"):
-                st.error("Esta acao apaga todo o seu historico permanentemente.")
+                st.error("⚠️ Esta ação apaga todo o histórico permanentemente.")
                 c1, c2 = st.columns(2)
-                if c1.button("Sim, apagar"):
+                if c1.button("Sim, apagar tudo"):
                     supabase.table("historico_treinos").delete().eq("user_id", user_id()).execute()
                     st.session_state["confirmar_historico"] = False
-                    st.success("Historico apagado.")
+                    st.success("Histórico apagado.")
                     st.rerun()
                 if c2.button("Cancelar"):
                     st.session_state["confirmar_historico"] = False
@@ -564,7 +608,9 @@ with aba3:
 
     rodape()
 
-# ABA 4 - PERFIL
+# ═══════════════════════════════
+# ABA 4 — PERFIL
+# ═══════════════════════════════
 
 with aba4:
     email_atual = st.session_state.usuario["email"]
@@ -577,12 +623,13 @@ with aba4:
         dp = {}
 
     st.subheader("⚙️ Meu Perfil")
-    st.divider()
-    c1, c2 = st.columns(2)
-    c1.metric("👤 Nome", dp.get("nome", nome_atual))
-    c2.metric("📱 Telefone", dp.get("telefone", "—"))
-    c1.metric("📧 Email", email_atual[:24] + ("…" if len(email_atual) > 24 else ""))
-    c2.metric("📍 Cidade / Estado", dp.get("cidade","—") + " · " + dp.get("estado","—"))
+
+    # Perfil em coluna única — fluido no mobile
+    st.metric("👤 Nome", dp.get("nome", nome_atual))
+    st.metric("📧 Email", email_atual)
+    st.metric("📱 Telefone", dp.get("telefone", "—"))
+    st.metric("📍 Cidade", dp.get("cidade","—") + " — " + dp.get("estado","—"))
+
     st.divider()
 
     with st.expander("✏️ Editar dados pessoais"):
@@ -594,7 +641,7 @@ with aba4:
                          "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"]
             idx_e     = ests.index(dp.get("estado","ES")) if dp.get("estado","ES") in ests else 7
             ed_estado = st.selectbox("Estado", ests, index=idx_e)
-            if st.form_submit_button("Salvar", use_container_width=True):
+            if st.form_submit_button("Salvar alterações", use_container_width=True):
                 if ed_nome.strip() and ed_tel.strip() and ed_cidade.strip():
                     try:
                         supabase.auth.update_user({"data": {"nome": ed_nome.strip()}})
@@ -603,7 +650,7 @@ with aba4:
                             "telefone": ed_tel.strip(), "cidade": ed_cidade.strip(), "estado": ed_estado,
                         }).execute()
                         st.session_state.usuario["nome"] = ed_nome.strip()
-                        st.success("Dados atualizados!")
+                        st.success("✅ Dados atualizados!")
                         st.rerun()
                     except Exception as e:
                         st.error("Erro: " + str(e))
@@ -611,53 +658,53 @@ with aba4:
                     st.warning("Preencha todos os campos.")
 
     with st.expander("📧 Alterar email"):
-        st.caption("Voce recebera links de confirmacao no email atual e no novo.")
+        st.caption("Você receberá um link de confirmação em ambos os emails.")
         with st.form("form_email"):
             novo_email  = st.text_input("Novo email", placeholder="novo@email.com")
-            senha_email = st.text_input("Sua senha atual", type="password")
-            if st.form_submit_button("Enviar confirmacoes", use_container_width=True):
+            senha_email = st.text_input("Senha atual", type="password")
+            if st.form_submit_button("Enviar confirmações", use_container_width=True):
                 if not novo_email.strip() or "@" not in novo_email:
-                    st.warning("Email invalido.")
+                    st.warning("Email inválido.")
                 elif not senha_email:
                     st.warning("Digite sua senha.")
                 else:
                     try:
                         supabase.auth.sign_in_with_password({"email": email_atual, "password": senha_email})
                         supabase.auth.update_user({"email": novo_email.strip()})
-                        st.success("Confirmacoes enviadas! Verifique ambos os emails.")
+                        st.success("✅ Confirmações enviadas! Verifique os dois emails.")
                     except Exception as e:
                         st.error("Senha incorreta." if "invalid" in str(e).lower() else "Erro: " + str(e))
 
     with st.expander("🔒 Alterar senha"):
         with st.form("form_senha"):
             s_antiga = st.text_input("Senha atual", type="password")
-            s_nova   = st.text_input("Nova senha", type="password", placeholder="minimo 8 caracteres")
+            s_nova   = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
             s_conf   = st.text_input("Confirmar nova senha", type="password")
-            if st.form_submit_button("Salvar senha", use_container_width=True):
+            if st.form_submit_button("Salvar nova senha", use_container_width=True):
                 if not s_antiga:
                     st.warning("Digite a senha atual.")
                 elif len(s_nova) < 8:
-                    st.warning("Minimo 8 caracteres.")
+                    st.warning("Mínimo 8 caracteres.")
                 elif s_nova != s_conf:
-                    st.error("Senhas nao coincidem.")
+                    st.error("Senhas não coincidem.")
                 else:
                     try:
                         supabase.auth.sign_in_with_password({"email": email_atual, "password": s_antiga})
                         supabase.auth.update_user({"password": s_nova})
-                        st.success("Senha alterada!")
+                        st.success("✅ Senha alterada com sucesso!")
                     except Exception:
                         st.error("Senha atual incorreta.")
 
     st.divider()
 
     with st.expander("⚠️ Apagar minha conta"):
-        st.warning("Acao irreversivel. Todos os dados serao removidos permanentemente.")
+        st.warning("Ação irreversível. Todos os dados serão removidos permanentemente.")
         with st.form("form_del_conta"):
             conf_txt   = st.text_input("Digite APAGAR para confirmar", placeholder="APAGAR")
             senha_conf = st.text_input("Sua senha", type="password")
-            if st.form_submit_button("Apagar conta", use_container_width=True):
+            if st.form_submit_button("Apagar conta permanentemente", use_container_width=True):
                 if conf_txt.strip().upper() != "APAGAR":
-                    st.error("Digite APAGAR em maiusculas.")
+                    st.error("Digite APAGAR em maiúsculas.")
                 elif not senha_conf:
                     st.warning("Digite sua senha.")
                 else:
@@ -674,7 +721,7 @@ with aba4:
                         with _ur.urlopen(req, context=_ssl.create_default_context(), timeout=15) as rr:
                             body = _js.loads(rr.read())
                         if body.get("success"):
-                            st.success("Conta apagada. Ate logo!")
+                            st.success("Conta apagada. Até logo! 👋")
                             time.sleep(1)
                             fazer_logout()
                         else:
