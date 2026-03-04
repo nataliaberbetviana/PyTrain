@@ -610,21 +610,52 @@ with aba3:
                 sinal = "+" if diff >= 0 else ""
                 return sinal + fmt.format(diff)
 
-            # ── FILTRO MENSAL ─────────────────────────────────────────────────────────
-            anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
-            c1, c2 = st.columns(2)
-            ano_sel = c1.selectbox("Ano", anos)
+            # ── FILTRO DE PERÍODO ─────────────────────────────────────────────────────
             meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
                        7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
-            meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
-            mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
 
-            df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
+            modo_filtro = st.radio(
+                "Filtrar por", ["Mês", "Dia específico", "Intervalo de datas"],
+                horizontal=True, label_visibility="collapsed",
+            )
+
+            data_min = df["data_execucao"].dt.date.min()
+            data_max = df["data_execucao"].dt.date.max()
+
+            if modo_filtro == "Mês":
+                anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
+                c1, c2 = st.columns(2)
+                ano_sel = c1.selectbox("Ano", anos)
+                meses_d = sorted(df[df["data_execucao"].dt.year==ano_sel]["data_execucao"].dt.month.unique(), reverse=True)
+                mes_sel = c2.selectbox("Mês", meses_d, format_func=lambda x: meses_n[x])
+                df_f = df[(df["data_execucao"].dt.month==mes_sel)&(df["data_execucao"].dt.year==ano_sel)]
+                titulo_resumo = "RESUMO — " + meses_n[mes_sel].upper()
+
+            elif modo_filtro == "Dia específico":
+                dia_sel = st.date_input("Selecione o dia", value=hoje_agora.date(),
+                                        min_value=data_min, max_value=data_max)
+                df_f = df[df["data_execucao"].dt.date == dia_sel]
+                titulo_resumo = "RESUMO — " + dia_sel.strftime("%d/%m/%Y")
+
+            else:  # Intervalo
+                c1, c2 = st.columns(2)
+                ini_sel = c1.date_input("De", value=data_max - timedelta(days=6),
+                                        min_value=data_min, max_value=data_max, key="dt_ini")
+                fim_sel = c2.date_input("Até", value=data_max,
+                                        min_value=data_min, max_value=data_max, key="dt_fim")
+                if ini_sel > fim_sel:
+                    st.warning("A data inicial deve ser anterior à final.")
+                    ini_sel = fim_sel
+                fim_dt = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
+                ini_dt = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
+                df_f = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
+                titulo_resumo = "RESUMO — " + ini_sel.strftime("%d/%m") + " a " + fim_sel.strftime("%d/%m/%Y")
+
             km_f, min_f, kg_f = extrair_stats(df_f)
 
-            st.caption("RESUMO — " + meses_n[mes_sel].upper())
+            st.caption(titulo_resumo)
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("🏋️ Treinos", len(df_f))
+            c1.metric("🏋️ Atividades", len(df_f))
             c2.metric("🏋️ Vol. Total", f"{kg_f:,.0f} kg")
             c3.metric("⏱ Tempo", fmt_tempo(min_f))
             c4.metric("🛣️ Distância", str(round(km_f,1)) + " km")
@@ -675,9 +706,9 @@ with aba3:
                 st.metric("Hoje", str(len(df_h)) + " atividade(s)  ·  " + str(round(km_h,1)) + " km  ·  " + fmt_tempo(min_h))
                 st.metric("Esta semana", str(len(df_sem_atual)) + " atividade(s)  ·  " + str(round(km_sw,1)) + " km  ·  " + fmt_tempo(min_sw))
 
-            st.caption("ATIVIDADES — " + meses_n[mes_sel].upper())
+            st.caption("ATIVIDADES — " + titulo_resumo.replace("RESUMO — ", ""))
             if df_f.empty:
-                st.info("Nenhum registro em " + meses_n[mes_sel] + ".")
+                st.info("Nenhum registro neste período.")
             else:
                 df_show = df_f.copy()
                 if "exercicios.nome" not in df_show.columns:
