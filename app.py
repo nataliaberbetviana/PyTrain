@@ -254,54 +254,188 @@ st.markdown("""
 section[data-testid="stSidebar"] { display: none; }
 </style>""", unsafe_allow_html=True)
 
-# Navegação por session_state
-if "aba_ativa" not in st.session_state:
-    st.session_state.aba_ativa = "treino"
-if "menu_aberto" not in st.session_state:
-    st.session_state.menu_aberto = False
+# ── Navegação ────────────────────────────────────────────────────────────────
+for _k, _v in {"aba_ativa":"home","menu_aberto":False,"dia_iniciado":False,"humor_dia":None}.items():
+    if _k not in st.session_state: st.session_state[_k] = _v
 
-# Header com botão ☰ Streamlit real
-col_h, col_m = st.columns([5, 1])
+# Menu lateral deslizante via CSS + checkbox hack
+st.markdown("""
+<style>
+#menu-toggle { display:none }
+#menu-overlay { display:none;position:fixed;inset:0;background:#0008;z-index:998 }
+#menu-toggle:checked ~ * #menu-overlay { display:block }
+#menu-drawer {
+  position:fixed;top:0;right:-280px;width:260px;height:100%;
+  background:#0f0f1a;border-left:1px solid #333;z-index:999;
+  transition:right .25s ease;padding:20px 0;overflow-y:auto
+}
+#menu-toggle:checked ~ * #menu-drawer { right:0 }
+.menu-item {
+  display:block;padding:14px 24px;color:#ddd;text-decoration:none;
+  font-size:0.95rem;border-bottom:1px solid #1a1a2e
+}
+.menu-item:hover { background:#1a1a2e;color:#fff }
+.menu-item.active { color:#a78bfa;font-weight:700 }
+</style>""", unsafe_allow_html=True)
+
+# Header compacto
+_a = st.session_state.aba_ativa
+titulo_aba = {"home":"🏠 Home","treino":"🚀 Treino","cardio":"🏃 Cardio",
+              "painel":"📊 Painel","evolucao":"📈 Evolução",
+              "conquistas":"🏆 Conquistas","perfil":"⚙️ Perfil"}.get(_a,"")
+
+col_h, col_m = st.columns([5,1])
 with col_h:
     st.markdown(
-        f"<div style='font-size:1.1rem;font-weight:700;padding-top:4px'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
-        f"<div style='font-size:0.72rem;color:#aaa;margin-bottom:4px'>{msg_treinos}</div>",
-        unsafe_allow_html=True
-    )
+        f"<div style='font-size:0.7rem;color:#888;letter-spacing:1px;margin-top:4px'>{titulo_aba}</div>"
+        f"<div style='font-size:1rem;font-weight:700;line-height:1.2'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+        f"<div style='font-size:0.68rem;color:#aaa;margin-bottom:2px'>{msg_treinos}</div>",
+        unsafe_allow_html=True)
 with col_m:
     if st.button("☰", key="btn_menu", use_container_width=True):
         st.session_state.menu_aberto = not st.session_state.menu_aberto
         st.rerun()
 
 if st.session_state.menu_aberto:
-    abas_menu = [
-        ("🚀 Treino", "treino"), ("🏃 Cardio", "cardio"), ("📊 Painel", "painel"),
-        ("📈 Evolução", "evolucao"), ("🏆 Conquistas", "conquistas"), ("⚙️ Perfil", "perfil"),
-    ]
-    for label, key in abas_menu:
-        ativo = st.session_state.aba_ativa == key
-        style = "font-weight:bold;color:#a78bfa" if ativo else ""
-        if st.button(label, key=f"nav_{key}", use_container_width=True):
+    st.markdown("<hr style='margin:4px 0;border-color:#222'>", unsafe_allow_html=True)
+    ABAS = [("🏠 Home","home"),("🚀 Treino","treino"),("🏃 Cardio","cardio"),
+            ("📊 Painel","painel"),("📈 Evolução","evolucao"),
+            ("🏆 Conquistas","conquistas"),("⚙️ Perfil","perfil")]
+    cols_menu = st.columns(2)
+    for i,(label,key) in enumerate(ABAS):
+        ativo = _a == key
+        btn_type = "primary" if ativo else "secondary"
+        if cols_menu[i%2].button(label, key=f"nav_{key}", use_container_width=True, type=btn_type):
             st.session_state.aba_ativa = key
             st.session_state.menu_aberto = False
             st.rerun()
     st.divider()
     if st.button("🚪 Sair", key="nav_sair", use_container_width=True):
         fazer_logout(supabase, cookies, DEFAULTS)
+    st.stop()
 
-# Contexto manager falso para manter compatibilidade com "with abaX:"
+# Contexto manager
 class _FakeCtx:
     def __init__(self, ativa): self.ativa = ativa
     def __enter__(self): return self
     def __exit__(self, *a): pass
 
-_a = st.session_state.aba_ativa
+aba0 = _FakeCtx(_a == "home")
 aba1 = _FakeCtx(_a == "treino")
 aba2 = _FakeCtx(_a == "cardio")
 aba3 = _FakeCtx(_a == "painel")
 aba4 = _FakeCtx(_a == "evolucao")
 aba5 = _FakeCtx(_a == "conquistas")
 aba6 = _FakeCtx(_a == "perfil")
+
+# ═══════════════════════════════
+# HOME
+# ═══════════════════════════════
+
+if aba0.ativa:
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    if not st.session_state.dia_iniciado:
+        # Tela de início do dia
+        st.markdown(f"""
+<div style="text-align:center;padding:24px 0 16px">
+  <div style="font-size:3rem">{"🌅" if hora < 12 else "☀️" if hora < 18 else "🌙"}</div>
+  <div style="font-size:1.4rem;font-weight:900;margin:8px 0">{saudacao}, {nome_usuario}!</div>
+  <div style="font-size:0.8rem;color:#aaa">{msg_treinos}</div>
+</div>""", unsafe_allow_html=True)
+
+        st.markdown("**O que vamos fazer hoje?**")
+        op1, op2, op3 = st.columns(3)
+        _ir = None
+        if op1.button("🚀 Treino", use_container_width=True):  _ir = "treino"
+        if op2.button("🏃 Cardio", use_container_width=True):  _ir = "cardio"
+        if op3.button("💪 Ambos",  use_container_width=True):  _ir = "treino"
+        if _ir:
+            st.session_state.dia_iniciado = True
+            st.session_state.aba_ativa    = _ir
+            st.rerun()
+
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        # Resumo rápido do histórico recente
+        try:
+            _hist_hoje = supabase.table("historico_treinos").select("exercicio_id,detalhes,data_execucao")                .eq("user_id", uid())                .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())                .execute()
+            if _hist_hoje.data:
+                st.caption(f"📋 Hoje você já fez {len(_hist_hoje.data)} exercício(s)")
+        except: pass
+
+    else:
+        # Dia em andamento — mostrar resumo + End do Dia
+        try:
+            _hist_hoje = supabase.table("historico_treinos").select("exercicio_id,detalhes,data_execucao,tipo")                .eq("user_id", uid())                .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())                .execute()
+            n_hoje = len(_hist_hoje.data) if _hist_hoje.data else 0
+        except: n_hoje = 0
+
+        st.markdown(f"""
+<div style="background:#1a1a2e;border-radius:14px;padding:16px;text-align:center;margin-bottom:16px">
+  <div style="font-size:2rem">💪</div>
+  <div style="font-size:1.1rem;font-weight:700;margin:6px 0">Dia em andamento!</div>
+  <div style="font-size:0.8rem;color:#aaa">{n_hoje} exercício(s) registrado(s) hoje</div>
+</div>""", unsafe_allow_html=True)
+
+        op1, op2 = st.columns(2)
+        if op1.button("🚀 Treino", use_container_width=True):
+            st.session_state.aba_ativa = "treino"; st.rerun()
+        if op2.button("🏃 Cardio", use_container_width=True):
+            st.session_state.aba_ativa = "cardio"; st.rerun()
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("**Como você está se sentindo hoje?**")
+
+        humor_opts = {"😴 Cansada": 1, "😐 Normal": 2, "😊 Bem": 3, "🔥 Ótima": 4, "⚡ No limite!": 5}
+        h_cols = st.columns(len(humor_opts))
+        for i, (emoji_h, val) in enumerate(humor_opts.items()):
+            ativo = st.session_state.humor_dia == val
+            if h_cols[i].button(emoji_h, key=f"humor_{val}", use_container_width=True,
+                                type="primary" if ativo else "secondary"):
+                st.session_state.humor_dia = val
+                st.rerun()
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        if st.button("🌙 Encerrar o dia", use_container_width=True, type="primary"):
+            st.session_state.aba_ativa = "end_dia"
+            st.rerun()
+
+    if st.session_state.aba_ativa == "end_dia":
+        st.markdown("---")
+        st.markdown("### 🌙 Resumo do dia")
+        try:
+            _hist = supabase.table("historico_treinos").select("exercicio_id,detalhes,tipo")                .eq("user_id", uid())                .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())                .execute()
+            n_ex = len([x for x in (_hist.data or []) if x.get("tipo") != "cardio"])
+            n_cd = len([x for x in (_hist.data or []) if x.get("tipo") == "cardio"])
+        except: n_ex = n_cd = 0
+
+        humor_txt = {1:"😴 Cansada",2:"😐 Normal",3:"😊 Bem",4:"🔥 Ótima",5:"⚡ No limite!"}            .get(st.session_state.humor_dia or 0, "—")
+
+        st.markdown(f"""
+<div style="background:#1a1a2e;border-radius:14px;padding:16px;margin-bottom:12px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+    <div style="background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
+      <div style="font-size:0.65rem;color:#888">🏋️ EXERCÍCIOS</div>
+      <div style="font-size:1.6rem;font-weight:900">{n_ex}</div>
+    </div>
+    <div style="background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
+      <div style="font-size:0.65rem;color:#888">🏃 CARDIO</div>
+      <div style="font-size:1.6rem;font-weight:900">{n_cd}</div>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:0.85rem;color:#aaa">Humor do dia: <b style='color:#a78bfa'>{humor_txt}</b></div>
+</div>""", unsafe_allow_html=True)
+
+        st.info("💜 " + random.choice(FRASES))
+
+        if st.button("✅ Finalizar dia", use_container_width=True, type="primary"):
+            # Salvar humor no banco se quiser (opcional)
+            st.session_state.dia_iniciado = False
+            st.session_state.humor_dia    = None
+            st.session_state.aba_ativa    = "home"
+            st.balloons()
+            st.rerun()
 
 # ═══════════════════════════════
 # ABA 1 — TREINO
