@@ -250,69 +250,43 @@ else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Len
 st.markdown("""
 <style>
 #MainMenu, header, footer { display: none !important; }
-.block-container { padding-top: 0.5rem !important; padding-bottom: 1rem !important; }
+.block-container { padding-top: 0.3rem !important; padding-bottom: 1rem !important; max-width:480px !important; }
 section[data-testid="stSidebar"] { display: none; }
+div[data-testid="stSelectbox"] > div { min-height: 32px !important; }
+div[data-testid="stSelectbox"] > div > div { padding: 2px 8px !important; font-size:0.8rem !important; }
 </style>""", unsafe_allow_html=True)
 
 # ── Navegação ────────────────────────────────────────────────────────────────
 for _k, _v in {"aba_ativa":"home","menu_aberto":False,"dia_iniciado":False,"humor_dia":None}.items():
     if _k not in st.session_state: st.session_state[_k] = _v
 
-# Menu lateral deslizante via CSS + checkbox hack
-st.markdown("""
-<style>
-#menu-toggle { display:none }
-#menu-overlay { display:none;position:fixed;inset:0;background:#0008;z-index:998 }
-#menu-toggle:checked ~ * #menu-overlay { display:block }
-#menu-drawer {
-  position:fixed;top:0;right:-280px;width:260px;height:100%;
-  background:#0f0f1a;border-left:1px solid #333;z-index:999;
-  transition:right .25s ease;padding:20px 0;overflow-y:auto
-}
-#menu-toggle:checked ~ * #menu-drawer { right:0 }
-.menu-item {
-  display:block;padding:14px 24px;color:#ddd;text-decoration:none;
-  font-size:0.95rem;border-bottom:1px solid #1a1a2e
-}
-.menu-item:hover { background:#1a1a2e;color:#fff }
-.menu-item.active { color:#a78bfa;font-weight:700 }
-</style>""", unsafe_allow_html=True)
-
-# Header compacto
+# Header + dropdown compacto
 _a = st.session_state.aba_ativa
-titulo_aba = {"home":"🏠 Home","treino":"🚀 Treino","cardio":"🏃 Cardio",
+titulo_aba = {"home":"🏠","treino":"🚀 Treino","cardio":"🏃 Cardio",
               "painel":"📊 Painel","evolucao":"📈 Evolução",
               "conquistas":"🏆 Conquistas","perfil":"⚙️ Perfil"}.get(_a,"")
+
+ABAS = [("🏠 Home","home"),("🚀 Treino","treino"),("🏃 Cardio","cardio"),
+        ("📊 Painel","painel"),("📈 Evolução","evolucao"),
+        ("🏆 Conquistas","conquistas"),("⚙️ Perfil","perfil"),("🚪 Sair","__sair__")]
 
 col_h, col_m = st.columns([5,1])
 with col_h:
     st.markdown(
-        f"<div style='font-size:0.7rem;color:#888;letter-spacing:1px;margin-top:4px'>{titulo_aba}</div>"
-        f"<div style='font-size:1rem;font-weight:700;line-height:1.2'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
-        f"<div style='font-size:0.68rem;color:#aaa;margin-bottom:2px'>{msg_treinos}</div>",
+        f"<div style='font-size:0.65rem;color:#888;letter-spacing:1px'>{titulo_aba}</div>"
+        f"<div style='font-size:1rem;font-weight:700;line-height:1.3'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+        f"<div style='font-size:0.68rem;color:#777'>{msg_treinos}</div>",
         unsafe_allow_html=True)
 with col_m:
-    if st.button("☰", key="btn_menu", use_container_width=True):
-        st.session_state.menu_aberto = not st.session_state.menu_aberto
-        st.rerun()
-
-if st.session_state.menu_aberto:
-    st.markdown("<hr style='margin:4px 0;border-color:#222'>", unsafe_allow_html=True)
-    ABAS = [("🏠 Home","home"),("🚀 Treino","treino"),("🏃 Cardio","cardio"),
-            ("📊 Painel","painel"),("📈 Evolução","evolucao"),
-            ("🏆 Conquistas","conquistas"),("⚙️ Perfil","perfil")]
-    cols_menu = st.columns(2)
-    for i,(label,key) in enumerate(ABAS):
-        ativo = _a == key
-        btn_type = "primary" if ativo else "secondary"
-        if cols_menu[i%2].button(label, key=f"nav_{key}", use_container_width=True, type=btn_type):
-            st.session_state.aba_ativa = key
-            st.session_state.menu_aberto = False
-            st.rerun()
-    st.divider()
-    if st.button("🚪 Sair", key="nav_sair", use_container_width=True):
+    escolha = st.selectbox("nav", [l for l,_ in ABAS],
+        index=[k for _,k in ABAS].index(_a) if _a in [k for _,k in ABAS] else 0,
+        label_visibility="collapsed", key="nav_select")
+    _nav_key = dict(ABAS).get(escolha, "")
+    if _nav_key == "__sair__":
         fazer_logout(supabase, cookies, DEFAULTS)
-    st.stop()
+    elif _nav_key and _nav_key != _a:
+        st.session_state.aba_ativa = _nav_key
+        st.rerun()
 
 # Contexto manager
 class _FakeCtx:
@@ -320,7 +294,7 @@ class _FakeCtx:
     def __enter__(self): return self
     def __exit__(self, *a): pass
 
-aba0 = _FakeCtx(_a == "home")
+aba0 = _FakeCtx(_a in ("home", "end_dia"))
 aba1 = _FakeCtx(_a == "treino")
 aba2 = _FakeCtx(_a == "cardio")
 aba3 = _FakeCtx(_a == "painel")
@@ -401,7 +375,7 @@ if aba0.ativa:
             st.session_state.aba_ativa = "end_dia"
             st.rerun()
 
-    if st.session_state.aba_ativa == "end_dia":
+    if _a == "end_dia":
         st.markdown("---")
         st.markdown("### 🌙 Resumo do dia")
         try:
