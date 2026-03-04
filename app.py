@@ -314,7 +314,7 @@ with aba1:
         if not st.session_state.treino_ativo:
             serie = st.radio("Série", ["A", "B", "C", "D"], horizontal=True, label_visibility="collapsed")
             exs   = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
-                .eq("serie_tipo", serie).eq("user_id", uid()).execute()
+                .eq("serie_tipo", serie).eq("user_id", uid()).order("id").execute()
 
             with st.expander("📋 Clonar esta série em outra"):
                 outras = [s for s in ["A","B","C","D"] if s != serie]
@@ -395,7 +395,8 @@ with aba1:
 
         else:
             res   = supabase.table("exercicios").select("*")\
-                .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", uid()).execute()
+                .eq("serie_tipo", st.session_state.serie_atual).eq("user_id", uid())\
+                .order("id").execute()
 
             if not res.data:
                 st.warning("Nenhum exercício nesta série.")
