@@ -248,15 +248,12 @@ hr { border-color: #1e1e30 !important; }
 [data-testid="stInfo"] > div:first-child svg { display: none !important; }
 [data-testid="stInfo"] > div:first-child { min-width: 0 !important; width: 0 !important; padding: 0 !important; }
 
-/* Título com gradiente */
+/* Título */
 h1 {
     font-size: 1.9rem !important;
     font-weight: 700 !important;
     letter-spacing: -0.02em !important;
-    background: linear-gradient(135deg, #e2e8f0 30%, #a78bfa 100%);
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
+    color: #e2e8f0 !important;
 }
 h2, h3 { font-weight: 700 !important; letter-spacing: -0.01em !important; }
 
