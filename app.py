@@ -779,6 +779,22 @@ with aba3:
                 df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m/%Y %H:%M")
                 st.dataframe(df_show[["Data", "exercicios.nome", "detalhes"]], use_container_width=True, hide_index=True)
 
+            st.divider()
+            if st.button("🗑️ Apagar todo o histórico", use_container_width=True):
+                st.session_state["confirmar_historico"] = True
+
+            if st.session_state.get("confirmar_historico"):
+                st.error("Tens a certeza? Esta acção apaga **todo** o teu histórico.")
+                c_sim, c_nao = st.columns(2)
+                if c_sim.button("✅ Sim, apagar"):
+                    supabase.table("historico_treinos").delete().eq("user_id", user_id()).execute()
+                    st.session_state["confirmar_historico"] = False
+                    st.success("Histórico limpo.")
+                    st.rerun()
+                if c_nao.button("❌ Cancelar"):
+                    st.session_state["confirmar_historico"] = False
+                    st.rerun()
+
     except Exception as e:
         st.error(f"Erro ao carregar histórico: {e}")
 
@@ -863,26 +879,9 @@ with aba4:
 
     st.divider()
     st.subheader("🚨 Zona de Perigo")
-    st.warning("Estas acções são irreversíveis.")
+    st.warning("Esta acção é irreversível.")
 
-    col_h, col_p = st.columns(2)
-
-    if col_h.button("🗑️ Apagar Todo Histórico"):
-        st.session_state["confirmar_historico"] = True
-
-    if st.session_state.get("confirmar_historico"):
-        st.error("Tens a certeza? Esta acção apaga **todo** o teu histórico.")
-        c_sim, c_nao = st.columns(2)
-        if c_sim.button("✅ Sim, apagar"):
-            supabase.table("historico_treinos").delete().eq("user_id", user_id()).execute()
-            st.session_state["confirmar_historico"] = False
-            st.success("Histórico limpo.")
-            st.rerun()
-        if c_nao.button("❌ Cancelar"):
-            st.session_state["confirmar_historico"] = False
-            st.rerun()
-
-    if col_p.button("🔄 Resetar Todos os Pesos"):
+    if st.button("🔄 Resetar Todos os Pesos", use_container_width=True):
         supabase.table("exercicios").update({"peso_kg": 0}).eq("user_id", user_id()).execute()
         st.success("Pesos resetados para 0 kg!")
         st.rerun()
