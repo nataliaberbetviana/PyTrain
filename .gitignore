@@ -1,0 +1,29 @@
+# --- Segurança (CRÍTICO) ---
+.env
+Database-Pss.txt
+
+# --- Ambientes Virtuais ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Python (Arquivos gerados/Cache) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- IDEs ---
+.idea/
+.vscode/
+.project
+.pydevproject
+
+# --- Sistema Operacional ---
+.DS_Store
+Thumbs.db
+
+# --- Dados gerados pelo PyTrain ---
+*.csv

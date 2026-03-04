@@ -1,0 +1,79 @@
+# 🏋️ PyTrain — O Teu Assistente de Treino Inteligente
+
+O **PyTrain** é um sistema completo de gestão de treinos desenvolvido para optimizar a rotina de musculação e cardio. O projecto combina a flexibilidade do Python com a robustez do Supabase (PostgreSQL), permitindo o controlo total de cargas, séries e cronogramas de corrida.
+
+---
+
+## 🚀 Funcionalidades Principais
+
+### 🔹 Módulo de Musculação
+
+- **Catálogo Inteligente** — Cadastro de exercícios com trava de duplicidade (case-insensitive) para manter a base de dados limpa.
+- **Gestão de Séries** — Organização de treinos em Séries A, B, C ou montagem de treinos personalizados de forma dinâmica.
+- **Evolução de Carga** — Interface intuitiva para actualizar o peso levantado em cada exercício e acompanhar a progressão real.
+- **CRUD Completo** — Funções para Adicionar, Editar, Listar e Organizar exercícios directamente no Supabase.
+
+### 🏃 Módulo de Cardio (Esteira)
+
+- **Escalonamento Automático** — Cálculo dinâmico de ciclos de corrida e descanso baseados num tempo total fixo.
+- **Protocolo de Segurança** — Inclusão automática de períodos de Aquecimento (Warm-up) e Desaceleração (Cool-down) integrados no tempo estipulado.
+- **Configurações Persistentes** — Guarda definições favoritas (velocidades de caminhada/corrida e tempos) para início rápido.
+- **Cronómetro Interativo** — Execução em tempo real no terminal com contagem regressiva e alertas sonoros (beeps) para mudança de ritmo.
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+| Componente | Tecnologia |
+|---|---|
+| Linguagem | Python 3 |
+| Base de Dados | Supabase (PostgreSQL) |
+| Ambiente | EndeavourOS (Linux) |
+| Bibliotecas | `supabase-py`, `time`, `sys`, `os` |
+
+---
+
+## ☁️ Arquitectura & Mentalidade Cloud
+
+Como **AWS Certified Cloud Practitioner**, este projecto foi construído seguindo boas práticas de engenharia de software:
+
+- **Separação de Responsabilidades (Decoupling)** — A lógica de cálculo do cardio (`cardio.py`) é independente da lógica de persistência da musculação (`test_db.py`).
+- **Integridade de Dados** — Verificações prévias antes de operações de `INSERT` e `UPDATE` para evitar redundâncias.
+- **Arquitectura Modular** — Desenhado para ser escalável, permitindo a adição de novos serviços (monitorização de dieta, gráficos de evolução, etc.) sem impacto nos módulos existentes.
+
+---
+
+## 📖 Como Executar
+
+1. **Clonar o repositório:**
+   ```bash
+   git clone https://github.com/nataliaberbetviana/PyTrain.git
+   cd PyTrain
+   ```
+
+2. **Instalar as dependências:**
+   ```bash
+   pip install supabase
+   ```
+
+3. **Configurar as credenciais:**  
+   Insere a tua `URL` e `KEY` do Supabase no ficheiro `test_db.py`.
+
+4. **Correr o programa:**
+   ```bash
+   python test_db.py
+   ```
+
+---
+
+## 👤 Autora
+
+**Natália Berbet Viana**  
+AWS Certified Cloud Practitioner & Developer  
+[GitHub Profile](https://github.com/nataliaberbetviana)
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença MIT. Veja o ficheiro [LICENSE](LICENSE) para mais detalhes.
