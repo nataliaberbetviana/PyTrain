@@ -20,8 +20,21 @@ hoje_agora = datetime.now(fuso)
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-.stApp { background-color: #0e1117; color: #ffffff; }
+.stApp { background-color: #0e1117; color: #ffffff; font-size: 16px; }
 .block-container { padding-top: 1rem !important; }
+
+/* Inputs e labels com tamanho legível */
+.stTextInput label, .stNumberInput label,
+.stSelectbox label, .stTextArea label,
+.stRadio label, p, .stMarkdown p {
+    font-size: 1rem !important;
+    color: #e2e2e2 !important;
+}
+input, textarea, select {
+    font-size: 1rem !important;
+    color: #ffffff !important;
+}
+
 div.stButton > button {
     background-color: #7d33ff;
     color: white;
@@ -30,6 +43,7 @@ div.stButton > button {
     width: 100%;
     font-weight: bold;
     border: none;
+    font-size: 1rem !important;
 }
 .foco-container {
     background-color: #1e1e2e;
@@ -41,22 +55,23 @@ div.stButton > button {
 }
 .login-box {
     max-width: 420px;
-    margin: 80px auto;
+    margin: 40px auto;
     background: #1e1e2e;
     border: 2px solid #7d33ff;
     border-radius: 16px;
-    padding: 40px 32px;
+    padding: 32px 24px;
 }
 .stNumberInput div div input {
     background-color: #1e1e2e !important;
     color: #e066ff !important;
-    font-size: 22px !important;
+    font-size: 1.4rem !important;
 }
 .stTabs [data-baseweb="tab-list"] { gap: 5px; }
 .stTabs [data-baseweb="tab"] {
     background-color: #1e1e2e;
     border-radius: 8px 8px 0 0;
-    color: white;
+    color: #e2e2e2 !important;
+    font-size: 0.95rem !important;
 }
 .stTabs [aria-selected="true"] { background-color: #7d33ff !important; }
 
@@ -65,14 +80,24 @@ header[data-testid="stHeader"] { display: none !important; }
 #MainMenu { display: none !important; }
 footer { display: none !important; }
 
-/* Botão Sair pequeno */
+/* Botão Sair */
 div[data-testid="stButton"] button[kind="secondary"] {
     background-color: transparent !important;
     border: 1px solid #7d33ff !important;
-    color: #a78bfa !important;
-    height: 2.2em !important;
-    font-size: 0.85em !important;
+    color: #d0b8ff !important;
+    height: 2.4em !important;
+    font-size: 0.95rem !important;
 }
+
+/* Expanders com texto legível */
+.streamlit-expanderHeader {
+    font-size: 1rem !important;
+    color: #e2e2e2 !important;
+}
+
+/* Métricas */
+[data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #ffffff !important; }
+[data-testid="stMetricLabel"] { font-size: 0.9rem !important; color: #cccccc !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,7 +203,7 @@ def tela_completar_perfil():
             <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:16px;
                         padding:32px;text-align:center;margin-bottom:20px;">
                 <h2 style="color:#e066ff;margin-bottom:6px;">🏋️ Bem-vinda ao PyTrain PRO!</h2>
-                <p style="color:gray;">Complete o seu perfil para continuar.</p>
+                <p style="color:#cccccc;font-size:1rem;">Complete o seu perfil para continuar.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -246,7 +271,7 @@ def tela_login():
     st.markdown("""
         <div class="login-box">
             <h2 style="text-align:center;color:#e066ff;margin-bottom:8px;">🏋️ PyTrain PRO</h2>
-            <p style="text-align:center;color:gray;margin-bottom:24px;">Entre com sua conta para continuar</p>
+            <p style="text-align:center;color:#bbbbbb;margin-bottom:24px;font-size:1rem;">Entre com sua conta para continuar</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -295,7 +320,7 @@ def tela_definir_senha(access_token: str, refresh_token: str):
             <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:16px;
                         padding:40px 32px;text-align:center;margin-bottom:24px;">
                 <h2 style="color:#e066ff;">🏋️ PyTrain PRO</h2>
-                <p style="color:gray;">Bem-vinda! Define a tua senha para activar a conta.</p>
+                <p style="color:#cccccc;font-size:1rem;">Bem-vinda! Define a tua senha para activar a conta.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -419,13 +444,13 @@ st.markdown(f"""
         <div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1;">
             <div style="font-size:2em;line-height:1;flex-shrink:0;">{emoji_hora}</div>
             <div style="min-width:0;">
-                <p style="margin:0;color:#a78bfa;font-size:0.72em;letter-spacing:1px;text-transform:uppercase;">
+                <p style="margin:0;color:#c4b0ff;font-size:0.78em;letter-spacing:1px;text-transform:uppercase;">
                     🏋️ PyTrain PRO
                 </p>
-                <p style="margin:2px 0 3px;color:#fff;font-size:1.15em;font-weight:700;">
+                <p style="margin:2px 0 3px;color:#ffffff;font-size:1.2em;font-weight:700;">
                     {saudacao}, <span style="color:#e066ff;">{nome_usuario}</span>!
                 </p>
-                <p style="margin:0;color:#aaa;font-size:0.82em;">
+                <p style="margin:0;color:#cccccc;font-size:0.88em;">
                     {msg_motivacao}
                 </p>
             </div>
@@ -449,9 +474,9 @@ def rodape():
     st.markdown("""
         <div style="margin-top:48px;padding:16px 0 8px;border-top:1px solid #2a2a3e;
                     text-align:center;">
-            <p style="margin:0;color:#555;font-size:0.8em;">
+            <p style="margin:0;color:#aaaaaa;font-size:0.85em;">
                 Dúvidas ou sugestões? Entre em contato →
-                <a href="mailto:nabevia@gmail.com" style="color:#a78bfa;text-decoration:none;">
+                <a href="mailto:nabevia@gmail.com" style="color:#c4b0ff;text-decoration:underline;">
                     nabevia@gmail.com
                 </a>
             </p>
@@ -493,8 +518,8 @@ with aba1:
                         f"""<div style="background:#1e1e2e;border-left:3px solid #7d33ff;
                             border-radius:8px;padding:10px 16px;margin:4px 0;
                             display:flex;justify-content:space-between;align-items:center;">
-                            <span style="color:white;font-weight:bold;">{i}. {ex['nome']}</span>
-                            <span style="color:#a78bfa;font-size:0.85em;">
+                            <span style="color:#ffffff;font-weight:700;font-size:1rem;">{i}. {ex['nome']}</span>
+                            <span style="color:#d0b8ff;font-size:0.9em;">
                                 {ex['series']}x{ex['repeticoes']} &nbsp;|&nbsp; {ex['peso_kg']} kg
                             </span>
                         </div>""",
@@ -579,7 +604,7 @@ with aba1:
 
             st.markdown(f"""
                 <div class="foco-container">
-                    <h4 style="color:gray;margin:0;">
+                    <h4 style="color:#cccccc;margin:0;">
                         Série {st.session_state.serie_atual} | {indice + 1} de {total_ex}
                     </h4>
                     <h1 style="color:#e066ff;margin:10px 0;font-size:28px;">{ex_atual['nome']}</h1>
@@ -596,8 +621,8 @@ with aba1:
             st.markdown(f"""
                 <div style="text-align:center;padding:15px;border:1px solid #7d33ff;
                             border-radius:12px;margin:15px 0;">
-                    <small style="color:gray;">TEMPO TOTAL</small><br>
-                    <span style="font-size:35px;font-weight:bold;color:white;">{m:02d}:{seg:02d}</span>
+                    <small style="color:#cccccc;font-size:0.85rem;">TEMPO TOTAL</small><br>
+                    <span style="font-size:40px;font-weight:bold;color:#ffffff;">{m:02d}:{seg:02d}</span>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -699,7 +724,7 @@ with aba2:
             <div class="foco-container" style="border-color:#e066ff;background:black;">
                 <h2 style="color:#e066ff;margin:0;">{nome_etapa}</h2>
                 <h1 style="font-size:70px;margin:10px 0;">{m:02d}:{s:02d}</h1>
-                <h3 style="color:#66ffe0;">
+                <h3 style="color:#5fffdc;font-size:1.3em;">
                     {st.session_state.dist_real:.2f} / {dist_alvo:.2f} km
                 </h3>
             </div>
@@ -842,23 +867,23 @@ with aba4:
     st.markdown(f"""
         <div style="background:#1e1e2e;border:2px solid #7d33ff;border-radius:14px;
                     padding:24px 28px;margin-bottom:20px;">
-            <p style="margin:0 0 16px;color:#a78bfa;font-size:0.8em;
-                      text-transform:uppercase;letter-spacing:1px;">👤 Meus Dados</p>
+            <p style="margin:0 0 16px;color:#c4b0ff;font-size:0.85em;
+                      text-transform:uppercase;letter-spacing:1px;font-weight:700;">👤 Meus Dados</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">NOME</p>
+                    <p style="margin:0;color:#bbbbbb;font-size:0.82em;font-weight:600;letter-spacing:0.5px;">NOME</p>
                     <p style="margin:0;color:white;font-weight:600;">{dados_perfil.get('nome', nome_atual)}</p>
                 </div>
                 <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">EMAIL</p>
+                    <p style="margin:0;color:#bbbbbb;font-size:0.82em;font-weight:600;letter-spacing:0.5px;">EMAIL</p>
                     <p style="margin:0;color:white;font-weight:600;">{email_atual}</p>
                 </div>
                 <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">TELEFONE</p>
+                    <p style="margin:0;color:#bbbbbb;font-size:0.82em;font-weight:600;letter-spacing:0.5px;">TELEFONE</p>
                     <p style="margin:0;color:white;font-weight:600;">{dados_perfil.get('telefone', '—')}</p>
                 </div>
                 <div>
-                    <p style="margin:0;color:gray;font-size:0.78em;">CIDADE / ESTADO</p>
+                    <p style="margin:0;color:#bbbbbb;font-size:0.82em;font-weight:600;letter-spacing:0.5px;">CIDADE / ESTADO</p>
                     <p style="margin:0;color:white;font-weight:600;">
                         {dados_perfil.get('cidade', '—')} / {dados_perfil.get('estado', '—')}
                     </p>
