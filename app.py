@@ -609,7 +609,7 @@ with aba3:
 
             # ── GRÁFICOS SEMANAIS ─────────────────────────────────────────────────────
             with st.expander("📈 Evolução semanal (últimas 8 semanas)", expanded=True):
-                # montar série de 8 semanas
+                # montar série de 8 semanas com labels legíveis
                 semanas = []
                 for i in range(7, -1, -1):
                     ini = ini_sem_atual - timedelta(weeks=i)
@@ -617,10 +617,21 @@ with aba3:
                     df_s = df[(df["data_execucao"] >= ini) & (df["data_execucao"] < fim)]
                     km_s, min_s = extrair_stats(df_s)
                     kg_s = extrair_peso_total(df_s)
-                    label = ini.strftime("%d/%m")
-                    semanas.append({"Semana": label, "Treinos": len(df_s),
-                                    "Peso Total (kg)": round(kg_s), "Distância (km)": round(km_s, 1),
-                                    "Esteira (min)": min_s})
+                    # label curto e sem ambiguidade
+                    if i == 0:
+                        label = "Esta sem."
+                    elif i == 1:
+                        label = "Sem. passada"
+                    else:
+                        label = ini.strftime("%-d %b")   # ex: "2 jan", "9 fev"
+                    semanas.append({
+                        "Semana": label,
+                        "Período": ini.strftime("%d/%m") + "–" + (fim - timedelta(days=1)).strftime("%d/%m"),
+                        "Treinos": len(df_s),
+                        "Peso Total (kg)": round(kg_s),
+                        "Distância (km)": round(km_s, 1),
+                        "Esteira (min)": min_s,
+                    })
 
                 df_graf = pd.DataFrame(semanas)
 
@@ -637,6 +648,11 @@ with aba3:
                 with tab_g3:
                     st.bar_chart(df_graf.set_index("Semana")["Esteira (min)"], use_container_width=True)
                     st.caption("Tempo total de esteira/cardio por semana.")
+
+                # legenda de referência das datas
+                with st.expander("🗓️ Ver datas de cada semana"):
+                    for row in semanas:
+                        st.caption(f"**{row['Semana']}** → {row['Período']}  ·  {row['Treinos']} treino(s)")
 
             st.divider()
 
