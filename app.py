@@ -696,7 +696,7 @@ except Exception:
 if treinos_mes == 0:
     msg_motivacao = "Que tal começar o mês com tudo? 💪"
 elif treinos_mes < 5:
-    msg_motivacao = f"Já tens **{treinos_mes} treinos** este mês. Continue assim! 🔥"
+    msg_motivacao = f"Já tens <b>{treinos_mes}</b> treinos** este mês. Continue assim! 🔥"
 elif treinos_mes < 10:
     msg_motivacao = f"**{treinos_mes} treinos** este mês — você está voando! 🚀"
 else:
