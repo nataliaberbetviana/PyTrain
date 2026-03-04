@@ -250,14 +250,14 @@ else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Len
 st.markdown("""
 <style>
 #MainMenu, header, footer { display: none !important; }
-.block-container { padding-top: 0.3rem !important; padding-bottom: 1rem !important; max-width:480px !important; }
+.block-container { padding-top: 0.1rem !important; padding-bottom: 1rem !important; max-width:480px !important; }
 section[data-testid="stSidebar"] { display: none; }
 div[data-testid="stSelectbox"] > div { min-height: 32px !important; }
 div[data-testid="stSelectbox"] > div > div { padding: 2px 8px !important; font-size:0.8rem !important; }
 </style>""", unsafe_allow_html=True)
 
 # ── Navegação ────────────────────────────────────────────────────────────────
-for _k, _v in {"aba_ativa":"home","menu_aberto":False,"dia_iniciado":False,"humor_dia":None}.items():
+for _k, _v in {"aba_ativa":"home"}.items():
     if _k not in st.session_state: st.session_state[_k] = _v
 
 # Header + dropdown compacto
@@ -273,9 +273,8 @@ ABAS = [("🏠 Home","home"),("🚀 Treino","treino"),("🏃 Cardio","cardio"),
 col_h, col_m = st.columns([5,1])
 with col_h:
     st.markdown(
-        f"<div style='font-size:0.65rem;color:#888;letter-spacing:1px'>{titulo_aba}</div>"
-        f"<div style='font-size:1rem;font-weight:700;line-height:1.3'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
-        f"<div style='font-size:0.68rem;color:#777'>{msg_treinos}</div>",
+        f"<div style='font-size:1.25rem;font-weight:800;line-height:1.2'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+        f"<div style='font-size:0.68rem;color:#666;margin-top:1px'>{msg_treinos}</div>",
         unsafe_allow_html=True)
 with col_m:
     escolha = st.selectbox("nav", [l for l,_ in ABAS],
@@ -294,7 +293,7 @@ class _FakeCtx:
     def __enter__(self): return self
     def __exit__(self, *a): pass
 
-aba0 = _FakeCtx(_a in ("home", "end_dia"))
+aba0 = _FakeCtx(_a == "home")
 aba1 = _FakeCtx(_a == "treino")
 aba2 = _FakeCtx(_a == "cardio")
 aba3 = _FakeCtx(_a == "painel")
@@ -307,109 +306,80 @@ aba6 = _FakeCtx(_a == "perfil")
 # ═══════════════════════════════
 
 if aba0.ativa:
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    # Dados para a home
+    try:
+        _h_mes = supabase.table("historico_treinos").select("data_execucao")            .eq("user_id", uid())            .gte("data_execucao", hoje_agora.replace(day=1,hour=0,minute=0,second=0).isoformat())            .execute()
+        _treinos_mes = len(_h_mes.data) if _h_mes.data else 0
 
-    if not st.session_state.dia_iniciado:
-        # Tela de início do dia
-        st.markdown(f"""
-<div style="text-align:center;padding:24px 0 16px">
-  <div style="font-size:3rem">{"🌅" if hora < 12 else "☀️" if hora < 18 else "🌙"}</div>
-  <div style="font-size:1.4rem;font-weight:900;margin:8px 0">{saudacao}, {nome_usuario}!</div>
-  <div style="font-size:0.8rem;color:#aaa">{msg_treinos}</div>
-</div>""", unsafe_allow_html=True)
+        # Streak
+        _h_all = supabase.table("historico_treinos").select("data_execucao")            .eq("user_id", uid()).order("data_execucao", desc=True).execute()
+        import pandas as _pd2
+        _df_s = _pd2.json_normalize(_h_all.data) if _h_all.data else _pd2.DataFrame()
+        _streak = calcular_streak(_df_s, hoje_agora.date()) if not _df_s.empty else 0
 
-        st.markdown("**O que vamos fazer hoje?**")
-        op1, op2, op3 = st.columns(3)
-        _ir = None
-        if op1.button("🚀 Treino", use_container_width=True):  _ir = "treino"
-        if op2.button("🏃 Cardio", use_container_width=True):  _ir = "cardio"
-        if op3.button("💪 Ambos",  use_container_width=True):  _ir = "treino"
-        if _ir:
-            st.session_state.dia_iniciado = True
-            st.session_state.aba_ativa    = _ir
-            st.rerun()
+        # Último treino
+        _ult = supabase.table("historico_treinos").select("data_execucao,detalhes")            .eq("user_id", uid()).order("data_execucao", desc=True).limit(1).execute()
+        _ult_data = _ult.data[0]["data_execucao"][:10] if _ult.data else None
 
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        # Resumo rápido do histórico recente
-        try:
-            _hist_hoje = supabase.table("historico_treinos").select("exercicio_id,detalhes,data_execucao")                .eq("user_id", uid())                .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())                .execute()
-            if _hist_hoje.data:
-                st.caption(f"📋 Hoje você já fez {len(_hist_hoje.data)} exercício(s)")
-        except: pass
+        # Hoje
+        _h_hoje = supabase.table("historico_treinos").select("id")            .eq("user_id", uid())            .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())            .execute()
+        _n_hoje = len(_h_hoje.data) if _h_hoje.data else 0
+    except:
+        _treinos_mes = _streak = _n_hoje = 0
+        _ult_data = None
 
-    else:
-        # Dia em andamento — mostrar resumo + End do Dia
-        try:
-            _hist_hoje = supabase.table("historico_treinos").select("exercicio_id,detalhes,data_execucao,tipo")                .eq("user_id", uid())                .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())                .execute()
-            n_hoje = len(_hist_hoje.data) if _hist_hoje.data else 0
-        except: n_hoje = 0
+    # Meta semanal (fixo 4 treinos/semana por default)
+    try:
+        _ini_sem = (hoje_agora - __import__("datetime").timedelta(days=hoje_agora.weekday())).replace(hour=0,minute=0,second=0)
+        _h_sem = supabase.table("historico_treinos").select("id")            .eq("user_id", uid()).gte("data_execucao", _ini_sem.isoformat()).execute()
+        _treinos_sem = len(set(x["id"] for x in (_h_sem.data or [])))
+        _meta_sem = 4
+        _pct_meta = min(100, int(_treinos_sem / _meta_sem * 100))
+    except:
+        _treinos_sem = 0; _meta_sem = 4; _pct_meta = 0
 
-        st.markdown(f"""
-<div style="background:#1a1a2e;border-radius:14px;padding:16px;text-align:center;margin-bottom:16px">
-  <div style="font-size:2rem">💪</div>
-  <div style="font-size:1.1rem;font-weight:700;margin:6px 0">Dia em andamento!</div>
-  <div style="font-size:0.8rem;color:#aaa">{n_hoje} exercício(s) registrado(s) hoje</div>
-</div>""", unsafe_allow_html=True)
+    # Frase motivacional
+    _frase_home = FRASES[(hoje_agora.day + hoje_agora.month) % len(FRASES)]
 
-        op1, op2 = st.columns(2)
-        if op1.button("🚀 Treino", use_container_width=True):
-            st.session_state.aba_ativa = "treino"; st.rerun()
-        if op2.button("🏃 Cardio", use_container_width=True):
-            st.session_state.aba_ativa = "cardio"; st.rerun()
+    streak_cor = "#4ade80" if _streak >= 3 else "#facc15" if _streak >= 1 else "#888"
+    hoje_txt = f"✅ {_n_hoje} exercício(s) hoje" if _n_hoje > 0 else "Nenhum treino hoje ainda"
+    ult_txt = f"Último treino: {_ult_data}" if _ult_data else ""
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        st.markdown("---")
-        st.markdown("**Como você está se sentindo hoje?**")
-
-        humor_opts = {"😴 Cansada": 1, "😐 Normal": 2, "😊 Bem": 3, "🔥 Ótima": 4, "⚡ No limite!": 5}
-        h_cols = st.columns(len(humor_opts))
-        for i, (emoji_h, val) in enumerate(humor_opts.items()):
-            ativo = st.session_state.humor_dia == val
-            if h_cols[i].button(emoji_h, key=f"humor_{val}", use_container_width=True,
-                                type="primary" if ativo else "secondary"):
-                st.session_state.humor_dia = val
-                st.rerun()
-
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-        if st.button("🌙 Encerrar o dia", use_container_width=True, type="primary"):
-            st.session_state.aba_ativa = "end_dia"
-            st.rerun()
-
-    if _a == "end_dia":
-        st.markdown("---")
-        st.markdown("### 🌙 Resumo do dia")
-        try:
-            _hist = supabase.table("historico_treinos").select("exercicio_id,detalhes,tipo")                .eq("user_id", uid())                .gte("data_execucao", hoje_agora.replace(hour=0,minute=0,second=0).isoformat())                .execute()
-            n_ex = len([x for x in (_hist.data or []) if x.get("tipo") != "cardio"])
-            n_cd = len([x for x in (_hist.data or []) if x.get("tipo") == "cardio"])
-        except: n_ex = n_cd = 0
-
-        humor_txt = {1:"😴 Cansada",2:"😐 Normal",3:"😊 Bem",4:"🔥 Ótima",5:"⚡ No limite!"}            .get(st.session_state.humor_dia or 0, "—")
-
-        st.markdown(f"""
-<div style="background:#1a1a2e;border-radius:14px;padding:16px;margin-bottom:12px">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-    <div style="background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
-      <div style="font-size:0.65rem;color:#888">🏋️ EXERCÍCIOS</div>
-      <div style="font-size:1.6rem;font-weight:900">{n_ex}</div>
+    st.markdown(f"""
+<div style="background:#13132a;border-radius:14px;padding:14px;margin-bottom:10px">
+  <div style="font-size:0.7rem;color:#888;margin-bottom:8px;letter-spacing:1px">ESTE MÊS</div>
+  <div style="display:flex;gap:8px">
+    <div style="flex:1;background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
+      <div style="font-size:0.6rem;color:#888">TREINOS</div>
+      <div style="font-size:1.8rem;font-weight:900;color:#a78bfa">{_treinos_mes}</div>
     </div>
-    <div style="background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
-      <div style="font-size:0.65rem;color:#888">🏃 CARDIO</div>
-      <div style="font-size:1.6rem;font-weight:900">{n_cd}</div>
+    <div style="flex:1;background:#0f0f1a;border-radius:10px;padding:10px;text-align:center">
+      <div style="font-size:0.6rem;color:#888">SEQUÊNCIA</div>
+      <div style="font-size:1.8rem;font-weight:900;color:{streak_cor}">{_streak}🔥</div>
     </div>
   </div>
-  <div style="text-align:center;font-size:0.85rem;color:#aaa">Humor do dia: <b style='color:#a78bfa'>{humor_txt}</b></div>
+</div>
+
+<div style="background:#13132a;border-radius:14px;padding:14px;margin-bottom:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div style="font-size:0.7rem;color:#888;letter-spacing:1px">META DA SEMANA</div>
+    <div style="font-size:0.75rem;color:#a78bfa;font-weight:700">{_treinos_sem}/{_meta_sem}</div>
+  </div>
+  <div style="height:8px;background:#1a1a3e;border-radius:4px">
+    <div style="height:8px;background:{'#4ade80' if _pct_meta >= 100 else '#7c3aed'};border-radius:4px;width:{_pct_meta}%;transition:width .3s"></div>
+  </div>
+  <div style="font-size:0.68rem;color:#555;margin-top:4px">{hoje_txt} · {ult_txt}</div>
+</div>
+
+<div style="background:#13132a;border-radius:14px;padding:12px;margin-bottom:10px">
+  <div style="font-size:0.8rem;color:#a78bfa;font-style:italic">✨ {_frase_home}</div>
 </div>""", unsafe_allow_html=True)
 
-        st.info("💜 " + random.choice(FRASES))
-
-        if st.button("✅ Finalizar dia", use_container_width=True, type="primary"):
-            # Salvar humor no banco se quiser (opcional)
-            st.session_state.dia_iniciado = False
-            st.session_state.humor_dia    = None
-            st.session_state.aba_ativa    = "home"
-            st.balloons()
-            st.rerun()
+    c1, c2 = st.columns(2)
+    if c1.button("🚀 Treino", use_container_width=True, type="primary"):
+        st.session_state.aba_ativa = "treino"; st.rerun()
+    if c2.button("🏃 Cardio", use_container_width=True):
+        st.session_state.aba_ativa = "cardio"; st.rerun()
 
 # ═══════════════════════════════
 # ABA 1 — TREINO
