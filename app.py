@@ -230,11 +230,13 @@ with aba2:
         if modo == "Distância Alvo (km)":
             dist_alvo = st.number_input("Meta (km)", value=5.0, step=0.5, min_value=0.1)
             n_ciclos  = max(1, round(dist_alvo / dist_ciclo))
+            tempo_total_min = n_ciclos * (t_anda + t_corre)
+            st.info(f"Estimativa: **{n_ciclos} ciclos** → ~{dist_ciclo * n_ciclos:.2f} km | ~{int(tempo_total_min)} min")
         else:
             n_ciclos  = st.number_input("Ciclos", value=1, min_value=1, step=1)
             dist_alvo = dist_ciclo * n_ciclos
-
-        st.info(f"Estimativa: **{n_ciclos} ciclos** → ~{dist_ciclo * n_ciclos:.2f} km")
+            tempo_total_min = n_ciclos * (t_anda + t_corre)
+            st.info(f"Estimativa: ~{dist_alvo:.2f} km | ~{int(tempo_total_min)} min")
 
         if st.button("🚀 INICIAR CARDIO", use_container_width=True):
             # Constrói lista de etapas: (nome, duração_seg, velocidade)
