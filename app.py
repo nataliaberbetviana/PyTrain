@@ -165,24 +165,61 @@ with aba3:
         st.dataframe(df_filtrado[['data_execucao', nome_col, 'detalhes']], use_container_width=True)
 
 # --- ABA 4: CONFIG ---
+# --- ABA 4: CONFIGURAÇÕES (CORRIGIDA) ---
 with aba4:
+    st.header("⚙️ Gerenciamento do Sistema")
+
+    # 1. Adicionar Novo Exercício
     with st.expander("✨ Cadastrar Novo Exercício"):
-        with st.form("add_ex"):
-            n = st.text_input("Nome")
-            s = st.selectbox("Série", ["A", "B", "C", "D"])
-            if st.form_submit_button("Salvar"):
-                supabase.table("exercicios").insert(
-                    {"nome": n, "serie_tipo": s, "peso_kg": 0, "series": 3, "repeticoes": 12}).execute()
-                st.rerun()
+        with st.form("form_cadastro"):
+            n_nome = st.text_input("Nome do Exercício")
+            n_serie = st.selectbox("Série", ["A", "B", "C", "D"])
+            n_peso = st.number_input("Peso Inicial (kg)", min_value=0, value=0)
+            if st.form_submit_button("Salvar no Catálogo"):
+                if n_nome:
+                    supabase.table("exercicios").insert({
+                        "nome": n_nome,
+                        "serie_tipo": n_serie,
+                        "peso_kg": n_peso,
+                        "series": 3,
+                        "repeticoes": 12
+                    }).execute()
+                    st.success(f"✅ {n_nome} adicionado!")
+                    st.rerun()
+
+    # 2. Editar/Excluir Exercícios
+    with st.expander("📝 Editar ou Remover Exercícios"):
+        res_cat = supabase.table("exercicios").select("*").order("serie_tipo").execute()
+        if res_cat.data:
+            for ex_cat in res_cat.data:
+                col_n, col_d = st.columns([3, 1])
+                col_n.write(f"**{ex_cat['nome']}** (Série {ex_cat['serie_tipo']})")
+                if col_d.button("🗑️", key=f"del_{ex_cat['id']}"):
+                    supabase.table("exercicios").delete().eq("id", ex_cat['id']).execute()
+                    st.rerun()
+
+    st.divider()
+
+    # 3. Zona de Perigo (Corrigindo o NameError e o APIError)
+    st.subheader("🚨 Zona de Perigo")
+
+    # Criamos as colunas ANTES de usá-las
+    col_h, col_p = st.columns(2)
 
     if col_h.button("🗑️ Apagar Todo Histórico"):
-        # Filtro que remove tudo onde o ID não é nulo (funciona para UUID e Int)
-        supabase.table("historico_treinos").delete().not_.is_("id", "null").execute()
-        st.success("Histórico limpo com sucesso!")
-        st.rerun()
+        # Para UUID, usamos o filtro .neq (não igual) a um valor impossível
+        # ou o filtro .not_.is_ para garantir que pegue todos os registros
+        try:
+            supabase.table("historico_treinos").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            st.success("Histórico limpo!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao limpar: {e}")
 
     if col_p.button("🔄 Resetar Todos os Pesos"):
-        # Mesma lógica para a tabela de exercícios
-        supabase.table("exercicios").update({"peso_kg": 0}).not_.is_("id", "null").execute()
-        st.success("Pesos resetados para 0kg!")
-        st.rerun()
+        try:
+            supabase.table("exercicios").update({"peso_kg": 0}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            st.success("Pesos resetados!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao resetar: {e}")
