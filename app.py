@@ -86,66 +86,70 @@ with aba1:
 
 # --- ABA 2: CARDIO (SALVAMENTO NA INTERRUPÇÃO) ---
 with aba2:
-    st.header("🏃 Meta de Percurso")
+    st.header("🏃 Controle de Esteira")
 
-    # Meta Principal
-    distancia_alvo = st.number_input("Quanto você quer percorrer no total (km)?", value=5.0, step=0.5)
+    # Seletor de Modo de Planejamento
+    modo_planejamento = st.radio(
+        "Como deseja planejar seu treino?",
+        ["Por Distância Alvo (km)", "Por Número de Ciclos"],
+        horizontal=True
+    )
 
     st.divider()
-    st.subheader("⚙️ Configuração do Ciclo")
+
+    # Configurações do Ciclo Base
     c1, c2 = st.columns(2)
+    t_anda = c1.number_input("Minutos Andando", value=5.0, step=1.0, key="t_anda_base")
+    v_anda = c1.number_input("Vel. Andando (km/h)", value=5.0, step=0.5, key="v_anda_base")
 
-    # Configurações de tempo e velocidade
-    t_anda = c1.number_input("Minutos Andando", value=5.0, step=1.0)
-    v_anda = c1.number_input("Velocidade Andando (km/h)", value=5.0, step=0.5)
+    t_corre = c2.number_input("Minutos Correndo", value=2.0, step=1.0, key="t_corre_base")
+    v_corre = c2.number_input("Vel. Correndo (km/h)", value=9.0, step=0.5, key="v_corre_base")
 
-    t_corre = c2.number_input("Minutos Correndo", value=2.0, step=1.0)
-    v_corre = c2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5)
+    # Distância de um único ciclo (Data Science mode)
+    dist_por_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
 
-    # --- LÓGICA DE DATA SCIENCE (Cálculo Automático) ---
-    # 1. Calcular distância de UM ciclo: (V * T / 60)
-    dist_ciclo = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60)))
-
-    # 2. Calcular quantas repetições são necessárias para atingir a meta
-    if dist_ciclo > 0:
-        n_ciclos = int(distancia_alvo / dist_ciclo)
-        sobra_km = distancia_alvo % dist_ciclo
-        # Se sobrar uma distância considerável, arredondamos para cima ou avisamos
-        if sobra_km > 0.1:
-            n_ciclos += 1
+    # Lógica Condicional de Entrada
+    if modo_planejamento == "Por Distância Alvo (km)":
+        distancia_alvo = st.number_input("Qual a distância total desejada (km)?", value=5.0, step=0.5)
+        if dist_por_ciclo > 0:
+            n_ciclos = int(distancia_alvo / dist_por_ciclo)
+            if (distancia_alvo % dist_por_ciclo) > 0.05:  # Pequena margem para arredondar
+                n_ciclos += 1
+        else:
+            n_ciclos = 0
     else:
-        n_ciclos = 0
+        n_ciclos = st.number_input("Quantas repetições do ciclo?", value=1, min_value=1, step=1)
+        distancia_alvo = dist_por_ciclo * n_ciclos
 
+    # Métricas calculadas para visualização antes do Play
     tempo_total_estimado = (t_anda + t_corre) * n_ciclos
 
-    # Exibição dos resultados calculados pelo App
-    st.info(f"💡 Para percorrer **{distancia_alvo}km**, o app calculou que você fará **{n_ciclos} ciclos** completos.")
+    st.info(f"📋 Resumo: **{n_ciclos} ciclos** de treino.")
+    col_m1, col_m2 = st.columns(2)
+    col_m1.metric("⏱️ Tempo Total", f"{int(tempo_total_estimado)} min")
+    col_m2.metric("📍 Distância Final", f"{distancia_alvo:.2f} km")
 
-    m1, m2 = st.columns(2)
-    m1.metric("⏱️ Tempo Total Estimado", f"{int(tempo_total_estimado)} min")
-    m2.metric("📍 Distância Final", f"{distancia_alvo:.2f} km")
-
-    # --- CONTROLE DE EXECUÇÃO ---
+    # --- LÓGICA DE EXECUÇÃO ---
     if "cardio_ativo" not in st.session_state: st.session_state.cardio_ativo = False
     if "dist_real" not in st.session_state: st.session_state.dist_real = 0.0
 
     st.divider()
     btn_start, btn_stop = st.columns(2)
 
-    if btn_start.button("🚀 INICIAR PERCURSO", use_container_width=True):
+    if btn_start.button("🚀 INICIAR CARDIO", use_container_width=True):
         st.session_state.cardio_ativo = True
         st.session_state.dist_real = 0.0
 
     if btn_stop.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
         if st.session_state.cardio_ativo:
-            registrar_historico(None, f"Cardio (Meta {distancia_alvo}k): {st.session_state.dist_real:.2f}km",
-                                tipo="cardio")
+            registrar_historico(None, f"Cardio Interrompido: {st.session_state.dist_real:.2f}km", tipo="cardio")
         st.session_state.cardio_ativo = False
         st.rerun()
 
     if st.session_state.cardio_ativo:
         ph = st.empty()
         etapas = []
+        # Montagem da lista de tarefas do treino
         for i in range(n_ciclos):
             if t_anda > 0: etapas.append((f"🚶 Caminhada ({i + 1}/{n_ciclos})", t_anda * 60, v_anda))
             if t_corre > 0: etapas.append((f"⚡ Corrida ({i + 1}/{n_ciclos})", t_corre * 60, v_corre))
@@ -159,16 +163,15 @@ with aba2:
                     <div style="text-align:center;border:3px solid #e066ff;padding:20px;border-radius:15px;background:#1e1e1e;">
                         <h2 style="color:#e066ff">{nome}</h2>
                         <h1 style="font-size:80px;color:white;">{m:02d}:{s:02d}</h1>
-                        <h3 style="color:#66ffe0;">Progresso: {st.session_state.dist_real:.2f} / {distancia_alvo} km</h3>
+                        <h3 style="color:#66ffe0;">Progresso: {st.session_state.dist_real:.2f} / {distancia_alvo:.2f} km</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
                 segs -= 1
 
         if st.session_state.cardio_ativo:
-            registrar_historico(None, f"Meta {distancia_alvo}k Concluída: {st.session_state.dist_real:.2f}km",
-                                tipo="cardio")
-            st.success("🎉 Percurso concluído com sucesso!")
+            registrar_historico(None, f"Cardio Finalizado: {st.session_state.dist_real:.2f}km", tipo="cardio")
+            st.success("🎉 Treino concluído!")
             st.session_state.cardio_ativo = False
 
 # --- ABA 3: HISTÓRICO CORRIGIDO ---
