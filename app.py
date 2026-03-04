@@ -614,15 +614,27 @@ with aba3:
             meses_n = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
                        7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 
-            modo_filtro = st.radio(
-                "Filtrar por", ["Mês", "Por período"],
-                horizontal=True, label_visibility="collapsed",
-            )
-
             data_min = df["data_execucao"].dt.date.min()
             data_max = df["data_execucao"].dt.date.max()
 
-            if modo_filtro == "Mês":
+            so_hoje = st.checkbox("📅 Ver apenas hoje", value=False)
+
+            if not so_hoje:
+                modo_filtro = st.radio(
+                    "Filtrar por", ["Mês", "Por período"],
+                    horizontal=True, label_visibility="collapsed",
+                )
+            else:
+                modo_filtro = None
+
+            if so_hoje:
+                ini_sel = fim_sel = hoje_agora.date()
+                fim_dt = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
+                ini_dt = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
+                df_f = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
+                titulo_resumo = "RESUMO — HOJE, " + hoje_agora.strftime("%d/%m/%Y")
+
+            elif modo_filtro == "Mês":
                 anos = sorted(df["data_execucao"].dt.year.unique(), reverse=True)
                 c1, c2 = st.columns(2)
                 ano_sel = c1.selectbox("Ano", anos)
@@ -632,23 +644,16 @@ with aba3:
                 titulo_resumo = "RESUMO — " + meses_n[mes_sel].upper()
 
             else:  # Por período
-                so_hoje = st.checkbox("📅 Ver apenas hoje", value=False)
-                if so_hoje:
-                    ini_sel = fim_sel = hoje_agora.date()
-                    c1, c2 = st.columns(2)
-                    c1.date_input("De",  value=ini_sel, disabled=True, key="dt_ini")
-                    c2.date_input("Até", value=fim_sel, disabled=True, key="dt_fim")
-                else:
-                    st.caption("Para um dia específico, coloque a mesma data nos dois campos.")
-                    c1, c2 = st.columns(2)
-                    ini_default = max(data_min, data_max - timedelta(days=6))
-                    ini_sel = c1.date_input("De", value=ini_default,
-                                            min_value=data_min, max_value=data_max, key="dt_ini")
-                    fim_sel = c2.date_input("Até", value=data_max,
-                                            min_value=data_min, max_value=data_max, key="dt_fim")
-                    if ini_sel > fim_sel:
-                        st.warning("A data inicial deve ser anterior à final.")
-                        ini_sel = fim_sel
+                st.caption("Para um dia específico, coloque a mesma data nos dois campos.")
+                c1, c2 = st.columns(2)
+                ini_default = max(data_min, data_max - timedelta(days=6))
+                ini_sel = c1.date_input("De", value=ini_default,
+                                        min_value=data_min, max_value=data_max, key="dt_ini")
+                fim_sel = c2.date_input("Até", value=data_max,
+                                        min_value=data_min, max_value=data_max, key="dt_fim")
+                if ini_sel > fim_sel:
+                    st.warning("A data inicial deve ser anterior à final.")
+                    ini_sel = fim_sel
                 fim_dt = datetime.combine(fim_sel, datetime.max.time()).replace(tzinfo=fuso)
                 ini_dt = datetime.combine(ini_sel, datetime.min.time()).replace(tzinfo=fuso)
                 df_f = df[(df["data_execucao"] >= ini_dt) & (df["data_execucao"] <= fim_dt)]
