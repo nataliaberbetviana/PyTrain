@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 import os
 import pandas as pd
 from datetime import datetime, timedelta
@@ -76,21 +77,46 @@ with aba1:
 # --- ABA 2: CARDIO (ESTEIRA) ---
 with aba2:
     st.header("🏃 Lógica de Esteira")
-    t_base = st.number_input("Tempo principal (min)", value=20)
-    t_extra = st.number_input("Aquecimento/Desaceleração (min)", value=2)
-    v_anda = st.number_input("Velocidade Andando", value=5.5)
-    v_corre = st.number_input("Velocidade Correndo", value=9.0)
 
-    if st.button("Gerar Cronograma"):
-        t_total = t_base + (t_extra * 2)
-        st.info(f"⏱️ Tempo Total: {t_total} minutos")
-        st.write(f"1. **Aquecimento**: {t_extra} min a {v_anda} km/h")
-        st.write(f"2. **Corrida**: {t_base} min a {v_corre} km/h")
-        st.write(f"3. **Desaceleração**: {t_extra} min a {v_anda} km/h")
+    col_t1, col_t2 = st.columns(2)
+    # Forçamos o step=1 para aumentar/diminuir de 1 em 1 minuto
+    t_base = col_t1.number_input("Tempo Principal (min)", value=20, step=1)
+    t_extra = col_t2.number_input("Aquecimento/Desaceleração (min)", value=2, step=1)
 
-        if st.button("Confirmar Cardio Realizado"):
-            registrar_historico(None, f"Cardio: {t_total}min ({v_corre}km/h)", tipo="cardio")
-            st.success("Cardio registrado!")
+    col_v1, col_v2 = st.columns(2)
+    # Mantemos 0.5 de step para velocidade, fica mais prático que 0.1
+    v_anda = col_v1.number_input("Velocidade Andando (km/h)", value=5.5, step=0.5)
+    v_corre = col_v2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5)
+
+    t_total = t_base + (t_extra * 2)
+    st.info(f"⏱️ Tempo Total do Treino: {t_total} minutos")
+
+    if st.button("🚀 INICIAR CRONÔMETRO"):
+        placeholder = st.empty()  # Espaço que será atualizado pelo cronômetro
+
+        # Etapas do treino: (Nome, Tempo em segundos, Velocidade)
+        etapas = [
+            ("🔥 Aquecimento", t_extra * 60, v_anda),
+            ("⚡ Corrida Principal", t_base * 60, v_corre),
+            ("❄️ Desaceleração", t_extra * 60, v_anda)
+        ]
+
+        for nome_etapa, tempo_seg, vel in etapas:
+            while tempo_seg > 0:
+                mins, secs = divmod(tempo_seg, 60)
+                # Atualiza a interface em tempo real
+                placeholder.markdown(f"""
+                    <div style="text-align: center; border: 2px solid #e066ff; padding: 20px; border-radius: 10px;">
+                        <h2 style="color: #e066ff;">{nome_etapa}</h2>
+                        <h1 style="font-size: 80px;">{mins:02d}:{secs:02d}</h1>
+                        <h3>Velocidade: <span style="color: #66ffe0;">{vel} km/h</span></h3>
+                    </div>
+                """, unsafe_allow_html=True)
+                time.sleep(1)
+                tempo_seg -= 1
+
+        placeholder.success("🎉 Treino de Cardio Concluído!")
+        registrar_historico(None, f"Cardio: {t_total}min | Pico: {v_corre}km/h", tipo="cardio")
 
 # --- ABA 3: HISTÓRICO ---
 with aba3:
