@@ -176,10 +176,9 @@ with aba2:
 
 # --- ABA 3: HISTÓRICO CORRIGIDO ---
 with aba3:
-    st.header("📊 Painel de Rendimento")
+    st.header("📊 Painel de Performance")
 
     try:
-        # Busca os dados no Supabase
         res_h = supabase.table("historico_treinos").select("*, exercicios(nome)").order("data_execucao",
                                                                                         desc=True).execute()
 
@@ -191,42 +190,51 @@ with aba3:
             hoje_dt = datetime.now(fuso)
             inicio_semana = (hoje_dt - timedelta(days=hoje_dt.weekday())).replace(hour=0, minute=0, second=0)
 
-            # Filtros
             df_hoje = df[df['data_execucao'].dt.date == hoje_dt.date()]
             df_semana = df[df['data_execucao'] >= inicio_semana]
             df_mes = df[df['data_execucao'].dt.month == hoje_dt.month]
 
 
-            # Função para extrair KM dos detalhes
-            def extrair_km(dataframe):
+            # --- FUNÇÕES DE EXTRAÇÃO DE DADOS ---
+            def calcular_metricas(dataframe):
                 if 'detalhes' in dataframe.columns:
+                    # 1. Extrair KM
                     kms = dataframe[dataframe['tipo'] == 'cardio']['detalhes'].str.extract(r'(\d+\.\d+)km').astype(
                         float)
-                    return kms.sum()[0] if not kms.empty else 0.0
-                return 0.0
+                    total_km = kms.sum()[0] if not kms.empty else 0.0
+
+                    # 2. Extrair Tempo (Procura por 'min' nos detalhes)
+                    # Ex: "Cardio: 1.2km | 20min" ou "Musculação: 10kg | 3x12 | 5min"
+                    tempos = dataframe['detalhes'].str.extract(r'(\d+)min').astype(float)
+                    total_min = tempos.sum()[0] if not tempos.empty else 0.0
+
+                    return total_km, total_min
+                return 0.0, 0.0
 
 
-            # --- MÉTRICAS EM DESTAQUE ---
-            m1, m2, m3 = st.columns(3)
+            # --- EXIBIÇÃO ---
+            st.subheader("📅 Resumo de Atividades")
+            tab_hoje, tab_semana, tab_mes = st.columns(3)
 
-            # Treinos (Musculação + Cardio)
-            m1.metric("Hoje", f"{len(df_hoje)} registros", help="Total de ações registradas hoje")
-            m2.metric("Na Semana", f"{len(df_semana)}x", help="Sessões iniciadas desde segunda-feira")
-            m3.metric("No Mês", f"{len(df_mes)}x")
+            # Métricas Hoje
+            km_h, min_h = calcular_metricas(df_hoje)
+            tab_hoje.metric("Hoje", f"{len(df_hoje)} registros")
+            tab_hoje.write(f"🏃 {km_h:.2f} km | ⏱️ {int(min_h)} min")
 
-            # --- PERFORMANCE DE CARDIO (DISTÂNCIA) ---
+            # Métricas Semana
+            km_s, min_s = calcular_metricas(df_semana)
+            tab_semana.metric("Na Semana", f"{len(df_semana)}x")
+            tab_semana.write(f"🏃 {km_s:.2f} km | ⏱️ {int(min_s)} min")
+
+            # Métricas Mês
+            km_m, min_m = calcular_metricas(df_mes)
+            tab_mes.metric("No Mês", f"{len(df_mes)}x")
+            tab_mes.write(f"🏃 {km_m:.2f} km | ⏱️ {int(min_m)} min")
+
+            # --- GRÁFICO DE RENDIMENTO (Opcional para análise visual) ---
             st.divider()
-            st.subheader("🏃 Evolução de Distância (km)")
-            k1, k2, k3 = st.columns(3)
-            k1.metric("Hoje", f"{extrair_km(df_hoje):.2f} km")
-            k2.metric("Semana", f"{extrair_km(df_semana):.2f} km")
-            k3.metric("Total Mês", f"{extrair_km(df_mes):.2f} km")
-
-            # --- LISTAGEM DETALHADA ---
-            st.divider()
-            st.subheader("📜 O que você fez hoje")
+            st.subheader("📜 Detalhes do Dia")
             if not df_hoje.empty:
-                # Tratamento de nomes para exibição
                 if 'exercicios.nome' not in df_hoje.columns:
                     df_hoje['exercicios.nome'] = "🏃 Cardio"
                 df_hoje['exercicios.nome'] = df_hoje['exercicios.nome'].fillna("🏃 Cardio")
@@ -237,16 +245,10 @@ with aba3:
                     hide_index=True
                 )
             else:
-                st.info("Nenhum exercício registrado hoje ainda. Que tal começar agora?")
-
-            if st.checkbox("Ver histórico completo"):
-                st.dataframe(df.head(50), use_container_width=True)
-
-        else:
-            st.warning("Nenhum dado encontrado no seu histórico.")
+                st.info("Nenhum dado registrado hoje.")
 
     except Exception as e:
-        st.error(f"Erro ao processar indicadores: {e}")
+        st.error(f"Erro ao carregar indicadores: {e}")
 
 # --- ABA 4: CONFIGURAÇÕES ---
 with aba4:
