@@ -76,50 +76,70 @@ with aba1:
 
 # --- ABA 2: CARDIO (ESTEIRA) ---
 with aba2:
-    st.header("🏃 Controle de Esteira")
+    st.header("🏃 Esteira Intervalada (HIIT)")
 
-    # Colunas para tempo
-    col_t1, col_t2 = st.columns(2)
-    # Step=1 garante que mude de 1 em 1 minuto
-    t_aquec = col_t1.number_input("Aquecimento (min)", value=2, step=1, help="Tempo inicial e final")
-    t_corrida = col_t2.number_input("Corrida Principal (min)", value=20, step=1)
+    # 1. Configuração dos Tempos e Velocidades
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("🚶 Andando")
+        t_anda = st.number_input("Minutos Andando", value=2, step=1, key="t_anda")
+        v_anda = st.number_input("Velocidade Andando", value=5.5, step=0.5, key="v_anda")
 
-    # Colunas para velocidade
-    col_v1, col_v2 = st.columns(2)
-    # Step=0.5 permite um ajuste mais fino, mas você pode mudar para 1.0 se preferir
-    v_anda = col_v1.number_input("Velocidade Andando (km/h)", value=5.5, step=0.5)
-    v_corre = col_v2.number_input("Velocidade Correndo (km/h)", value=9.0, step=0.5)
+    with col2:
+        st.subheader("⚡ Correndo")
+        t_corre = st.number_input("Minutos Correndo", value=1, step=1, key="t_corre")
+        v_corre = st.number_input("Velocidade Correndo", value=9.0, step=0.5, key="v_corre")
 
-    # Cálculo dinâmico baseado no que VOCÊ digitou acima
-    t_total = t_corrida + (t_aquec * 2)
-    st.info(f"⏱️ Cronograma Total: **{t_total} minutos**")
+    st.divider()
 
-    if st.button("🚀 INICIAR TREINO"):
+    # 2. Configuração do Ciclo
+    col3, col4 = st.columns(2)
+    n_ciclos = col3.number_input("Quantos Ciclos (Repetições)?", value=5, step=1)
+
+    t_total = (t_anda + t_corre) * n_ciclos
+    st.info(f"⏱️ Tempo Total Estimado: **{t_total} minutos**")
+
+    if st.button("🚀 INICIAR HIIT"):
         placeholder = st.empty()
+        progresso = st.progress(0)
 
-        # Montagem das etapas usando as variáveis que você alterou
-        etapas = [
-            ("🔥 Aquecimento", t_aquec * 60, v_anda),
-            ("⚡ Corrida Principal", t_corrida * 60, v_corre),
-            ("❄️ Desaceleração", t_aquec * 60, v_anda)
-        ]
-
-        for nome_etapa, tempo_seg, vel in etapas:
+        for i in range(n_ciclos):
+            # Fase 1: Andando
+            tempo_seg = t_anda * 60
             while tempo_seg > 0:
                 mins, secs = divmod(tempo_seg, 60)
                 placeholder.markdown(f"""
-                    <div style="text-align: center; border: 2px solid #e066ff; padding: 20px; border-radius: 10px; background-color: #1e1e1e;">
-                        <h2 style="color: #e066ff; margin-bottom: 0;">{nome_etapa}</h2>
-                        <h1 style="font-size: 85px; color: white; margin: 10px 0;">{mins:02d}:{secs:02d}</h1>
-                        <h3 style="color: #66ffe0;">Velocidade: {vel} km/h</h3>
+                    <div style="text-align: center; border: 3px solid #66ffe0; padding: 20px; border-radius: 15px; background-color: #1e1e1e;">
+                        <h4 style="color: #66ffe0;">Ciclo {i + 1} de {n_ciclos}</h4>
+                        <h2 style="color: white;">🚶 ANDANDO</h2>
+                        <h1 style="font-size: 80px; color: #66ffe0;">{mins:02d}:{secs:02d}</h1>
+                        <h3 style="color: white;">Velocidade: {v_anda} km/h</h3>
                     </div>
                 """, unsafe_allow_html=True)
                 time.sleep(1)
                 tempo_seg -= 1
 
-        placeholder.success("🎉 Treino de Cardio Finalizado!")
-        # Salva o histórico com os valores que você definiu no momento
-        registrar_historico(None, f"Cardio: {t_total}min | Pico: {v_corre}km/h", tipo="cardio")
+            # Fase 2: Correndo
+            tempo_seg = t_corre * 60
+            while tempo_seg > 0:
+                mins, secs = divmod(tempo_seg, 60)
+                placeholder.markdown(f"""
+                    <div style="text-align: center; border: 3px solid #e066ff; padding: 20px; border-radius: 15px; background-color: #1e1e1e;">
+                        <h4 style="color: #e066ff;">Ciclo {i + 1} de {n_ciclos}</h4>
+                        <h2 style="color: white;">⚡ CORRENDO</h2>
+                        <h1 style="font-size: 80px; color: #e066ff;">{mins:02d}:{secs:02d}</h1>
+                        <h3 style="color: white;">Velocidade: {v_corre} km/h</h3>
+                    </div>
+                """, unsafe_allow_html=True)
+                time.sleep(1)
+                tempo_seg -= 1
+
+            # Atualiza barra de progresso geral
+            progresso.progress((i + 1) / n_ciclos)
+
+        placeholder.success("🔥 HIIT Concluído! Você é fera!")
+        registrar_historico(None, f"HIIT: {n_ciclos} ciclos de {t_anda}min/{t_corre}min", tipo="cardio")
+
 # --- ABA 3: HISTÓRICO ---
 with aba3:
     st.header("📊 Evolução Recente")
