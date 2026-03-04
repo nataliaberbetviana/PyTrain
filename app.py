@@ -254,46 +254,40 @@ st.markdown("""
 section[data-testid="stSidebar"] { display: none; }
 </style>""", unsafe_allow_html=True)
 
-# Menu suspenso via query param
-_menu_acao = st.query_params.get("menu_acao", "")
-if _menu_acao == "sair":
-    st.query_params.clear()
-    fazer_logout(supabase, cookies, DEFAULTS)
-
-st.markdown(f"""
-<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 4px 0">
-  <div>
-    <div style="font-size:1.1rem;font-weight:700">{emoji_hora} {saudacao}, {nome_usuario}!</div>
-    <div style="font-size:0.72rem;color:#aaa;margin-top:1px">{msg_treinos}</div>
-  </div>
-  <div style="position:relative">
-    <details style="position:relative">
-      <summary style="list-style:none;cursor:pointer;background:#2a2a3e;border:1px solid #444;
-        border-radius:8px;padding:6px 12px;font-size:1.2rem;color:#fff">☰</summary>
-      <div style="position:absolute;right:0;top:36px;background:#1a1a2e;border:1px solid #444;
-        border-radius:10px;min-width:160px;z-index:999;box-shadow:0 4px 20px #0008">
-        <a href="?aba=treino"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">🚀 Treino</a>
-        <a href="?aba=cardio"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">🏃 Cardio</a>
-        <a href="?aba=painel"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">📊 Painel</a>
-        <a href="?aba=evolucao" style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">📈 Evolução</a>
-        <a href="?aba=conquistas" style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">🏆 Conquistas</a>
-        <a href="?aba=perfil"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">⚙️ Perfil</a>
-        <hr style="border-color:#333;margin:4px 0">
-        <a href="?menu_acao=sair" style="display:block;padding:10px 16px;color:#f87171;text-decoration:none;font-size:0.9rem">🚪 Sair</a>
-      </div>
-    </details>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-# Navegação por session_state (sem abas visíveis)
+# Navegação por session_state
 if "aba_ativa" not in st.session_state:
     st.session_state.aba_ativa = "treino"
+if "menu_aberto" not in st.session_state:
+    st.session_state.menu_aberto = False
 
-_aba_qp = st.query_params.get("aba", "")
-if _aba_qp and _aba_qp != st.session_state.aba_ativa:
-    st.session_state.aba_ativa = _aba_qp
-    st.query_params.clear()
-    st.rerun()
+# Header com botão ☰ Streamlit real
+col_h, col_m = st.columns([5, 1])
+with col_h:
+    st.markdown(
+        f"<div style='font-size:1.1rem;font-weight:700;padding-top:4px'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+        f"<div style='font-size:0.72rem;color:#aaa;margin-bottom:4px'>{msg_treinos}</div>",
+        unsafe_allow_html=True
+    )
+with col_m:
+    if st.button("☰", key="btn_menu", use_container_width=True):
+        st.session_state.menu_aberto = not st.session_state.menu_aberto
+        st.rerun()
+
+if st.session_state.menu_aberto:
+    abas_menu = [
+        ("🚀 Treino", "treino"), ("🏃 Cardio", "cardio"), ("📊 Painel", "painel"),
+        ("📈 Evolução", "evolucao"), ("🏆 Conquistas", "conquistas"), ("⚙️ Perfil", "perfil"),
+    ]
+    for label, key in abas_menu:
+        ativo = st.session_state.aba_ativa == key
+        style = "font-weight:bold;color:#a78bfa" if ativo else ""
+        if st.button(label, key=f"nav_{key}", use_container_width=True):
+            st.session_state.aba_ativa = key
+            st.session_state.menu_aberto = False
+            st.rerun()
+    st.divider()
+    if st.button("🚪 Sair", key="nav_sair", use_container_width=True):
+        fazer_logout(supabase, cookies, DEFAULTS)
 
 # Contexto manager falso para manter compatibilidade com "with abaX:"
 class _FakeCtx:
