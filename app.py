@@ -176,48 +176,77 @@ with aba2:
 
 # --- ABA 3: HISTÓRICO CORRIGIDO ---
 with aba3:
-    st.header("📊 Desempenho Mensal")
+    st.header("📊 Painel de Rendimento")
+
     try:
+        # Busca os dados no Supabase
         res_h = supabase.table("historico_treinos").select("*, exercicios(nome)").order("data_execucao",
                                                                                         desc=True).execute()
+
         if res_h.data:
             df = pd.json_normalize(res_h.data)
-            df['data_execucao'] = pd.to_datetime(df['data_execucao'])
-            df_mes = df[df['data_execucao'].dt.month == hoje.month]
+            df['data_execucao'] = pd.to_datetime(df['data_execucao']).dt.tz_convert('America/Sao_Paulo')
 
-            # Métricas
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Frequência", f"{len(df_mes)}x")
+            # --- CÁLCULOS DE PERÍODO ---
+            hoje_dt = datetime.now(fuso)
+            inicio_semana = (hoje_dt - timedelta(days=hoje_dt.weekday())).replace(hour=0, minute=0, second=0)
 
-            # Cálculo de KM com verificação de coluna
-            km_sum = 0.0
-            if 'detalhes' in df_mes.columns:
-                km_sum = \
-                df_mes[df_mes['tipo'] == 'cardio']['detalhes'].str.extract(r'(\d+\.\d+)km').astype(float).sum()[0]
-            c2.metric("Distância", f"{km_sum:.1f} km" if not pd.isna(km_sum) else "0.0 km")
-            c3.metric("Mês", hoje.strftime("%B"))
+            # Filtros
+            df_hoje = df[df['data_execucao'].dt.date == hoje_dt.date()]
+            df_semana = df[df['data_execucao'] >= inicio_semana]
+            df_mes = df[df['data_execucao'].dt.month == hoje_dt.month]
 
-            # Exibição da Tabela com verificação de colunas (Evita o KeyError)
-            st.subheader("📜 Registros Recentes")
-            # Garantir que a coluna de nome exista mesmo que venha vazia
-            if 'exercicios.nome' not in df.columns:
-                df['exercicios.nome'] = "🏃 Cardio"
+
+            # Função para extrair KM dos detalhes
+            def extrair_km(dataframe):
+                if 'detalhes' in dataframe.columns:
+                    kms = dataframe[dataframe['tipo'] == 'cardio']['detalhes'].str.extract(r'(\d+\.\d+)km').astype(
+                        float)
+                    return kms.sum()[0] if not kms.empty else 0.0
+                return 0.0
+
+
+            # --- MÉTRICAS EM DESTAQUE ---
+            m1, m2, m3 = st.columns(3)
+
+            # Treinos (Musculação + Cardio)
+            m1.metric("Hoje", f"{len(df_hoje)} registros", help="Total de ações registradas hoje")
+            m2.metric("Na Semana", f"{len(df_semana)}x", help="Sessões iniciadas desde segunda-feira")
+            m3.metric("No Mês", f"{len(df_mes)}x")
+
+            # --- PERFORMANCE DE CARDIO (DISTÂNCIA) ---
+            st.divider()
+            st.subheader("🏃 Evolução de Distância (km)")
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Hoje", f"{extrair_km(df_hoje):.2f} km")
+            k2.metric("Semana", f"{extrair_km(df_semana):.2f} km")
+            k3.metric("Total Mês", f"{extrair_km(df_mes):.2f} km")
+
+            # --- LISTAGEM DETALHADA ---
+            st.divider()
+            st.subheader("📜 O que você fez hoje")
+            if not df_hoje.empty:
+                # Tratamento de nomes para exibição
+                if 'exercicios.nome' not in df_hoje.columns:
+                    df_hoje['exercicios.nome'] = "🏃 Cardio"
+                df_hoje['exercicios.nome'] = df_hoje['exercicios.nome'].fillna("🏃 Cardio")
+
+                st.dataframe(
+                    df_hoje[['data_execucao', 'exercicios.nome', 'detalhes']],
+                    use_container_width=True,
+                    hide_index=True
+                )
             else:
-                df['exercicios.nome'] = df['exercicios.nome'].fillna("🏃 Cardio")
+                st.info("Nenhum exercício registrado hoje ainda. Que tal começar agora?")
 
-            colunas_visiveis = ['data_execucao', 'exercicios.nome', 'detalhes']
-            # Filtra apenas as colunas que realmente existem no DF
-            existentes = [c for c in colunas_visiveis if c in df.columns]
+            if st.checkbox("Ver histórico completo"):
+                st.dataframe(df.head(50), use_container_width=True)
 
-            st.dataframe(
-                df[existentes].head(15),
-                use_container_width=True,
-                hide_index=True
-            )
         else:
-            st.info("Ainda não há treinos registrados neste mês! Bora começar?")
+            st.warning("Nenhum dado encontrado no seu histórico.")
+
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
+        st.error(f"Erro ao processar indicadores: {e}")
 
 # --- ABA 4: CONFIGURAÇÕES ---
 with aba4:
