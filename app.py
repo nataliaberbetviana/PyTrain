@@ -932,23 +932,30 @@ with aba4:
     except Exception:
         dp = {}
 
-    # ── Card de perfil: usando colunas nativas do Streamlit ──────────
-    st.markdown('<div class="pt-card-accent">', unsafe_allow_html=True)
-    st.markdown('<p class="pt-label" style="margin-bottom:0.75rem;">Meu perfil</p>', unsafe_allow_html=True)
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown('<p class="pt-label">Nome</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="pt-value">{dp.get("nome", nome_atual)}</p>', unsafe_allow_html=True)
-        st.markdown('<p class="pt-label" style="margin-top:0.75rem;">Telefone</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="pt-value">{dp.get("telefone","—")}</p>', unsafe_allow_html=True)
-    with col_b:
-        st.markdown('<p class="pt-label">Email</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="pt-value" style="font-size:0.88rem;word-break:break-all;">{email_atual}</p>', unsafe_allow_html=True)
-        st.markdown('<p class="pt-label" style="margin-top:0.75rem;">Cidade / Estado</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="pt-value">{dp.get("cidade","—")} · {dp.get("estado","—")}</p>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
+    # ── Card de perfil: HTML completo em um único st.markdown ────────
+    st.markdown(f"""
+        <div class="pt-card-accent">
+            <p class="pt-label" style="margin-bottom:1rem;">Meu perfil</p>
+            <div style="display:flex;flex-wrap:wrap;gap:1rem;">
+                <div style="flex:1;min-width:120px;">
+                    <p class="pt-label">Nome</p>
+                    <p class="pt-value">{dp.get('nome', nome_atual)}</p>
+                </div>
+                <div style="flex:1;min-width:120px;">
+                    <p class="pt-label">Email</p>
+                    <p class="pt-value" style="font-size:0.88rem;word-break:break-all;">{email_atual}</p>
+                </div>
+                <div style="flex:1;min-width:120px;">
+                    <p class="pt-label">Telefone</p>
+                    <p class="pt-value">{dp.get('telefone','—')}</p>
+                </div>
+                <div style="flex:1;min-width:120px;">
+                    <p class="pt-label">Cidade / Estado</p>
+                    <p class="pt-value">{dp.get('cidade','—')} · {dp.get('estado','—')}</p>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
     with st.expander("Editar dados pessoais"):
         with st.form("form_dados"):
