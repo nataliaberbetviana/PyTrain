@@ -181,6 +181,116 @@ details {
 </style>
 """, unsafe_allow_html=True)
 
+# CSS extra via components.html para garantir aplicação no mobile
+import streamlit.components.v1 as _components
+
+_components.html("""
+<style>
+  /* Força escuro em TODOS os botões do Streamlit */
+  button, [role="button"] {
+    background-color: #7d33ff !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: bold !important;
+    opacity: 1 !important;
+  }
+  button:hover { background-color: #9b55ff !important; }
+
+  /* Inputs */
+  input, textarea {
+    background-color: #1e1e2e !important;
+    color: #ffffff !important;
+    border: 1px solid #4a4a6a !important;
+    border-radius: 8px !important;
+  }
+
+  /* Labels */
+  label { color: #e2e2e2 !important; opacity: 1 !important; }
+
+  /* Expander header */
+  summary, details > summary {
+    background-color: #1e1e2e !important;
+    color: #e2e2e2 !important;
+  }
+</style>
+<script>
+// Aplica estilos diretamente no documento pai (iframe → parent)
+(function applyStyles() {
+  try {
+    const doc = window.parent.document;
+
+    // Estilo injetado no parent
+    let s = doc.getElementById('pytrain-css');
+    if (!s) {
+      s = doc.createElement('style');
+      s.id = 'pytrain-css';
+      doc.head.appendChild(s);
+    }
+    s.textContent = `
+      /* Botões */
+      .stApp button,
+      .stApp [data-testid="baseButton-primary"],
+      .stApp [data-testid="baseButton-secondary"],
+      .stApp [data-testid="baseButton-formSubmit"],
+      .stApp div.stFormSubmitButton button,
+      .stApp div.stButton button {
+        background-color: #7d33ff !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: bold !important;
+      }
+      .stApp button:hover { background-color: #9b55ff !important; }
+
+      /* Inputs */
+      .stApp input[type="text"],
+      .stApp input[type="password"],
+      .stApp input[type="email"],
+      .stApp input[type="number"],
+      .stApp textarea,
+      .stApp [data-baseweb="input"] input,
+      .stApp [data-baseweb="base-input"] input {
+        background-color: #1e1e2e !important;
+        color: #ffffff !important;
+        border: 1px solid #5a5a8a !important;
+      }
+
+      /* Labels */
+      .stApp label,
+      .stApp [data-testid="stWidgetLabel"] p {
+        color: #e2e2e2 !important;
+        opacity: 1 !important;
+        font-size: 1rem !important;
+      }
+
+      /* Expanders */
+      .stApp details summary,
+      .stApp .streamlit-expanderHeader {
+        background-color: #1e1e2e !important;
+        color: #e2e2e2 !important;
+        font-weight: 600 !important;
+      }
+      .stApp details {
+        background-color: #1a1a2e !important;
+        border: 1px solid #3a3a5a !important;
+        border-radius: 10px !important;
+      }
+
+      /* Alertas */
+      .stApp [data-testid="stAlert"] p,
+      .stApp [data-testid="stAlert"] {
+        color: #ffffff !important;
+      }
+    `;
+  } catch(e) {}
+  // Retry caso o DOM ainda esteja carregando
+  setTimeout(applyStyles, 800);
+  setTimeout(applyStyles, 2000);
+})();
+</script>
+""", height=0)
+
 # ─────────────────────────────────────────────
 # CONEXÃO SUPABASE
 # ─────────────────────────────────────────────
@@ -193,9 +303,11 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("⚠️ Variáveis SUPABASE_URL e SUPABASE_KEY não encontradas no .env")
     st.stop()
 
+
 @st.cache_resource
 def get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 supabase = get_supabase()
 
@@ -204,30 +316,31 @@ supabase = get_supabase()
 # ─────────────────────────────────────────────
 defaults = {
     # Auth
-    "usuario":        None,   # dict com id, email, nome
-    "access_token":   None,
-    "refresh_token":  None,
+    "usuario": None,  # dict com id, email, nome
+    "access_token": None,
+    "refresh_token": None,
     # Treino
-    "treino_ativo":   False,
-    "serie_atual":    "A",
-    "indice_ex":      0,
-    "inicio_timer":   0.0,
+    "treino_ativo": False,
+    "serie_atual": "A",
+    "indice_ex": 0,
+    "inicio_timer": 0.0,
     # Cardio
-    "cardio_ativo":   False,
-    "params_cardio":  None,
-    "dist_real":      0.0,
+    "cardio_ativo": False,
+    "params_cardio": None,
+    "dist_real": 0.0,
     "t_cardio_start": 0.0,
-    "cardio_salvo":   False,
+    "cardio_salvo": False,
     # UI
     "confirmar_historico": False,
     # Perfil
-    "perfil_completo": None,   # None = ainda não verificado, True/False após check
+    "perfil_completo": None,  # None = ainda não verificado, True/False após check
     # Sessão persistente
     "sessao_restaurada": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
 
 # ─────────────────────────────────────────────
 # HELPERS — AUTH
@@ -236,12 +349,12 @@ def fazer_login(email: str, senha: str) -> bool:
     """Autentica com Supabase Auth e guarda sessão."""
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": senha})
-        st.session_state.access_token  = res.session.access_token
+        st.session_state.access_token = res.session.access_token
         st.session_state.refresh_token = res.session.refresh_token
         st.session_state.usuario = {
-            "id":    res.user.id,
+            "id": res.user.id,
             "email": res.user.email,
-            "nome":  res.user.user_metadata.get("nome", email.split("@")[0]),
+            "nome": res.user.user_metadata.get("nome", email.split("@")[0]),
         }
         # Persiste tokens no localStorage do browser
         salvar_sessao_local(res.session.access_token, res.session.refresh_token)
@@ -249,6 +362,7 @@ def fazer_login(email: str, senha: str) -> bool:
     except Exception as e:
         st.error(f"❌ Email ou senha incorretos.")
         return False
+
 
 def salvar_sessao_local(access_token: str, refresh_token: str):
     """Salva tokens no localStorage via HTML/JS."""
@@ -259,6 +373,7 @@ def salvar_sessao_local(access_token: str, refresh_token: str):
         </script>
     """, unsafe_allow_html=True)
 
+
 def limpar_sessao_local():
     """Remove tokens do localStorage."""
     st.markdown("""
@@ -267,6 +382,7 @@ def limpar_sessao_local():
         localStorage.removeItem('pytrain_refresh');
         </script>
     """, unsafe_allow_html=True)
+
 
 def restaurar_sessao() -> bool:
     """Tenta restaurar sessão a partir do refresh_token guardado no localStorage.
@@ -294,6 +410,7 @@ def restaurar_sessao() -> bool:
     st.session_state.sessao_restaurada = True
     return False
 
+
 def fazer_logout():
     limpar_sessao_local()
     try:
@@ -310,9 +427,11 @@ def fazer_logout():
             del st.query_params[p]
     st.rerun()
 
+
 def user_id() -> str:
     """Retorna o UUID do utilizador logado."""
     return st.session_state.usuario["id"]
+
 
 def verificar_perfil() -> bool:
     """Retorna True se o perfil já foi preenchido (tem telefone e cidade)."""
@@ -329,6 +448,7 @@ def verificar_perfil() -> bool:
     except Exception:
         return False
 
+
 def tela_completar_perfil():
     """Tela exibida uma única vez após o primeiro login."""
     col_l, col_c, col_r = st.columns([1, 2, 1])
@@ -342,13 +462,13 @@ def tela_completar_perfil():
         """, unsafe_allow_html=True)
 
         with st.form("form_perfil"):
-            nome_p    = st.text_input("👤 Nome completo", placeholder="Seu nome completo")
-            telefone  = st.text_input("📱 Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
-            cidade    = st.text_input("🏙️ Cidade", placeholder="Cidade onde mora")
-            estado    = st.selectbox("🗺️ Estado", [
-                "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-                "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-                "RS","RO","RR","SC","SP","SE","TO"
+            nome_p = st.text_input("👤 Nome completo", placeholder="Seu nome completo")
+            telefone = st.text_input("📱 Telefone com DDD", placeholder="(28) 99999-9999", max_chars=20)
+            cidade = st.text_input("🏙️ Cidade", placeholder="Cidade onde mora")
+            estado = st.selectbox("🗺️ Estado", [
+                "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+                "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+                "RS", "RO", "RR", "SC", "SP", "SE", "TO"
             ], index=7)  # ES por padrão
 
             salvar = st.form_submit_button("Salvar e Entrar 🚀", use_container_width=True)
@@ -364,11 +484,11 @@ def tela_completar_perfil():
 
                     # Upsert na tabela perfis
                     supabase.table("perfis").upsert({
-                        "user_id":   user_id(),
-                        "nome":      nome_p.strip(),
-                        "telefone":  telefone.strip(),
-                        "cidade":    cidade.strip(),
-                        "estado":    estado,
+                        "user_id": user_id(),
+                        "nome": nome_p.strip(),
+                        "telefone": telefone.strip(),
+                        "cidade": cidade.strip(),
+                        "estado": estado,
                     }).execute()
 
                     st.session_state.perfil_completo = True
@@ -378,25 +498,28 @@ def tela_completar_perfil():
                 except Exception as e:
                     st.error(f"Erro ao salvar perfil: {e}")
 
+
 # ─────────────────────────────────────────────
 # HELPERS — DADOS
 # Todas as queries incluem user_id para isolamento
 # ─────────────────────────────────────────────
 def registrar_historico(ex_id, detalhes: str, tipo: str = "musculacao") -> None:
     supabase.table("historico_treinos").insert({
-        "user_id":        user_id(),
-        "exercicio_id":   ex_id,
-        "data_execucao":  datetime.now(fuso).isoformat(),
-        "detalhes":       detalhes,
-        "tipo":           tipo,
+        "user_id": user_id(),
+        "exercicio_id": ex_id,
+        "data_execucao": datetime.now(fuso).isoformat(),
+        "detalhes": detalhes,
+        "tipo": tipo,
     }).execute()
+
 
 def extrair_stats(dataframe: pd.DataFrame) -> tuple[float, int]:
     if dataframe.empty or "detalhes" not in dataframe.columns:
         return 0.0, 0
-    kms  = dataframe["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
+    kms = dataframe["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
     mins = dataframe["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
     return (float(kms) if not pd.isna(kms) else 0.0), (int(mins) if not pd.isna(mins) else 0)
+
 
 # ─────────────────────────────────────────────
 # TELA DE LOGIN
@@ -442,6 +565,7 @@ def tela_login():
                 else:
                     st.warning("Digite um email válido.")
 
+
 # ─────────────────────────────────────────────
 # FLUXO DE CONVITE — define senha pela primeira vez
 # Recebe access_token + refresh_token via query params
@@ -459,9 +583,9 @@ def tela_definir_senha(access_token: str, refresh_token: str):
         """, unsafe_allow_html=True)
 
         with st.form("form_definir_senha"):
-            nova_senha  = st.text_input("🔒 Nova Senha", type="password", placeholder="mínimo 8 caracteres")
-            conf_senha  = st.text_input("🔒 Confirmar Senha", type="password", placeholder="repita a senha")
-            salvar      = st.form_submit_button("Activar Conta", use_container_width=True)
+            nova_senha = st.text_input("🔒 Nova Senha", type="password", placeholder="mínimo 8 caracteres")
+            conf_senha = st.text_input("🔒 Confirmar Senha", type="password", placeholder="repita a senha")
+            salvar = st.form_submit_button("Activar Conta", use_container_width=True)
 
         if salvar:
             if not nova_senha or len(nova_senha) < 8:
@@ -479,12 +603,12 @@ def tela_definir_senha(access_token: str, refresh_token: str):
 
                 # Faz login imediato com a nova sessão
                 user = supabase.auth.get_user()
-                st.session_state.access_token  = access_token
+                st.session_state.access_token = access_token
                 st.session_state.refresh_token = refresh_token
                 st.session_state.usuario = {
-                    "id":    user.user.id,
+                    "id": user.user.id,
                     "email": user.user.email,
-                    "nome":  user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
+                    "nome": user.user.user_metadata.get("nome", user.user.email.split("@")[0]),
                 }
                 st.success("✅ Senha definida! A entrar...")
                 time.sleep(1)
@@ -494,14 +618,15 @@ def tela_definir_senha(access_token: str, refresh_token: str):
             except Exception as e:
                 st.error(f"Erro ao definir senha: {e}")
 
+
 # ─────────────────────────────────────────────
 # FLUXO PRINCIPAL
 # ─────────────────────────────────────────────
-qp          = st.query_params
-url_token   = qp.get("access_token")
+qp = st.query_params
+url_token = qp.get("access_token")
 url_refresh = qp.get("refresh_token")
-_at         = qp.get("_at")   # token de sessão persistente
-_rt         = qp.get("_rt")   # refresh token de sessão persistente
+_at = qp.get("_at")  # token de sessão persistente
+_rt = qp.get("_rt")  # refresh token de sessão persistente
 
 # Convite / recuperação de senha vindo do GitHub Pages
 if url_token and url_refresh and not st.session_state.usuario:
@@ -517,12 +642,12 @@ if _at and _rt and not st.session_state.usuario:
             res2 = supabase.auth.refresh_session(_rt)
             novo_at = res2.session.access_token if res2 and res2.session else _at
             novo_rt = res2.session.refresh_token if res2 and res2.session else _rt
-            st.session_state.access_token  = novo_at
+            st.session_state.access_token = novo_at
             st.session_state.refresh_token = novo_rt
             st.session_state.usuario = {
-                "id":    res.user.id,
+                "id": res.user.id,
                 "email": res.user.email,
-                "nome":  res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
+                "nome": res.user.user_metadata.get("nome", res.user.email.split("@")[0]),
             }
             # Atualiza localStorage com tokens renovados e limpa URL
             salvar_sessao_local(novo_at, novo_rt)
@@ -553,7 +678,7 @@ if not st.session_state.perfil_completo:
 # APP PRINCIPAL (só chega aqui se estiver logado e com perfil completo)
 # ─────────────────────────────────────────────
 nome_usuario = st.session_state.usuario["nome"]
-hora_atual   = hoje_agora.hour
+hora_atual = hoje_agora.hour
 
 # Saudação baseada no horário
 if hora_atual < 12:
@@ -631,6 +756,7 @@ if st.session_state.get("ir_para_menu"):
 
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
 
+
 # ── Rodapé global (aparece em todas as abas) ─────────────────────────
 def rodape():
     st.markdown("""
@@ -644,6 +770,7 @@ def rodape():
             </p>
         </div>
     """, unsafe_allow_html=True)
+
 
 # ═══════════════════════════════════════════
 # ABA 1 — TREINO
@@ -700,11 +827,11 @@ with aba1:
         # Formulário de cadastro sempre visível na aba Treino
         with st.expander("➕ Adicionar exercício à Série " + serie, expanded=not pode_iniciar):
             with st.form(f"form_treino_cadastro_{serie}"):
-                r_nome   = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
+                r_nome = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
                 c1r, c2r, c3r = st.columns(3)
-                r_peso   = c1r.number_input("Peso (kg)", value=0, min_value=0)
+                r_peso = c1r.number_input("Peso (kg)", value=0, min_value=0)
                 r_series = c2r.number_input("Séries", value=3, min_value=1)
-                r_reps   = c3r.number_input("Reps", value=12, min_value=1)
+                r_reps = c3r.number_input("Reps", value=12, min_value=1)
                 if st.form_submit_button("✅ Adicionar", use_container_width=True):
                     if r_nome.strip():
                         existe = (
@@ -719,11 +846,11 @@ with aba1:
                             st.warning(f"'{r_nome}' já existe na Série {serie}.")
                         else:
                             supabase.table("exercicios").insert({
-                                "user_id":    user_id(),
-                                "nome":       r_nome.strip(),
+                                "user_id": user_id(),
+                                "nome": r_nome.strip(),
                                 "serie_tipo": serie,
-                                "peso_kg":    r_peso,
-                                "series":     r_series,
+                                "peso_kg": r_peso,
+                                "series": r_series,
                                 "repeticoes": r_reps,
                             }).execute()
                             st.success(f"✅ '{r_nome}' adicionado!")
@@ -733,8 +860,8 @@ with aba1:
 
         if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
-            st.session_state.serie_atual  = serie
-            st.session_state.indice_ex    = 0
+            st.session_state.serie_atual = serie
+            st.session_state.indice_ex = 0
             st.session_state.inicio_timer = time.time()
             st.rerun()
 
@@ -754,7 +881,7 @@ with aba1:
                 st.rerun()
         else:
             total_ex = len(res.data)
-            indice   = st.session_state.indice_ex
+            indice = st.session_state.indice_ex
 
             if indice >= total_ex:
                 st.session_state.treino_ativo = False
@@ -774,8 +901,8 @@ with aba1:
             """, unsafe_allow_html=True)
 
             c1, c2, c3 = st.columns(3)
-            p = c1.number_input("Kg",   value=int(ex_atual["peso_kg"]),   step=1, key=f"p_{indice}")
-            s = c2.number_input("Sets", value=int(ex_atual["series"]),     step=1, key=f"s_{indice}")
+            p = c1.number_input("Kg", value=int(ex_atual["peso_kg"]), step=1, key=f"p_{indice}")
+            s = c2.number_input("Sets", value=int(ex_atual["series"]), step=1, key=f"s_{indice}")
             r = c3.number_input("Reps", value=int(ex_atual["repeticoes"]), step=1, key=f"r_{indice}")
 
             tempo_total_seg = int(time.time() - st.session_state.inicio_timer)
@@ -805,7 +932,6 @@ with aba1:
 
     rodape()
 
-
 # ═══════════════════════════════════════════
 # ABA 2 — CARDIO
 # ═══════════════════════════════════════════
@@ -815,10 +941,10 @@ with aba2:
         modo = st.radio("Objetivo:", ["Distância Alvo (km)", "Número de Ciclos"], horizontal=True)
 
         c1, c2 = st.columns(2)
-        t_anda  = c1.number_input("Minutos Andando",  value=5.0, step=1.0)
-        v_anda  = c1.number_input("Vel. Andando",     value=5.0, step=0.5)
+        t_anda = c1.number_input("Minutos Andando", value=5.0, step=1.0)
+        v_anda = c1.number_input("Vel. Andando", value=5.0, step=0.5)
         t_corre = c2.number_input("Minutos Correndo", value=2.0, step=1.0)
-        v_corre = c2.number_input("Vel. Correndo",    value=9.0, step=0.5)
+        v_corre = c2.number_input("Vel. Correndo", value=9.0, step=0.5)
 
         dist_ciclo = (v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60))
         if dist_ciclo <= 0:
@@ -827,11 +953,12 @@ with aba2:
 
         if modo == "Distância Alvo (km)":
             dist_alvo = st.number_input("Meta (km)", value=5.0, step=0.5, min_value=0.1)
-            n_ciclos  = max(1, round(dist_alvo / dist_ciclo))
+            n_ciclos = max(1, round(dist_alvo / dist_ciclo))
             tempo_total_min = n_ciclos * (t_anda + t_corre)
-            st.info(f"Estimativa: **{n_ciclos} ciclos** → ~{dist_ciclo * n_ciclos:.2f} km | ~{int(tempo_total_min)} min")
+            st.info(
+                f"Estimativa: **{n_ciclos} ciclos** → ~{dist_ciclo * n_ciclos:.2f} km | ~{int(tempo_total_min)} min")
         else:
-            n_ciclos  = st.number_input("Ciclos", value=1, min_value=1, step=1)
+            n_ciclos = st.number_input("Ciclos", value=1, min_value=1, step=1)
             dist_alvo = dist_ciclo * n_ciclos
             tempo_total_min = n_ciclos * (t_anda + t_corre)
             st.info(f"Estimativa: ~{dist_alvo:.2f} km | ~{int(tempo_total_min)} min")
@@ -839,31 +966,32 @@ with aba2:
         if st.button("🚀 INICIAR CARDIO", use_container_width=True):
             etapas = []
             for i in range(int(n_ciclos)):
-                etapas.append((f"🚶 Caminhada ({i+1}/{int(n_ciclos)})", int(t_anda * 60),  v_anda))
-                etapas.append((f"⚡ Corrida   ({i+1}/{int(n_ciclos)})", int(t_corre * 60), v_corre))
+                etapas.append((f"🚶 Caminhada ({i + 1}/{int(n_ciclos)})", int(t_anda * 60), v_anda))
+                etapas.append((f"⚡ Corrida   ({i + 1}/{int(n_ciclos)})", int(t_corre * 60), v_corre))
 
-            st.session_state.cardio_ativo   = True
-            st.session_state.cardio_salvo   = False
-            st.session_state.dist_real      = 0.0
+            st.session_state.cardio_ativo = True
+            st.session_state.cardio_salvo = False
+            st.session_state.dist_real = 0.0
             st.session_state.t_cardio_start = time.time()
-            st.session_state.params_cardio  = {
-                "etapas":        etapas,
-                "dist_alvo":     dist_alvo,
-                "etapa_idx":     0,
+            st.session_state.params_cardio = {
+                "etapas": etapas,
+                "dist_alvo": dist_alvo,
+                "etapa_idx": 0,
                 "seg_restantes": etapas[0][1] if etapas else 0,
             }
             st.rerun()
 
     else:
-        params    = st.session_state.params_cardio
-        etapas    = params["etapas"]
+        params = st.session_state.params_cardio
+        etapas = params["etapas"]
         dist_alvo = params["dist_alvo"]
-        idx       = params["etapa_idx"]
+        idx = params["etapa_idx"]
 
         if st.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
             if not st.session_state.cardio_salvo:
                 t_final = int((time.time() - st.session_state.t_cardio_start) / 60)
-                registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+                registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min",
+                                    tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
             st.rerun()
@@ -871,7 +999,8 @@ with aba2:
         if idx >= len(etapas):
             if not st.session_state.cardio_salvo:
                 t_final = int((time.time() - st.session_state.t_cardio_start) / 60)
-                registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
+                registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km | {t_final}min",
+                                    tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
             st.success("🎉 Objetivo concluído!")
@@ -907,7 +1036,6 @@ with aba2:
 
     rodape()
 
-
 # ═══════════════════════════════════════════
 # ABA 3 — PAINEL
 # ═══════════════════════════════════════════
@@ -937,9 +1065,9 @@ with aba3:
             ano_sel = col_f1.selectbox("Ano", anos)
 
             meses_nomes = {
-                1: "Janeiro", 2: "Fevereiro", 3: "Março",     4: "Abril",
-                5: "Maio",    6: "Junho",     7: "Julho",     8: "Agosto",
-                9: "Setembro",10: "Outubro",  11: "Novembro", 12: "Dezembro",
+                1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
             }
             meses_disp = sorted(
                 df[df["data_execucao"].dt.year == ano_sel]["data_execucao"].dt.month.unique(),
@@ -949,19 +1077,20 @@ with aba3:
 
             df_filtrado = df[
                 (df["data_execucao"].dt.month == mes_sel) &
-                (df["data_execucao"].dt.year  == ano_sel)
-            ]
+                (df["data_execucao"].dt.year == ano_sel)
+                ]
 
             st.markdown(f"#### 📈 Resumo de {meses_nomes[mes_sel]}/{ano_sel}")
             c1, c2, c3 = st.columns(3)
             km_f, min_f = extrair_stats(df_filtrado)
-            c1.metric("Treinos",     len(df_filtrado))
-            c2.metric("Distância",   f"{km_f:.2f} km")
+            c1.metric("Treinos", len(df_filtrado))
+            c2.metric("Distância", f"{km_f:.2f} km")
             c3.metric("Tempo Total", f"{min_f} min")
 
-            df_hoje    = df[df["data_execucao"].dt.date == hoje_agora.date()]
-            inicio_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-            df_semana  = df[df["data_execucao"] >= inicio_sem]
+            df_hoje = df[df["data_execucao"].dt.date == hoje_agora.date()]
+            inicio_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0, minute=0, second=0,
+                                                                                     microsecond=0)
+            df_semana = df[df["data_execucao"] >= inicio_sem]
 
             with st.expander("📌 Ver Hoje e Esta Semana"):
                 km_h, min_h = extrair_stats(df_hoje)
@@ -982,7 +1111,8 @@ with aba3:
                     df_show["exercicios.nome"] = "🏃 Cardio"
                 df_show["exercicios.nome"] = df_show["exercicios.nome"].fillna("🏃 Cardio")
                 df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m/%Y %H:%M")
-                st.dataframe(df_show[["Data", "exercicios.nome", "detalhes"]], use_container_width=True, hide_index=True)
+                st.dataframe(df_show[["Data", "exercicios.nome", "detalhes"]], use_container_width=True,
+                             hide_index=True)
 
             st.divider()
             if st.button("🗑️ Apagar todo o histórico", use_container_width=True):
@@ -1005,13 +1135,12 @@ with aba3:
 
     rodape()
 
-
 # ═══════════════════════════════════════════
 # ABA 4 — MENU / PERFIL
 # ═══════════════════════════════════════════
 with aba4:
     email_atual = st.session_state.usuario["email"]
-    nome_atual  = st.session_state.usuario["nome"]
+    nome_atual = st.session_state.usuario["nome"]
 
     # ── Busca dados do perfil no banco ───────────────────────────────
     try:
@@ -1057,24 +1186,26 @@ with aba4:
     # ── Formulário de edição ──────────────────────────────────────────
     with st.expander("✏️ Alterar dados pessoais"):
         with st.form("form_dados_pessoais"):
-            ed_nome     = st.text_input("Nome completo",      value=dados_perfil.get("nome", nome_atual))
-            ed_telefone = st.text_input("Telefone com DDD",   value=dados_perfil.get("telefone", ""), placeholder="(28) 99999-9999")
-            ed_cidade   = st.text_input("Cidade",             value=dados_perfil.get("cidade", ""))
-            estados = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-                       "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-                       "RS","RO","RR","SC","SP","SE","TO"]
-            idx_estado = estados.index(dados_perfil.get("estado", "ES")) if dados_perfil.get("estado", "ES") in estados else 7
-            ed_estado   = st.selectbox("Estado", estados, index=idx_estado)
+            ed_nome = st.text_input("Nome completo", value=dados_perfil.get("nome", nome_atual))
+            ed_telefone = st.text_input("Telefone com DDD", value=dados_perfil.get("telefone", ""),
+                                        placeholder="(28) 99999-9999")
+            ed_cidade = st.text_input("Cidade", value=dados_perfil.get("cidade", ""))
+            estados = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+                       "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+                       "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
+            idx_estado = estados.index(dados_perfil.get("estado", "ES")) if dados_perfil.get("estado",
+                                                                                             "ES") in estados else 7
+            ed_estado = st.selectbox("Estado", estados, index=idx_estado)
             if st.form_submit_button("💾 Salvar alterações", use_container_width=True):
                 if ed_nome.strip() and ed_telefone.strip() and ed_cidade.strip():
                     try:
                         supabase.auth.update_user({"data": {"nome": ed_nome.strip()}})
                         supabase.table("perfis").upsert({
-                            "user_id":  user_id(),
-                            "nome":     ed_nome.strip(),
+                            "user_id": user_id(),
+                            "nome": ed_nome.strip(),
                             "telefone": ed_telefone.strip(),
-                            "cidade":   ed_cidade.strip(),
-                            "estado":   ed_estado,
+                            "cidade": ed_cidade.strip(),
+                            "estado": ed_estado,
                         }).execute()
                         st.session_state.usuario["nome"] = ed_nome.strip()
                         st.success("✅ Dados atualizados!")
@@ -1118,9 +1249,9 @@ with aba4:
     # ── Alterar senha ─────────────────────────────────────────────────
     with st.expander("🔒 Alterar senha"):
         with st.form("form_senha"):
-            senha_antiga = st.text_input("Senha atual",        type="password")
-            nova_senha   = st.text_input("Nova senha",         type="password", placeholder="mínimo 8 caracteres")
-            conf_senha   = st.text_input("Confirmar nova senha", type="password")
+            senha_antiga = st.text_input("Senha atual", type="password")
+            nova_senha = st.text_input("Nova senha", type="password", placeholder="mínimo 8 caracteres")
+            conf_senha = st.text_input("Confirmar nova senha", type="password")
             if st.form_submit_button("Salvar senha", use_container_width=True):
                 if not senha_antiga:
                     st.warning("Digite a senha atual.")
@@ -1140,7 +1271,8 @@ with aba4:
 
     # ── Apagar conta ──────────────────────────────────────────────────
     with st.expander("🚨 Apagar minha conta"):
-        st.warning("Esta acção é **irreversível**. Todos os teus treinos, histórico e acesso serão removidos permanentemente.")
+        st.warning(
+            "Esta acção é **irreversível**. Todos os teus treinos, histórico e acesso serão removidos permanentemente.")
         with st.form("form_apagar_conta"):
             conf_texto = st.text_input("Digite **APAGAR** para confirmar", placeholder="APAGAR")
             senha_conf = st.text_input("Confirme sua senha", type="password")
@@ -1156,20 +1288,21 @@ with aba4:
                             "email": email_atual, "password": senha_conf
                         })
                         token = res_login.session.access_token
-                        uid   = user_id()
+                        uid = user_id()
 
                         # 2. Tenta chamar a Edge Function
                         edge_ok = False
                         edge_url = f"{SUPABASE_URL}/functions/v1/delete-account"
                         try:
                             import urllib.request as _ur, json as _json, ssl as _ssl
+
                             _req = _ur.Request(
                                 edge_url,
                                 data=b"{}",
                                 headers={
                                     "Authorization": f"Bearer {token}",
-                                    "apikey":         SUPABASE_KEY,
-                                    "Content-Type":  "application/json",
+                                    "apikey": SUPABASE_KEY,
+                                    "Content-Type": "application/json",
                                 },
                                 method="POST",
                             )
