@@ -480,15 +480,18 @@ with aba1:
   </div>
 </div>""", unsafe_allow_html=True)
 
-                # ── Controles +/− por grupo (3 linhas: Peso | Séries | Reps) ──
-                for lbl, key_, cur, mn in [("🏋️ Peso (kg)", pk, p, 0), ("🔁 Séries", sk, s, 1), ("🎯 Reps", rk, r, 1)]:
-                    cm, cv, cp = st.columns([2, 3, 2])
-                    cm.markdown(f"<div style='font-size:0.7rem;color:#888;text-align:right;padding-top:10px'>{lbl}</div>", unsafe_allow_html=True)
-                    cv.markdown(f"<div style='font-size:1.6rem;font-weight:bold;text-align:center;line-height:2.2rem'>{cur}</div>", unsafe_allow_html=True)
-                    col_minus, col_plus = cp.columns(2)
-                    if col_minus.button("−", key=f"m_{key_}_{idx}", use_container_width=True):
+                # ── Controles: label | [−] valor [+] numa linha só ──────────
+                for lbl, key_, cur, mn in [("PESO kg", pk, p, 0), ("SÉRIES", sk, s, 1), ("REPS", rk, r, 1)]:
+                    cminus, cval, cplus = st.columns([1, 2, 1])
+                    if cminus.button("−", key=f"m_{key_}_{idx}", use_container_width=True):
                         st.session_state[key_] = max(mn, cur - 1); st.rerun()
-                    if col_plus.button("+", key=f"p_{key_}_{idx}", use_container_width=True):
+                    cval.markdown(
+                        f"<div style='text-align:center'>"
+                        f"<div style='font-size:0.65rem;color:#888;letter-spacing:1px'>{lbl}</div>"
+                        f"<div style='font-size:1.8rem;font-weight:bold;line-height:1.8rem'>{cur}</div>"
+                        f"</div>", unsafe_allow_html=True
+                    )
+                    if cplus.button("+", key=f"p_{key_}_{idx}", use_container_width=True):
                         st.session_state[key_] = cur + 1; st.rerun()
 
                 nota_ex = st.text_input("📝 Nota", placeholder="Observação...", key="nota_" + str(idx), label_visibility="collapsed")
