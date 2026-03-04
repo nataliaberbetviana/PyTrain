@@ -341,15 +341,20 @@ with aba1:
                 st.caption("SÉRIE " + serie + "  ·  " + str(len(exs.data)) + " exercícios")
                 for i, ex in enumerate(exs.data, 1):
                     ult_det, ult_data = _ultima_carga(ex["id"])
-                    c1, c2 = st.columns([8, 1])
+                    c1, c2 = st.columns([9, 1])
                     with c1:
                         txt = f"**{i}. {ex['nome']}** · {ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg"
                         if ult_det:
                             txt += f"\n\n_Última vez ({ult_data}): {ult_det}_"
                         st.info(txt)
                     with c2:
-                        st.write("")
-                        if st.button("✕", key="del_" + str(ex["id"]), help="Remover"):
+                        # Alinha verticalmente com o card usando CSS
+                        st.markdown(
+                            "<style>div[data-testid='column']:last-child{"
+                            "display:flex;align-items:center;justify-content:center}"
+                            "</style>", unsafe_allow_html=True
+                        )
+                        if st.button("✕", key="del_" + str(ex["id"]), help="Remover", use_container_width=True):
                             supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
                             st.rerun()
                 pode_iniciar = True
@@ -433,12 +438,42 @@ with aba1:
                 ex  = res_data[idx]
                 pct = int((idx / total) * 100)
 
-                st.caption("SÉRIE " + st.session_state.serie_atual + "  ·  " + str(idx+1) + " de " + str(total))
-                st.progress(pct)
+                # ── CSS mobile-first ──────────────────────────────────────────
+                st.markdown("""
+                <style>
+                /* Inputs de número compactos em linha */
+                div[data-testid="stNumberInput"] { margin-bottom: 0 !important; }
+                div[data-testid="stNumberInput"] label { font-size: 0.7rem !important; margin-bottom: 0 !important; }
+                div[data-testid="stNumberInput"] input { padding: 4px 8px !important; font-size: 1rem !important; }
+                /* Métricas menores */
+                div[data-testid="stMetric"] { padding: 4px 8px !important; }
+                div[data-testid="stMetricLabel"] { font-size: 0.65rem !important; }
+                div[data-testid="stMetricValue"] { font-size: 1rem !important; }
+                /* Botões de descanso compactos */
+                .rest-btn div[data-testid="stButton"] button {
+                    padding: 6px 4px !important; font-size: 0.85rem !important;
+                }
+                /* Reduz padding geral na aba de treino */
+                section.main > div { padding-top: 0.5rem !important; }
+                </style>""", unsafe_allow_html=True)
 
-                col_titulo, col_pular = st.columns([5, 1])
+                # ── Cabeçalho compacto ────────────────────────────────────────
+                elapsed = int(time.time() - st.session_state.inicio_timer)
+                m_e, sg = divmod(elapsed, 60)
+
+                st.progress(pct)
+                st.markdown(
+                    f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                    f"font-size:0.75rem;color:#888;margin-bottom:4px'>"
+                    f"<span>SÉRIE {st.session_state.serie_atual} · {idx+1}/{total}</span>"
+                    f"<span>⏱ {m_e:02d}:{sg:02d}</span></div>",
+                    unsafe_allow_html=True
+                )
+
+                # ── Nome + Pular ───────────────────────────────────────────────
+                col_titulo, col_pular = st.columns([4, 1])
                 col_titulo.subheader("💪 " + ex["nome"])
-                if col_pular.button("⏭ Pular", key=f"pular_{idx}", help="Mover para o final"):
+                if col_pular.button("⏭", key=f"pular_{idx}", help="Pular para o final", use_container_width=True):
                     nova_ordem = [eid for eid in ordem if eid != ex["id"]] + [ex["id"]]
                     st.session_state.ordem_exercicios = nova_ordem
                     st.rerun()
@@ -447,28 +482,19 @@ with aba1:
                 if ult_det:
                     st.caption(f"📌 Última vez ({ult_data}): {ult_det}")
 
+                # ── Peso / Séries / Reps em linha ─────────────────────────────
                 c1, c2, c3 = st.columns(3)
-                p = c1.number_input("Peso (kg)", value=int(ex["peso_kg"]),    step=1, key="p" + str(idx))
-                s = c2.number_input("Séries",    value=int(ex["series"]),     step=1, key="s" + str(idx))
-                r = c3.number_input("Reps",      value=int(ex["repeticoes"]), step=1, key="r" + str(idx))
+                p = c1.number_input("Peso kg", value=int(ex["peso_kg"]),    step=1, key="p" + str(idx))
+                s = c2.number_input("Séries",  value=int(ex["series"]),     step=1, key="s" + str(idx))
+                r = c3.number_input("Reps",    value=int(ex["repeticoes"]), step=1, key="r" + str(idx))
 
-                nota_ex = st.text_input("📝 Nota (opcional)",
-                    placeholder="Como se sentiu, dor, observação...", key="nota_" + str(idx))
+                nota_ex = st.text_input("📝 Nota", placeholder="Observação...", key="nota_" + str(idx))
 
-                elapsed = int(time.time() - st.session_state.inicio_timer)
-                m_e, sg = divmod(elapsed, 60)
-
-                st.divider()
-                c_t1, c_t2, c_t3 = st.columns(3)
-                c_t1.metric("⏱ Tempo",      str(m_e).zfill(2) + ":" + str(sg).zfill(2))
-                c_t2.metric("🔢 Exercício", str(idx+1) + "/" + str(total))
-                c_t3.metric("📋 Série",     st.session_state.serie_atual)
-
-                st.divider()
-                st.caption("⏳ TIMER DE DESCANSO")
+                # ── Timer de descanso em linha ────────────────────────────────
+                st.caption("⏳ DESCANSO")
                 tc1, tc2, tc3, tc4 = st.columns(4)
                 for col, seg, label in [(tc1,30,"30s"),(tc2,60,"1min"),(tc3,90,"1:30"),(tc4,120,"2min")]:
-                    if col.button(label, key=f"rest_{seg}_{idx}"):
+                    if col.button(label, key=f"rest_{seg}_{idx}", use_container_width=True):
                         st.session_state.timer_descanso        = seg
                         st.session_state.timer_descanso_inicio = time.time()
                         st.session_state.timer_descanso_ativo  = True
@@ -480,19 +506,20 @@ with aba1:
                     if restante > 0:
                         mr, sr = divmod(restante, 60)
                         st.progress(1 - restante / st.session_state.timer_descanso)
-                        st.info(f"Descansando... ⏳ {mr:02d}:{sr:02d}")
+                        st.markdown(
+                            f"<div style='text-align:center;font-size:1.8rem;font-weight:bold;"
+                            f"color:#a78bfa;margin:4px 0'>⏳ {mr:02d}:{sr:02d}</div>",
+                            unsafe_allow_html=True
+                        )
                     else:
                         st.session_state.timer_descanso_ativo = False
-                        st.success("✅ Descanso concluído! Hora de mais uma série!")
-
-                if idx > 0:
-                    st.caption("💬 " + FRASES[(hoje_agora.day + idx) % len(FRASES)])
+                        st.success("✅ Bora!")
 
                 st.write("")
                 with st.form(key=f"form_proximo_{idx}"):
-                    c_prox, c_cancel = st.columns(2)
-                    prox_clicked   = c_prox.form_submit_button("✅  Próximo →", use_container_width=True)
-                    cancel_clicked = c_cancel.form_submit_button("❌ Cancelar treino", use_container_width=True)
+                    c_prox, c_cancel = st.columns([3, 1])
+                    prox_clicked   = c_prox.form_submit_button("✅ Próximo →", use_container_width=True)
+                    cancel_clicked = c_cancel.form_submit_button("✕", use_container_width=True, help="Cancelar treino")
 
                 if prox_clicked:
                     is_pr = _verificar_pr(ex["id"], p)
