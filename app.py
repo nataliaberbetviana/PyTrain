@@ -42,59 +42,63 @@ st.title("🏋️ PyTrain PRO")
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📜 Histórico", "⚙️ Menu"])
 
 # --- ABA 1: TREINO (EXERCÍCIO POR EXERCÍCIO) ---
-# --- ABA 1: TREINO (EXERCÍCIO POR EXERCÍCIO) ---
+# --- ABA 1: TREINO DINÂMICO ---
 with aba1:
-    st.subheader("🗓️ Checklist Semanal")
-    dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
-    cols = st.columns(7)
-    for i, dia in enumerate(dias):
-        st.session_state[f"manual_{dia}"] = cols[i].checkbox(dia, key=f"c_{dia}")
-
-    st.divider()
-    serie = st.radio("Série de hoje:", ["A", "B", "C", "D"], horizontal=True)
+    # ... (mantenha o código do checklist e rádio de série acima) ...
 
     if st.button(f"🚀 INICIAR SÉRIE {serie}"):
         st.session_state.treino_ativo = True
         st.session_state.indice_ex = 0
-        st.session_state.inicio_timer = time.time()  # Define o marco zero do exercício
+        st.session_state.inicio_timer = time.time()
+        st.rerun()
 
     if st.session_state.get("treino_ativo"):
         res = supabase.table("exercicios").select("*").eq("serie_tipo", serie).execute()
         if res.data:
             ex_atual = res.data[st.session_state.indice_ex]
+
             st.markdown(f"### Exercício {st.session_state.indice_ex + 1} de {len(res.data)}")
             st.info(f"🏋️ **{ex_atual['nome']}**")
 
             c1, c2, c3 = st.columns(3)
-            p = c1.number_input("Carga (kg)", value=int(ex_atual['peso_kg']), step=1)
-            s = c2.number_input("Séries", value=int(ex_atual['series']), step=1)
-            r = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1)
+            p = c1.number_input("Kg", value=int(ex_atual['peso_kg']), step=1, key=f"inp_p_{st.session_state.indice_ex}")
+            s = c2.number_input("Séries", value=int(ex_atual['series']), step=1,
+                                key=f"inp_s_{st.session_state.indice_ex}")
+            r = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1,
+                                key=f"inp_r_{st.session_state.indice_ex}")
 
-            # --- LÓGICA DO CRONÔMETRO EM TEMPO REAL ---
+            # --- CRONÔMETRO DINÂMICO ---
             timer_place = st.empty()
             tempo_decorrido_seg = int(time.time() - st.session_state.inicio_timer)
             mins, segs = divmod(tempo_decorrido_seg, 60)
-            timer_place.write(f"⏱️ Tempo de execução: **{mins:02d}:{segs:02d}**")
 
-            if st.button("PRÓXIMO EXERCÍCIO ➡️"):
-                # Calcula o tempo total gasto em minutos para o histórico
+            timer_place.markdown(f"""
+                <div style="text-align: center; padding: 10px; border: 1px solid #e066ff; border-radius: 10px; margin-bottom: 20px;">
+                    <span style="font-size: 24px; color: #e066ff; font-weight: bold;">⏱️ {mins:02d}:{segs:02d}</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("PRÓXIMO EXERCÍCIO ➡️", use_container_width=True):
                 tempo_final_min = max(1, tempo_decorrido_seg // 60)
-
-                # Registra com a carga e o tempo (essencial para o Dashboard da Aba 3)
                 detalhes_save = f"{p}kg | {s}x{r} | {tempo_final_min}min"
-                registrar_historico(ex_atual['id'], detalhes_save)
 
-                # Atualiza o catálogo
+                # Salva dados
+                registrar_historico(ex_atual['id'], detalhes_save)
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual['id']).execute()
 
                 if st.session_state.indice_ex + 1 < len(res.data):
                     st.session_state.indice_ex += 1
-                    st.session_state.inicio_timer = time.time()  # Reseta o timer para o próximo
+                    st.session_state.inicio_timer = time.time()
                     st.rerun()
                 else:
                     st.session_state.treino_ativo = False
                     st.balloons()
                     st.success("Série concluída!")
+                    st.rerun()
+
+            # Força a atualização do cronômetro a cada 1 segundo
+            time.sleep(1)
+            st.rerun()
 
 # --- ABA 2: CARDIO (SALVAMENTO NA INTERRUPÇÃO) ---
 with aba2:
