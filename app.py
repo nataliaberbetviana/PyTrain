@@ -141,3 +141,56 @@ with aba3:
         st.dataframe(df.sort_values('data_execucao', ascending=False).head(15), use_container_width=True)
 
 # --- ABA 4: MENU --- (Manteve igual à sua versão anterior)
+
+# --- ABA 4: CONFIGURAÇÕES ---
+with aba4:
+    st.header("⚙️ Gerenciamento do Sistema")
+
+    # 1. Adicionar Novo Exercício (Com suporte a Série D)
+    with st.expander("✨ Cadastrar Novo Exercício"):
+        with st.form("form_cadastro"):
+            n_nome = st.text_input("Nome do Exercício")
+            # Adicionei "D" nas opções abaixo
+            n_serie = st.selectbox("Série", ["A", "B", "C", "D"])
+            n_peso = st.number_input("Peso Inicial (kg)", value=0)
+            if st.form_submit_button("Salvar no Catálogo"):
+                if n_nome:
+                    supabase.table("exercicios").insert({
+                        "nome": n_nome,
+                        "serie_tipo": n_serie,
+                        "peso_kg": n_peso,
+                        "series": 3,
+                        "repeticoes": 12
+                    }).execute()
+                    st.success(f"✅ {n_nome} adicionado à Série {n_serie}!")
+                    st.rerun()  # Atualiza a tela para mostrar a nova série
+
+    # 2. Editar/Excluir Exercícios do Catálogo
+    with st.expander("📝 Editar ou Remover Exercícios"):
+        res_cat = supabase.table("exercicios").select("*").order("serie_tipo").execute()
+        if res_cat.data:
+            for ex_cat in res_cat.data:
+                col_n, col_d = st.columns([3, 1])
+                col_n.write(f"**{ex_cat['nome']}** (Série {ex_cat['serie_tipo']})")
+                if col_d.button("🗑️", key=f"del_{ex_cat['id']}"):
+                    supabase.table("exercicios").delete().eq("id", ex_cat['id']).execute()
+                    st.error(f"Excluído: {ex_cat['nome']}")
+                    st.rerun()
+
+    st.divider()
+
+    # 3. Zona de Perigo (Limpar Dados)
+    st.subheader("🚨 Zona de Perigo")
+
+    col_h, col_p = st.columns(2)
+
+    if col_h.button("🗑️ Apagar Todo Histórico"):
+        # Deleta tudo onde o ID não é zero (ou seja, tudo)
+        supabase.table("historico_treinos").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        st.success("Histórico limpo com sucesso!")
+        st.rerun()
+
+    if col_p.button("🔄 Resetar Todos os Pesos"):
+        supabase.table("exercicios").update({"peso_kg": 0}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        st.success("Pesos resetados para 0kg!")
+        st.rerun()
