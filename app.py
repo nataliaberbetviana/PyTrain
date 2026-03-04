@@ -39,6 +39,14 @@ div.stButton > button {
     text-align: center;
     margin-bottom: 20px;
 }
+.login-box {
+    max-width: 420px;
+    margin: 80px auto;
+    background: #1e1e2e;
+    border: 2px solid #7d33ff;
+    border-radius: 16px;
+    padding: 40px 32px;
+}
 .stNumberInput div div input {
     background-color: #1e1e2e !important;
     color: #e066ff !important;
@@ -56,7 +64,6 @@ div.stButton > button {
 
 # ─────────────────────────────────────────────
 # CONEXÃO SUPABASE
-# FIX: load_dotenv() deve ser chamado ANTES de os.getenv()
 # ─────────────────────────────────────────────
 load_dotenv()
 
@@ -67,7 +74,6 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("⚠️ Variáveis SUPABASE_URL e SUPABASE_KEY não encontradas no .env")
     st.stop()
 
-# FIX: usar st.cache_resource para não recriar o cliente a cada rerun
 @st.cache_resource
 def get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -75,53 +81,132 @@ def get_supabase() -> Client:
 supabase = get_supabase()
 
 # ─────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────
-def registrar_historico(ex_id, detalhes: str, tipo: str = "musculacao") -> None:
-    """Insere um registo no histórico de treinos."""
-    supabase.table("historico_treinos").insert({
-        "exercicio_id": ex_id,
-        "data_execucao": datetime.now(fuso).isoformat(),
-        "detalhes": detalhes,
-        "tipo": tipo,
-    }).execute()
-
-
-def extrair_stats(dataframe: pd.DataFrame) -> tuple[float, int]:
-    """Extrai km e minutos totais de um DataFrame de histórico."""
-    if dataframe.empty or "detalhes" not in dataframe.columns:
-        return 0.0, 0
-    kms = dataframe["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
-    mins = dataframe["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
-    return (float(kms) if not pd.isna(kms) else 0.0), (int(mins) if not pd.isna(mins) else 0)
-
-
-# ─────────────────────────────────────────────
 # INICIALIZAÇÃO DO SESSION STATE
-# FIX: centralizar inicialização evita KeyError em qualquer aba
 # ─────────────────────────────────────────────
 defaults = {
-    "treino_ativo": False,
-    "serie_atual": "A",
-    "indice_ex": 0,
-    "inicio_timer": 0.0,
-    "cardio_ativo": False,
-    "params_cardio": None,
-    "dist_real": 0.0,
+    # Auth
+    "usuario":        None,   # dict com id, email, nome
+    "access_token":   None,
+    "refresh_token":  None,
+    # Treino
+    "treino_ativo":   False,
+    "serie_atual":    "A",
+    "indice_ex":      0,
+    "inicio_timer":   0.0,
+    # Cardio
+    "cardio_ativo":   False,
+    "params_cardio":  None,
+    "dist_real":      0.0,
     "t_cardio_start": 0.0,
-    # FIX: flag para evitar double-save no cardio
-    "cardio_salvo": False,
+    "cardio_salvo":   False,
+    # UI
+    "confirmar_historico": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
 # ─────────────────────────────────────────────
-# INTERFACE
+# HELPERS — AUTH
 # ─────────────────────────────────────────────
-st.title("🏋️ PyTrain PRO")
-aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
+def fazer_login(email: str, senha: str) -> bool:
+    """Autentica com Supabase Auth e guarda sessão."""
+    try:
+        res = supabase.auth.sign_in_with_password({"email": email, "password": senha})
+        st.session_state.access_token  = res.session.access_token
+        st.session_state.refresh_token = res.session.refresh_token
+        st.session_state.usuario = {
+            "id":    res.user.id,
+            "email": res.user.email,
+            "nome":  res.user.user_metadata.get("nome", email.split("@")[0]),
+        }
+        return True
+    except Exception as e:
+        st.error(f"❌ Email ou senha incorretos.")
+        return False
 
+def fazer_logout():
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    for k in ["usuario", "access_token", "refresh_token",
+              "treino_ativo", "cardio_ativo", "params_cardio"]:
+        st.session_state[k] = defaults[k]
+    st.rerun()
+
+def user_id() -> str:
+    """Retorna o UUID do utilizador logado."""
+    return st.session_state.usuario["id"]
+
+# ─────────────────────────────────────────────
+# HELPERS — DADOS
+# Todas as queries incluem user_id para isolamento
+# ─────────────────────────────────────────────
+def registrar_historico(ex_id, detalhes: str, tipo: str = "musculacao") -> None:
+    supabase.table("historico_treinos").insert({
+        "user_id":        user_id(),
+        "exercicio_id":   ex_id,
+        "data_execucao":  datetime.now(fuso).isoformat(),
+        "detalhes":       detalhes,
+        "tipo":           tipo,
+    }).execute()
+
+def extrair_stats(dataframe: pd.DataFrame) -> tuple[float, int]:
+    if dataframe.empty or "detalhes" not in dataframe.columns:
+        return 0.0, 0
+    kms  = dataframe["detalhes"].str.extract(r"([\d.]+)km").astype(float).sum()[0]
+    mins = dataframe["detalhes"].str.extract(r"(\d+)min").astype(float).sum()[0]
+    return (float(kms) if not pd.isna(kms) else 0.0), (int(mins) if not pd.isna(mins) else 0)
+
+# ─────────────────────────────────────────────
+# TELA DE LOGIN
+# ─────────────────────────────────────────────
+def tela_login():
+    st.markdown("""
+        <div class="login-box">
+            <h2 style="text-align:center;color:#e066ff;margin-bottom:8px;">🏋️ PyTrain PRO</h2>
+            <p style="text-align:center;color:gray;margin-bottom:24px;">Entre com sua conta para continuar</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Centralizar formulário
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        with st.form("form_login"):
+            email = st.text_input("📧 Email", placeholder="seu@email.com")
+            senha = st.text_input("🔒 Senha", type="password", placeholder="••••••••")
+            entrar = st.form_submit_button("Entrar", use_container_width=True)
+
+        if entrar:
+            if email and senha:
+                with st.spinner("Autenticando..."):
+                    if fazer_login(email, senha):
+                        st.rerun()
+            else:
+                st.warning("Preencha email e senha.")
+
+# ─────────────────────────────────────────────
+# FLUXO PRINCIPAL
+# ─────────────────────────────────────────────
+if not st.session_state.usuario:
+    tela_login()
+    st.stop()   # Nada abaixo é renderizado sem login
+
+# ─────────────────────────────────────────────
+# APP PRINCIPAL (só chega aqui se estiver logado)
+# ─────────────────────────────────────────────
+nome_usuario = st.session_state.usuario["nome"]
+
+# Cabeçalho com info do utilizador + botão logout
+col_title, col_user = st.columns([4, 1])
+col_title.title("🏋️ PyTrain PRO")
+with col_user:
+    st.markdown(f"<p style='color:gray;font-size:0.85em;margin-bottom:4px;'>👤 {nome_usuario}</p>", unsafe_allow_html=True)
+    if st.button("Sair", use_container_width=True):
+        fazer_logout()
+
+aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📊 Painel", "⚙️ Menu"])
 
 # ═══════════════════════════════════════════
 # ABA 1 — TREINO
@@ -131,14 +216,20 @@ with aba1:
         st.subheader("Escolha sua Série")
         serie = st.radio("Selecione:", ["A", "B", "C", "D"], horizontal=True)
 
-        # ── Resumo da série seleccionada ──────────────────────────────
-        preview = supabase.table("exercicios").select("nome, series, repeticoes, peso_kg").eq("serie_tipo", serie).execute()
+        # Exercícios filtrados pelo user_id
+        preview = (
+            supabase.table("exercicios")
+            .select("nome, series, repeticoes, peso_kg")
+            .eq("serie_tipo", serie)
+            .eq("user_id", user_id())
+            .execute()
+        )
+
         if preview.data:
             st.markdown(f"#### 📋 Série {serie} — {len(preview.data)} exercícios")
             for i, ex in enumerate(preview.data, 1):
                 st.markdown(
-                    f"""<div style="
-                        background:#1e1e2e;border-left:3px solid #7d33ff;
+                    f"""<div style="background:#1e1e2e;border-left:3px solid #7d33ff;
                         border-radius:8px;padding:10px 16px;margin:6px 0;
                         display:flex;justify-content:space-between;align-items:center;">
                         <span style="color:white;font-weight:bold;">{i}. {ex['nome']}</span>
@@ -150,18 +241,24 @@ with aba1:
                 )
             pode_iniciar = True
         else:
-            st.warning(f"Nenhum exercício cadastrado na Série {serie}. Adicione exercícios no Menu ⚙️.")
+            st.warning(f"Nenhum exercício cadastrado na Série {serie}. Adicione no Menu ⚙️.")
             pode_iniciar = False
 
         if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
-            st.session_state.serie_atual = serie
-            st.session_state.indice_ex = 0
+            st.session_state.serie_atual  = serie
+            st.session_state.indice_ex    = 0
             st.session_state.inicio_timer = time.time()
             st.rerun()
 
     else:
-        res = supabase.table("exercicios").select("*").eq("serie_tipo", st.session_state.serie_atual).execute()
+        res = (
+            supabase.table("exercicios")
+            .select("*")
+            .eq("serie_tipo", st.session_state.serie_atual)
+            .eq("user_id", user_id())
+            .execute()
+        )
 
         if not res.data:
             st.warning("Nenhum exercício cadastrado para esta série.")
@@ -170,9 +267,8 @@ with aba1:
                 st.rerun()
         else:
             total_ex = len(res.data)
-            indice = st.session_state.indice_ex
+            indice   = st.session_state.indice_ex
 
-            # FIX: guardar na hora certa — se já passou de todos, encerra
             if indice >= total_ex:
                 st.session_state.treino_ativo = False
                 st.balloons()
@@ -191,11 +287,10 @@ with aba1:
             """, unsafe_allow_html=True)
 
             c1, c2, c3 = st.columns(3)
-            p = c1.number_input("Kg",   value=int(ex_atual["peso_kg"]),    step=1, key=f"p_{indice}")
-            s = c2.number_input("Sets", value=int(ex_atual["series"]),      step=1, key=f"s_{indice}")
-            r = c3.number_input("Reps", value=int(ex_atual["repeticoes"]),  step=1, key=f"r_{indice}")
+            p = c1.number_input("Kg",   value=int(ex_atual["peso_kg"]),   step=1, key=f"p_{indice}")
+            s = c2.number_input("Sets", value=int(ex_atual["series"]),     step=1, key=f"s_{indice}")
+            r = c3.number_input("Reps", value=int(ex_atual["repeticoes"]), step=1, key=f"r_{indice}")
 
-            # Cronómetro da sessão
             tempo_total_seg = int(time.time() - st.session_state.inicio_timer)
             m, seg = divmod(tempo_total_seg, 60)
             st.markdown(f"""
@@ -209,11 +304,7 @@ with aba1:
             col_prox, col_cancel = st.columns(2)
 
             if col_prox.button("PRÓXIMO ➡️", use_container_width=True):
-                registrar_historico(
-                    ex_atual["id"],
-                    f"{p}kg | {s}x{r} | {tempo_total_seg // 60}min"
-                )
-                # Actualiza peso no catálogo
+                registrar_historico(ex_atual["id"], f"{p}kg | {s}x{r} | {tempo_total_seg // 60}min")
                 supabase.table("exercicios").update({"peso_kg": p}).eq("id", ex_atual["id"]).execute()
                 st.session_state.indice_ex += 1
                 st.rerun()
@@ -222,16 +313,12 @@ with aba1:
                 st.session_state.treino_ativo = False
                 st.rerun()
 
-            # FIX: time.sleep + rerun apenas para refrescar o cronómetro;
-            #      colocado no FINAL da aba para não bloquear os botões acima.
             time.sleep(1)
             st.rerun()
 
 
 # ═══════════════════════════════════════════
 # ABA 2 — CARDIO
-# FIX: loop bloqueante substituído por máquina de estados
-#      para que o botão "Encerrar" funcione de verdade
 # ═══════════════════════════════════════════
 with aba2:
     if not st.session_state.cardio_ativo:
@@ -239,10 +326,10 @@ with aba2:
         modo = st.radio("Objetivo:", ["Distância Alvo (km)", "Número de Ciclos"], horizontal=True)
 
         c1, c2 = st.columns(2)
-        t_anda  = c1.number_input("Minutos Andando",  value=5.0,  step=1.0)
-        v_anda  = c1.number_input("Vel. Andando",     value=5.0,  step=0.5)
-        t_corre = c2.number_input("Minutos Correndo", value=2.0,  step=1.0)
-        v_corre = c2.number_input("Vel. Correndo",    value=9.0,  step=0.5)
+        t_anda  = c1.number_input("Minutos Andando",  value=5.0, step=1.0)
+        v_anda  = c1.number_input("Vel. Andando",     value=5.0, step=0.5)
+        t_corre = c2.number_input("Minutos Correndo", value=2.0, step=1.0)
+        v_corre = c2.number_input("Vel. Correndo",    value=9.0, step=0.5)
 
         dist_ciclo = (v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60))
         if dist_ciclo <= 0:
@@ -261,20 +348,19 @@ with aba2:
             st.info(f"Estimativa: ~{dist_alvo:.2f} km | ~{int(tempo_total_min)} min")
 
         if st.button("🚀 INICIAR CARDIO", use_container_width=True):
-            # Constrói lista de etapas: (nome, duração_seg, velocidade)
             etapas = []
             for i in range(int(n_ciclos)):
                 etapas.append((f"🚶 Caminhada ({i+1}/{int(n_ciclos)})", int(t_anda * 60),  v_anda))
                 etapas.append((f"⚡ Corrida   ({i+1}/{int(n_ciclos)})", int(t_corre * 60), v_corre))
 
-            st.session_state.cardio_ativo    = True
-            st.session_state.cardio_salvo    = False
-            st.session_state.dist_real       = 0.0
-            st.session_state.t_cardio_start  = time.time()
-            st.session_state.params_cardio   = {
-                "etapas":     etapas,
-                "dist_alvo":  dist_alvo,
-                "etapa_idx":  0,          # índice da etapa actual
+            st.session_state.cardio_ativo   = True
+            st.session_state.cardio_salvo   = False
+            st.session_state.dist_real      = 0.0
+            st.session_state.t_cardio_start = time.time()
+            st.session_state.params_cardio  = {
+                "etapas":        etapas,
+                "dist_alvo":     dist_alvo,
+                "etapa_idx":     0,
                 "seg_restantes": etapas[0][1] if etapas else 0,
             }
             st.rerun()
@@ -285,35 +371,24 @@ with aba2:
         dist_alvo = params["dist_alvo"]
         idx       = params["etapa_idx"]
 
-        # ── Botão de encerramento antecipado ──────────────────────────
         if st.button("🛑 ENCERRAR E SALVAR", use_container_width=True):
             if not st.session_state.cardio_salvo:
                 t_final = int((time.time() - st.session_state.t_cardio_start) / 60)
-                registrar_historico(
-                    None,
-                    f"Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min",
-                    tipo="cardio"
-                )
+                registrar_historico(None, f"Interrompido: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
             st.rerun()
 
-        # ── Cardio concluído ──────────────────────────────────────────
         if idx >= len(etapas):
             if not st.session_state.cardio_salvo:
                 t_final = int((time.time() - st.session_state.t_cardio_start) / 60)
-                registrar_historico(
-                    None,
-                    f"Concluído: {st.session_state.dist_real:.2f}km | {t_final}min",
-                    tipo="cardio"
-                )
+                registrar_historico(None, f"Concluído: {st.session_state.dist_real:.2f}km | {t_final}min", tipo="cardio")
                 st.session_state.cardio_salvo = True
             st.session_state.cardio_ativo = False
             st.success("🎉 Objetivo concluído!")
             st.balloons()
             st.rerun()
 
-        # ── Display da etapa actual ───────────────────────────────────
         nome_etapa, _, vel_etapa = etapas[idx]
         seg = params["seg_restantes"]
         m, s = divmod(seg, 60)
@@ -328,18 +403,13 @@ with aba2:
             </div>
         """, unsafe_allow_html=True)
 
-        # ── Avança 1 segundo por rerun ────────────────────────────────
         time.sleep(1)
-        st.session_state.dist_real += vel_etapa / 3600  # km por segundo
+        st.session_state.dist_real += vel_etapa / 3600
 
         if seg <= 1:
-            # Passa para a próxima etapa
             params["etapa_idx"] += 1
             next_idx = params["etapa_idx"]
-            if next_idx < len(etapas):
-                params["seg_restantes"] = etapas[next_idx][1]
-            else:
-                params["seg_restantes"] = 0
+            params["seg_restantes"] = etapas[next_idx][1] if next_idx < len(etapas) else 0
         else:
             params["seg_restantes"] -= 1
 
@@ -354,9 +424,11 @@ with aba3:
     st.header("📊 Performance & Histórico")
 
     try:
+        # Histórico filtrado pelo user_id
         res_h = (
             supabase.table("historico_treinos")
             .select("*, exercicios(nome)")
+            .eq("user_id", user_id())
             .order("data_execucao", desc=True)
             .execute()
         )
@@ -367,7 +439,6 @@ with aba3:
             df = pd.json_normalize(res_h.data)
             df["data_execucao"] = pd.to_datetime(df["data_execucao"]).dt.tz_convert("America/Sao_Paulo")
 
-            # ── Filtro de período ─────────────────────────────────────
             st.subheader("📅 Filtrar Período")
             col_f1, col_f2 = st.columns(2)
 
@@ -375,9 +446,9 @@ with aba3:
             ano_sel = col_f1.selectbox("Ano", anos)
 
             meses_nomes = {
-                1: "Janeiro", 2: "Fevereiro", 3: "Março",    4: "Abril",
-                5: "Maio",    6: "Junho",     7: "Julho",    8: "Agosto",
-                9: "Setembro",10: "Outubro",  11: "Novembro",12: "Dezembro",
+                1: "Janeiro", 2: "Fevereiro", 3: "Março",     4: "Abril",
+                5: "Maio",    6: "Junho",     7: "Julho",     8: "Agosto",
+                9: "Setembro",10: "Outubro",  11: "Novembro", 12: "Dezembro",
             }
             meses_disp = sorted(
                 df[df["data_execucao"].dt.year == ano_sel]["data_execucao"].dt.month.unique(),
@@ -390,30 +461,25 @@ with aba3:
                 (df["data_execucao"].dt.year  == ano_sel)
             ]
 
-            # ── Resumo do mês ─────────────────────────────────────────
             st.markdown(f"#### 📈 Resumo de {meses_nomes[mes_sel]}/{ano_sel}")
             c1, c2, c3 = st.columns(3)
             km_f, min_f = extrair_stats(df_filtrado)
-            c1.metric("Treinos",       len(df_filtrado))
-            c2.metric("Distância",     f"{km_f:.2f} km")
-            c3.metric("Tempo Total",   f"{min_f} min")
+            c1.metric("Treinos",     len(df_filtrado))
+            c2.metric("Distância",   f"{km_f:.2f} km")
+            c3.metric("Tempo Total", f"{min_f} min")
 
-            # ── Hoje e esta semana ────────────────────────────────────
-            df_hoje   = df[df["data_execucao"].dt.date == hoje_agora.date()]
-            inicio_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            df_semana = df[df["data_execucao"] >= inicio_sem]
+            df_hoje    = df[df["data_execucao"].dt.date == hoje_agora.date()]
+            inicio_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            df_semana  = df[df["data_execucao"] >= inicio_sem]
 
             with st.expander("📌 Ver Hoje e Esta Semana"):
                 km_h, min_h = extrair_stats(df_hoje)
                 km_s, min_s = extrair_stats(df_semana)
                 st.markdown(f"""
-**Hoje:** {len(df_hoje)} atividades | {km_h:.2f} km | {min_h} min  
+**Hoje:** {len(df_hoje)} atividades | {km_h:.2f} km | {min_h} min
 **Esta Semana:** {len(df_semana)} atividades | {km_s:.2f} km | {min_s} min
                 """)
 
-            # ── Lista completa do mês ─────────────────────────────────
             st.divider()
             st.subheader(f"📜 Atividades em {meses_nomes[mes_sel]}")
 
@@ -425,12 +491,7 @@ with aba3:
                     df_show["exercicios.nome"] = "🏃 Cardio"
                 df_show["exercicios.nome"] = df_show["exercicios.nome"].fillna("🏃 Cardio")
                 df_show["Data"] = df_show["data_execucao"].dt.strftime("%d/%m/%Y %H:%M")
-
-                st.dataframe(
-                    df_show[["Data", "exercicios.nome", "detalhes"]],
-                    use_container_width=True,
-                    hide_index=True,
-                )
+                st.dataframe(df_show[["Data", "exercicios.nome", "detalhes"]], use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"Erro ao carregar histórico: {e}")
@@ -442,28 +503,28 @@ with aba3:
 with aba4:
     st.header("⚙️ Gerenciamento do Sistema")
 
-    # ── Cadastrar exercício ───────────────────────────────────────────
     with st.expander("✨ Cadastrar Novo Exercício"):
         with st.form("form_cadastro"):
-            n_nome  = st.text_input("Nome do Exercício")
-            n_serie = st.selectbox("Série", ["A", "B", "C", "D"])
-            n_peso  = st.number_input("Peso Inicial (kg)", value=0, min_value=0)
+            n_nome   = st.text_input("Nome do Exercício")
+            n_serie  = st.selectbox("Série", ["A", "B", "C", "D"])
+            n_peso   = st.number_input("Peso Inicial (kg)", value=0, min_value=0)
             n_series = st.number_input("Séries padrão", value=3, min_value=1)
             n_reps   = st.number_input("Repetições padrão", value=12, min_value=1)
 
             if st.form_submit_button("Salvar no Catálogo"):
                 if n_nome.strip():
-                    # FIX: verificar duplicidade antes de inserir
                     existe = (
                         supabase.table("exercicios")
                         .select("id")
                         .ilike("nome", n_nome.strip())
+                        .eq("user_id", user_id())
                         .execute()
                     )
                     if existe.data:
-                        st.warning(f"Exercício '{n_nome}' já existe no catálogo.")
+                        st.warning(f"'{n_nome}' já existe no seu catálogo.")
                     else:
                         supabase.table("exercicios").insert({
+                            "user_id":    user_id(),
                             "nome":       n_nome.strip(),
                             "serie_tipo": n_serie,
                             "peso_kg":    n_peso,
@@ -475,9 +536,14 @@ with aba4:
                 else:
                     st.warning("Digite o nome do exercício.")
 
-    # ── Editar / Remover exercícios ───────────────────────────────────
     with st.expander("📝 Editar ou Remover Exercícios"):
-        res_cat = supabase.table("exercicios").select("*").order("serie_tipo").execute()
+        res_cat = (
+            supabase.table("exercicios")
+            .select("*")
+            .eq("user_id", user_id())
+            .order("serie_tipo")
+            .execute()
+        )
         if res_cat.data:
             for ex_cat in res_cat.data:
                 col_n, col_d = st.columns([3, 1])
@@ -490,24 +556,19 @@ with aba4:
             st.info("Catálogo vazio.")
 
     st.divider()
-
-    # ── Zona de perigo ────────────────────────────────────────────────
     st.subheader("🚨 Zona de Perigo")
     st.warning("Estas acções são irreversíveis.")
 
     col_h, col_p = st.columns(2)
 
-    # FIX: confirmação antes de apagar para evitar cliques acidentais
     if col_h.button("🗑️ Apagar Todo Histórico"):
         st.session_state["confirmar_historico"] = True
 
     if st.session_state.get("confirmar_historico"):
-        st.error("Tens a certeza? Esta acção apaga **todo** o histórico.")
+        st.error("Tens a certeza? Esta acção apaga **todo** o teu histórico.")
         c_sim, c_nao = st.columns(2)
         if c_sim.button("✅ Sim, apagar"):
-            supabase.table("historico_treinos").delete().neq(
-                "id", "00000000-0000-0000-0000-000000000000"
-            ).execute()
+            supabase.table("historico_treinos").delete().eq("user_id", user_id()).execute()
             st.session_state["confirmar_historico"] = False
             st.success("Histórico limpo.")
             st.rerun()
@@ -516,8 +577,6 @@ with aba4:
             st.rerun()
 
     if col_p.button("🔄 Resetar Todos os Pesos"):
-        supabase.table("exercicios").update({"peso_kg": 0}).neq(
-            "id", "00000000-0000-0000-0000-000000000000"
-        ).execute()
+        supabase.table("exercicios").update({"peso_kg": 0}).eq("user_id", user_id()).execute()
         st.success("Pesos resetados para 0 kg!")
         st.rerun()
