@@ -2,195 +2,119 @@ import streamlit as st
 import time
 import os
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
+import pytz  # Para corrigir o fuso horário
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+# --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="PyTrain PRO", page_icon="🏋️", layout="wide")
-
-# Estética CSS
-st.markdown("""
-    <style>
-    div.stButton > button:first-child { height: 3em; width: 100%; font-size: 18px; font-weight: bold; }
-    .stNumberInput div div input { font-size: 20px !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- CONEXÃO ---
 load_dotenv()
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
+# Fuso horário de Brasília
+fuso = pytz.timezone('America/Sao_Paulo')
 
-# --- FUNÇÕES DE APOIO ---
+# CSS para garantir a horizontalidade no mobile e botões grandes
+st.markdown("""
+    <style>
+    [data-testid="column"] { min-width: 14% !important; }
+    .stCheckbox { display: flex; justify-content: center; }
+    div.stButton > button { height: 3.5em; width: 100%; font-size: 18px !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# --- FUNÇÕES ---
 def registrar_historico(ex_id, detalhes, tipo="musculacao"):
-    dados = {
-        "exercicio_id": ex_id,
-        "data_execucao": datetime.now().isoformat(),
-        "detalhes": detalhes,
-        "tipo": tipo
-    }
-    supabase.table("historico_treinos").insert(dados).execute()
+    agora = datetime.now(fuso).isoformat()
+    supabase.table("historico_treinos").insert({
+        "exercicio_id": ex_id, "data_execucao": agora,
+        "detalhes": detalhes, "tipo": tipo
+    }).execute()
 
 
-# --- INTERFACE ---
-st.title("🏋️ PyTrain PRO")
+# --- ABA 1: TREINO DINÂMICO ---
 aba1, aba2, aba3, aba4 = st.tabs(["🚀 Treino", "🏃 Cardio", "📜 Histórico", "⚙️ Menu"])
 
-# --- ABA 1: TREINO (COM CHECKLIST SEMANAL REAL) ---
 with aba1:
+    # 1. Checklist Semanal Manual
     st.subheader("🗓️ Checklist Semanal")
-
-    # Lógica de Data Science: Buscar treinos da semana atual
-    hoje = datetime.now()
-    inicio_semana = hoje - timedelta(days=hoje.weekday())
-    res_semana = supabase.table("historico_treinos").select("data_execucao").filter("data_execucao", "gte",
-                                                                                    inicio_semana.isoformat()).execute()
-
-    dias_treinados = [datetime.fromisoformat(r['data_execucao']).weekday() for r in res_semana.data]
-    dias_nome = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
-
+    dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    # Colunas forçadas a serem pequenas para caberem lado a lado
     cols = st.columns(7)
-    for i, dia in enumerate(dias_nome):
-        # Checkbox marcado automaticamente se houver registro no banco para aquele dia
-        cols[i].checkbox(dia, value=(i in dias_treinados), key=f"check_{dia}", disabled=True)
+    for i, dia in enumerate(dias):
+        st.session_state[f"manual_{dia}"] = cols[i].checkbox(dia, key=f"c_{dia}")
 
     st.divider()
 
-    serie = st.radio("Qual série hoje?", ["A", "B", "C", "D"], horizontal=True)
-    res = supabase.table("exercicios").select("*").eq("serie_tipo", serie).execute()
+    # 2. Seleção de Série
+    serie = st.radio("Selecione a Série", ["A", "B", "C", "D"], horizontal=True)
 
-    if not res.data:
-        st.warning(f"Nenhum exercício na Série {serie}")
-    else:
-        with st.form(f"form_treino_{serie}"):
-            for ex in res.data:
-                st.subheader(f"▶ {ex['nome']}")
-                c1, c2, c3 = st.columns(3)
-                p = c1.number_input("Kg", value=int(ex['peso_kg']), key=f"p_{ex['id']}", step=1)
-                s = c2.number_input("Séries", value=int(ex['series']), key=f"s_{ex['id']}", step=1)
-                r = c3.number_input("Reps", value=int(ex['repeticoes']), key=f"r_{ex['id']}", step=1)
+    # Lógica de Fluxo de Exercícios (Um por um)
+    if st.button(f"INICIAR SÉRIE {serie}"):
+        st.session_state.treino_ativo = True
+        st.session_state.indice_ex = 0
+        st.session_state.inicio_timer = time.time()
 
-            if st.form_submit_button("🏆 CONCLUIR TREINO"):
-                for ex in res.data:
-                    p_val, s_val, r_val = st.session_state[f"p_{ex['id']}"], st.session_state[f"s_{ex['id']}"], \
-                    st.session_state[f"r_{ex['id']}"]
-                    supabase.table("exercicios").update({"peso_kg": p_val}).eq("id", ex['id']).execute()
-                    registrar_historico(ex['id'], f"{p_val}kg | {s_val}x{r_val}")
-                st.balloons()
-                st.success("✅ Treino salvo!")
-                st.rerun()
+    if st.session_state.get("treino_ativo"):
+        res = supabase.table("exercicios").select("*").eq("serie_tipo", serie).execute()
+        if res.data:
+            ex_atual = res.data[st.session_state.indice_ex]
 
-# --- ABA 2: CARDIO (COM CÁLCULO DE KM) ---
+            # Card do Exercício Atual
+            st.markdown(f"### Exercício {st.session_state.indice_ex + 1} de {len(res.data)}")
+            st.info(f"🏋️ **{ex_atual['nome']}**")
+
+            c1, c2, c3 = st.columns(3)
+            peso = c1.number_input("Carga (kg)", value=int(ex_atual['peso_kg']), step=1)
+            sets = c2.number_input("Séries", value=int(ex_atual['series']), step=1)
+            reps = c3.number_input("Reps", value=int(ex_atual['repeticoes']), step=1)
+
+            # Timer do exercício
+            tempo_decorrido = int(time.time() - st.session_state.inicio_timer)
+            st.write(f"⏱️ Tempo neste exercício: {tempo_decorrido // 60:02d}:{tempo_decorrido % 60:02d}")
+
+            if st.button("PRÓXIMO EXERCÍCIO ➡️"):
+                registrar_historico(ex_atual['id'], f"{peso}kg | {sets}x{reps}")
+                if st.session_state.indice_ex + 1 < len(res.data):
+                    st.session_state.indice_ex += 1
+                    st.session_state.inicio_timer = time.time()
+                    st.rerun()
+                else:
+                    st.session_state.treino_ativo = False
+                    st.balloons()
+                    st.success("Série concluída!")
+
+# --- ABA 2: CARDIO (CONTROLE TOTAL) ---
 with aba2:
-    st.header("🏃 HIIT Intervalado")
-    c1, c2 = st.columns(2)
-    t_anda = c1.number_input("Minutos Andando", 2, step=1)
-    v_anda = c1.number_input("Vel. Andando", 5.5, step=0.5)
-    t_corre = c2.number_input("Minutos Correndo", 1, step=1)
-    v_corre = c2.number_input("Vel. Correndo", 9.0, step=0.5)
-    n_ciclos = st.number_input("Repetições do Ciclo", 5, step=1)
+    st.header("🏃 Controle de Esteira")
 
-    tempo_total = (t_anda + t_corre) * n_ciclos
-    distancia = ((v_anda * (t_anda / 60)) + (v_corre * (t_corre / 60))) * n_ciclos
+    col1, col2 = st.columns(2)
+    t_anda = col1.number_input("Minutos Andando", value=5, step=1)
+    v_anda = col1.number_input("Velocidade Andando", value=5.0, step=0.5)  # Mínimo 5.0
 
-    st.info(f"⏱️ {tempo_total} min | 📍 {distancia:.2f} km")
+    t_corre = col2.number_input("Minutos Correndo", value=0, step=1)  # Pode zerar
+    v_corre = col2.number_input("Velocidade Correndo", value=9.0, step=0.5)
 
     if st.button("🚀 INICIAR"):
+        st.session_state.cardio_rodando = True
         ph = st.empty()
-        bar = st.progress(0)
-        for c in range(n_ciclos):
-            for fase, t, v, cor in [("🚶 ANDANDO", t_anda, v_anda, "#66ffe0"),
-                                    ("⚡ CORRENDO", t_corre, v_corre, "#e066ff")]:
-                segundos = t * 60
-                while segundos > 0:
-                    m, s = divmod(segundos, 60)
-                    ph.markdown(
-                        f'<div style="text-align:center;border:3px solid {cor};padding:20px;border-radius:15px;background:#1e1e1e;"><h2 style="color:{cor}">{fase}</h2><h1 style="font-size:80px;color:white;">{m:02d}:{s:02d}</h1><h3>{v} km/h</h3></div>',
-                        unsafe_allow_html=True)
-                    time.sleep(1)
-                    segundos -= 1
-            bar.progress((c + 1) / n_ciclos)
-        registrar_historico(None, f"Cardio: {distancia:.2f}km | {tempo_total}min", tipo="cardio")
-        st.success("HIIT Concluído!")
 
-# --- ABA 3: DASHBOARD DE PERFORMANCE ---
-with aba3:
-    st.header("📊 Desempenho Mensal")
-    res_m = supabase.table("historico_treinos").select("*").execute()
-    if res_m.data:
-        df = pd.DataFrame(res_m.data)
-        df['data_execucao'] = pd.to_datetime(df['data_execucao'])
-        df_mes = df[df['data_execucao'].dt.month == hoje.month]
+        # Etapas (Se tempo > 0)
+        etapas = []
+        if t_anda > 0: etapas.append(("🚶 Caminhada", t_anda * 60, v_anda))
+        if t_corre > 0: etapas.append(("⚡ Corrida", t_corre * 60, v_corre))
 
-        # Cálculos
-        freq = len(df_mes['data_execucao'].dt.date.unique())
-        # Extração de KM usando Regex
-        df_cardio = df_mes[df_mes['tipo'] == 'cardio']
-        km_total = df_cardio['detalhes'].str.extract(r'(\d+\.\d+)km').astype(float).sum()[
-            0] if not df_cardio.empty else 0.0
-        tempo_total = len(df_mes) * 45  # Estimativa de 45min por sessão
+        for nome, t, v in etapas:
+            while t > 0:
+                if st.button("🛑 ENCERRAR AGORA", key="stop_cardio"):
+                    st.session_state.cardio_rodando = False
+                    st.warning("Cardio interrompido.")
+                    st.stop()
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Frequência", f"{freq} dias")
-        c2.metric("Distância Total", f"{km_total:.1f} km")
-        c3.metric("Tempo Est.", f"{tempo_total // 60}h {tempo_total % 60}m")
-
-        st.divider()
-        st.subheader("📜 Histórico Recente")
-        st.dataframe(df.sort_values('data_execucao', ascending=False).head(15), use_container_width=True)
-
-# --- ABA 4: MENU --- (Manteve igual à sua versão anterior)
-
-# --- ABA 4: CONFIGURAÇÕES ---
-with aba4:
-    st.header("⚙️ Gerenciamento do Sistema")
-
-    # 1. Adicionar Novo Exercício (Com suporte a Série D)
-    with st.expander("✨ Cadastrar Novo Exercício"):
-        with st.form("form_cadastro"):
-            n_nome = st.text_input("Nome do Exercício")
-            # Adicionei "D" nas opções abaixo
-            n_serie = st.selectbox("Série", ["A", "B", "C", "D"])
-            n_peso = st.number_input("Peso Inicial (kg)", value=0)
-            if st.form_submit_button("Salvar no Catálogo"):
-                if n_nome:
-                    supabase.table("exercicios").insert({
-                        "nome": n_nome,
-                        "serie_tipo": n_serie,
-                        "peso_kg": n_peso,
-                        "series": 3,
-                        "repeticoes": 12
-                    }).execute()
-                    st.success(f"✅ {n_nome} adicionado à Série {n_serie}!")
-                    st.rerun()  # Atualiza a tela para mostrar a nova série
-
-    # 2. Editar/Excluir Exercícios do Catálogo
-    with st.expander("📝 Editar ou Remover Exercícios"):
-        res_cat = supabase.table("exercicios").select("*").order("serie_tipo").execute()
-        if res_cat.data:
-            for ex_cat in res_cat.data:
-                col_n, col_d = st.columns([3, 1])
-                col_n.write(f"**{ex_cat['nome']}** (Série {ex_cat['serie_tipo']})")
-                if col_d.button("🗑️", key=f"del_{ex_cat['id']}"):
-                    supabase.table("exercicios").delete().eq("id", ex_cat['id']).execute()
-                    st.error(f"Excluído: {ex_cat['nome']}")
-                    st.rerun()
-
-    st.divider()
-
-    # 3. Zona de Perigo (Limpar Dados)
-    st.subheader("🚨 Zona de Perigo")
-
-    col_h, col_p = st.columns(2)
-
-    if col_h.button("🗑️ Apagar Todo Histórico"):
-        # Deleta tudo onde o ID não é zero (ou seja, tudo)
-        supabase.table("historico_treinos").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        st.success("Histórico limpo com sucesso!")
-        st.rerun()
-
-    if col_p.button("🔄 Resetar Todos os Pesos"):
-        supabase.table("exercicios").update({"peso_kg": 0}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        st.success("Pesos resetados para 0kg!")
-        st.rerun()
+                m, s = divmod(t, 60)
+                ph.header(f"{nome} | {m:02d}:{s:02d} | {v} km/h")
+                time.sleep(1)
+                t -= 1
+        st.success("Finalizado!")
