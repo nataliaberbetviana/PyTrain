@@ -239,10 +239,11 @@ try:
 except Exception:
     treinos_mes = 0
 
-if treinos_mes == 0:   msg_treinos = "Nenhum treino este mês ainda — bora começar! 💪"
-elif treinos_mes < 5:  msg_treinos = str(treinos_mes) + " treino(s) este mês. Continue assim! 🔥"
-elif treinos_mes < 10: msg_treinos = str(treinos_mes) + " treinos este mês. Você está em chamas! 🚀"
-else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Lendária! 🏆"
+if treinos_mes == 0:    msg_treinos = "Nenhum treino este mês ainda — bora começar! 💪"
+elif treinos_mes <= 8:  msg_treinos = str(treinos_mes) + " treino(s) este mês. Continue assim! 🔥"
+elif treinos_mes <= 16: msg_treinos = str(treinos_mes) + " treinos este mês. Você está em chamas! 🚀"
+elif treinos_mes <= 24: msg_treinos = str(treinos_mes) + " treinos este mês. Mandando muito bem! 💪"
+else:                   msg_treinos = str(treinos_mes) + " treinos este mês. Lendária! 🏆"
 
 col_titulo, col_sair = st.columns([5, 1])
 with col_titulo:
