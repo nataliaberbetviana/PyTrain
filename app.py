@@ -92,32 +92,49 @@ with aba2:
 
     col1, col2 = st.columns(2)
     t_anda = col1.number_input("Minutos Andando", value=5, step=1)
-    v_anda = col1.number_input("Velocidade Andando", value=5.0, step=0.5)  # Mínimo 5.0
+    v_anda = col1.number_input("Velocidade Andando", value=5.0, step=0.5)
 
-    t_corre = col2.number_input("Minutos Correndo", value=0, step=1)  # Pode zerar
+    t_corre = col2.number_input("Minutos Correndo", value=0, step=1)
     v_corre = col2.number_input("Velocidade Correndo", value=9.0, step=0.5)
 
-    if st.button("🚀 INICIAR"):
-        st.session_state.cardio_rodando = True
-        ph = st.empty()
+    # Botão de início e interrupção usando Session State
+    if "cardio_ativo" not in st.session_state:
+        st.session_state.cardio_ativo = False
 
-        # Etapas (Se tempo > 0)
+    c_start, c_stop = st.columns(2)
+    if c_start.button("🚀 INICIAR", use_container_width=True):
+        st.session_state.cardio_ativo = True
+
+    if c_stop.button("🛑 ENCERRAR", use_container_width=True):
+        st.session_state.cardio_ativo = False
+        st.rerun()
+
+    if st.session_state.cardio_ativo:
+        ph = st.empty()
+        # Etapas baseadas no que você configurou
         etapas = []
         if t_anda > 0: etapas.append(("🚶 Caminhada", t_anda * 60, v_anda))
         if t_corre > 0: etapas.append(("⚡ Corrida", t_corre * 60, v_corre))
+        if t_anda > 0: etapas.append(("❄️ Desaceleração", t_anda * 60, v_anda))
 
-        for nome, t, v in etapas:
-            while t > 0:
-                if st.button("🛑 ENCERRAR AGORA", key="stop_cardio"):
-                    st.session_state.cardio_rodando = False
-                    st.warning("Cardio interrompido.")
-                    st.stop()
+        for nome, tempo_seg, vel in etapas:
+            if not st.session_state.cardio_ativo: break
 
-                m, s = divmod(t, 60)
-                ph.header(f"{nome} | {m:02d}:{s:02d} | {v} km/h")
+            while tempo_seg > 0 and st.session_state.cardio_ativo:
+                m, s = divmod(tempo_seg, 60)
+                ph.markdown(f"""
+                    <div style="text-align: center; border: 3px solid #e066ff; padding: 20px; border-radius: 15px;">
+                        <h2 style="color: #e066ff;">{nome}</h2>
+                        <h1 style="font-size: 80px;">{m:02d}:{s:02d}</h1>
+                        <h3>Velocidade: {vel} km/h</h3>
+                    </div>
+                """, unsafe_allow_html=True)
                 time.sleep(1)
-                t -= 1
-        st.success("Finalizado!")
+                tempo_seg -= 1
+
+        if st.session_state.cardio_ativo:
+            st.success("Treino Finalizado!")
+            st.session_state.cardio_ativo = False
 
 # --- ABA 3: DASHBOARD DE PERFORMANCE ---
 with aba3:
