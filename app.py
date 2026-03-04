@@ -461,34 +461,62 @@ with aba1:
             .execute()
         )
 
-        if preview.data:
-            st.markdown(f"#### 📋 Série {serie} — {len(preview.data)} exercícios")
-            for i, ex in enumerate(preview.data, 1):
-                st.markdown(
-                    f"""<div style="background:#1e1e2e;border-left:3px solid #7d33ff;
-                        border-radius:8px;padding:10px 16px;margin:6px 0;
-                        display:flex;justify-content:space-between;align-items:center;">
-                        <span style="color:white;font-weight:bold;">{i}. {ex['nome']}</span>
-                        <span style="color:#a78bfa;font-size:0.85em;">
-                            {ex['series']}x{ex['repeticoes']} &nbsp;|&nbsp; {ex['peso_kg']} kg
-                        </span>
-                    </div>""",
-                    unsafe_allow_html=True,
-                )
+        # Busca com id para poder deletar
+        preview_full = (
+            supabase.table("exercicios")
+            .select("id, nome, series, repeticoes, peso_kg")
+            .eq("serie_tipo", serie)
+            .eq("user_id", user_id())
+            .execute()
+        )
+
+        if preview_full.data:
+            st.markdown(f"#### 📋 Série {serie} — {len(preview_full.data)} exercícios")
+            for i, ex in enumerate(preview_full.data, 1):
+                col_ex, col_del = st.columns([5, 1])
+                with col_ex:
+                    st.markdown(
+                        f"""<div style="background:#1e1e2e;border-left:3px solid #7d33ff;
+                            border-radius:8px;padding:10px 16px;margin:4px 0;
+                            display:flex;justify-content:space-between;align-items:center;">
+                            <span style="color:white;font-weight:bold;">{i}. {ex['nome']}</span>
+                            <span style="color:#a78bfa;font-size:0.85em;">
+                                {ex['series']}x{ex['repeticoes']} &nbsp;|&nbsp; {ex['peso_kg']} kg
+                            </span>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+                with col_del:
+                    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+                    if st.button("🗑️", key=f"del_prev_{ex['id']}", help=f"Remover {ex['nome']}"):
+                        supabase.table("exercicios").delete().eq("id", ex["id"]).execute()
+                        st.rerun()
             pode_iniciar = True
         else:
-            st.warning(f"Nenhum exercício cadastrado na Série {serie}.")
+            st.info(f"Série {serie} vazia.")
+            pode_iniciar = False
 
-            # Formulário inline para cadastrar o primeiro exercício sem sair da aba
-            with st.expander("➕ Cadastrar exercício aqui mesmo", expanded=True):
-                with st.form(f"form_rapido_{serie}"):
-                    r_nome   = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
-                    c1r, c2r, c3r = st.columns(3)
-                    r_peso   = c1r.number_input("Peso (kg)", value=0, min_value=0)
-                    r_series = c2r.number_input("Séries", value=3, min_value=1)
-                    r_reps   = c3r.number_input("Reps", value=12, min_value=1)
-                    if st.form_submit_button("✅ Adicionar e continuar", use_container_width=True):
-                        if r_nome.strip():
+        # Formulário de cadastro sempre visível na aba Treino
+        with st.expander("➕ Adicionar exercício à Série " + serie, expanded=not pode_iniciar):
+            with st.form(f"form_treino_cadastro_{serie}"):
+                r_nome   = st.text_input("Nome do exercício", placeholder="Ex: Supino Reto")
+                c1r, c2r, c3r = st.columns(3)
+                r_peso   = c1r.number_input("Peso (kg)", value=0, min_value=0)
+                r_series = c2r.number_input("Séries", value=3, min_value=1)
+                r_reps   = c3r.number_input("Reps", value=12, min_value=1)
+                if st.form_submit_button("✅ Adicionar", use_container_width=True):
+                    if r_nome.strip():
+                        existe = (
+                            supabase.table("exercicios")
+                            .select("id")
+                            .ilike("nome", r_nome.strip())
+                            .eq("serie_tipo", serie)
+                            .eq("user_id", user_id())
+                            .execute()
+                        )
+                        if existe.data:
+                            st.warning(f"'{r_nome}' já existe na Série {serie}.")
+                        else:
                             supabase.table("exercicios").insert({
                                 "user_id":    user_id(),
                                 "nome":       r_nome.strip(),
@@ -497,12 +525,10 @@ with aba1:
                                 "series":     r_series,
                                 "repeticoes": r_reps,
                             }).execute()
-                            st.success(f"✅ '{r_nome}' adicionado à Série {serie}!")
+                            st.success(f"✅ '{r_nome}' adicionado!")
                             st.rerun()
-                        else:
-                            st.warning("Digite o nome do exercício.")
-
-            pode_iniciar = False
+                    else:
+                        st.warning("Digite o nome do exercício.")
 
         if st.button(f"🚀 INICIAR TREINO — SÉRIE {serie}", use_container_width=True, disabled=not pode_iniciar):
             st.session_state.treino_ativo = True
@@ -833,57 +859,7 @@ with aba4:
 
     st.divider()
 
-    with st.expander("✨ Cadastrar Novo Exercício"):
-        with st.form("form_cadastro"):
-            n_nome   = st.text_input("Nome do Exercício")
-            n_serie  = st.selectbox("Série", ["A", "B", "C", "D"])
-            n_peso   = st.number_input("Peso Inicial (kg)", value=0, min_value=0)
-            n_series = st.number_input("Séries padrão", value=3, min_value=1)
-            n_reps   = st.number_input("Repetições padrão", value=12, min_value=1)
-
-            if st.form_submit_button("Salvar no Catálogo"):
-                if n_nome.strip():
-                    existe = (
-                        supabase.table("exercicios")
-                        .select("id")
-                        .ilike("nome", n_nome.strip())
-                        .eq("user_id", user_id())
-                        .execute()
-                    )
-                    if existe.data:
-                        st.warning(f"'{n_nome}' já existe no seu catálogo.")
-                    else:
-                        supabase.table("exercicios").insert({
-                            "user_id":    user_id(),
-                            "nome":       n_nome.strip(),
-                            "serie_tipo": n_serie,
-                            "peso_kg":    n_peso,
-                            "series":     n_series,
-                            "repeticoes": n_reps,
-                        }).execute()
-                        st.success(f"✅ '{n_nome}' adicionado à Série {n_serie}!")
-                        st.rerun()
-                else:
-                    st.warning("Digite o nome do exercício.")
-
-    with st.expander("📝 Editar ou Remover Exercícios"):
-        res_cat = (
-            supabase.table("exercicios")
-            .select("*")
-            .eq("user_id", user_id())
-            .order("serie_tipo")
-            .execute()
-        )
-        if res_cat.data:
-            for ex_cat in res_cat.data:
-                col_n, col_d = st.columns([3, 1])
-                col_n.write(f"**{ex_cat['nome']}** — Série {ex_cat['serie_tipo']} | {ex_cat['peso_kg']} kg")
-                if col_d.button("🗑️", key=f"del_{ex_cat['id']}"):
-                    supabase.table("exercicios").delete().eq("id", ex_cat["id"]).execute()
-                    st.warning(f"Removido: {ex_cat['nome']}")
-                    st.rerun()
-        else:
-            st.info("Catálogo vazio.")
+    st.info("💡 Para adicionar ou remover exercícios, use a aba **🚀 Treino**.")
 
     st.divider()
     st.subheader("🚨 Zona de Perigo")
