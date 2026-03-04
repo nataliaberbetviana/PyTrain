@@ -192,10 +192,16 @@ h1,h2,h3,h4,h5,h6,p,span,div,label,
     font-weight: 600 !important;
     font-size: 0.9rem !important;
     padding: 0.85rem 1rem !important;
-    list-style: none !important;
+    color: #c4b5fd !important;
 }
-[data-testid="stExpander"] summary * { color: #c4b5fd !important; }
-[data-testid="stExpander"] summary:hover { background: #1a1a2e !important; border-radius: 14px !important; }
+[data-testid="stExpander"] summary p {
+    color: #c4b5fd !important;
+    font-weight: 600 !important;
+}
+[data-testid="stExpander"] summary:hover {
+    background: #1a1a2e !important;
+    border-radius: 14px !important;
+}
 
 /* Alertas */
 [data-testid="stInfo"]    { background: #0d1b2e !important; border-left: 3px solid #3b82f6 !important; border-radius: 10px !important; }
@@ -582,7 +588,7 @@ with aba1:
             st.caption("SÉRIE " + serie + "  ·  VAZIA")
             pode_iniciar = False
 
-        with st.expander("+ Adicionar exercicio — Serie " + serie, expanded=not pode_iniciar):
+        with st.expander("＋ Adicionar — Série " + serie, expanded=not pode_iniciar):
             with st.form("form_add_" + serie):
                 r_nome = st.text_input("Nome", placeholder="Ex: Supino Reto")
                 c1, c2, c3 = st.columns(3)
@@ -792,7 +798,7 @@ with aba3:
             ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
             df_s = df[df["data_execucao"] >= ini_sem]
 
-            with st.expander("Hoje e esta semana"):
+            with st.expander("📅 Hoje e esta semana"):
                 km_h, min_h = extrair_stats(df_h)
                 km_s, min_s = extrair_stats(df_s)
                 col1, col2 = st.columns(2)
@@ -852,7 +858,7 @@ with aba4:
     c2.metric("📍 Cidade / Estado", dp.get("cidade","—") + " · " + dp.get("estado","—"))
     st.divider()
 
-    with st.expander("Editar dados pessoais"):
+    with st.expander("✏️ Editar dados pessoais"):
         with st.form("form_dados"):
             ed_nome   = st.text_input("Nome", value=dp.get("nome", nome_atual))
             ed_tel    = st.text_input("Telefone", value=dp.get("telefone",""), placeholder="(28) 99999-9999")
@@ -877,7 +883,7 @@ with aba4:
                 else:
                     st.warning("Preencha todos os campos.")
 
-    with st.expander("Alterar email"):
+    with st.expander("📧 Alterar email"):
         st.caption("Voce recebera links de confirmacao no email atual e no novo.")
         with st.form("form_email"):
             novo_email  = st.text_input("Novo email", placeholder="novo@email.com")
@@ -895,7 +901,7 @@ with aba4:
                     except Exception as e:
                         st.error("Senha incorreta." if "invalid" in str(e).lower() else "Erro: " + str(e))
 
-    with st.expander("Alterar senha"):
+    with st.expander("🔒 Alterar senha"):
         with st.form("form_senha"):
             s_antiga = st.text_input("Senha atual", type="password")
             s_nova   = st.text_input("Nova senha", type="password", placeholder="minimo 8 caracteres")
@@ -917,7 +923,7 @@ with aba4:
 
     st.divider()
 
-    with st.expander("Apagar minha conta"):
+    with st.expander("⚠️ Apagar minha conta"):
         st.warning("Acao irreversivel. Todos os dados serao removidos permanentemente.")
         with st.form("form_del_conta"):
             conf_txt   = st.text_input("Digite APAGAR para confirmar", placeholder="APAGAR")
