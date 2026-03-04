@@ -437,60 +437,63 @@ with aba1:
 
                 ex  = res_data[idx]
                 pct = int((idx / total) * 100)
-
-                # ── CSS mobile-first ──────────────────────────────────────────
-                st.markdown("""
-                <style>
-                /* Inputs de número compactos em linha */
-                div[data-testid="stNumberInput"] { margin-bottom: 0 !important; }
-                div[data-testid="stNumberInput"] label { font-size: 0.7rem !important; margin-bottom: 0 !important; }
-                div[data-testid="stNumberInput"] input { padding: 4px 8px !important; font-size: 1rem !important; }
-                /* Métricas menores */
-                div[data-testid="stMetric"] { padding: 4px 8px !important; }
-                div[data-testid="stMetricLabel"] { font-size: 0.65rem !important; }
-                div[data-testid="stMetricValue"] { font-size: 1rem !important; }
-                /* Botões de descanso compactos */
-                .rest-btn div[data-testid="stButton"] button {
-                    padding: 6px 4px !important; font-size: 0.85rem !important;
-                }
-                /* Reduz padding geral na aba de treino */
-                section.main > div { padding-top: 0.5rem !important; }
-                </style>""", unsafe_allow_html=True)
-
-                # ── Cabeçalho compacto ────────────────────────────────────────
                 elapsed = int(time.time() - st.session_state.inicio_timer)
                 m_e, sg = divmod(elapsed, 60)
 
-                st.progress(pct)
-                st.markdown(
-                    f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                    f"font-size:0.75rem;color:#888;margin-bottom:4px'>"
-                    f"<span>SÉRIE {st.session_state.serie_atual} · {idx+1}/{total}</span>"
-                    f"<span>⏱ {m_e:02d}:{sg:02d}</span></div>",
-                    unsafe_allow_html=True
-                )
-
-                # ── Nome + Pular ───────────────────────────────────────────────
-                col_titulo, col_pular = st.columns([4, 1])
-                col_titulo.subheader("💪 " + ex["nome"])
-                if col_pular.button("⏭", key=f"pular_{idx}", help="Pular para o final", use_container_width=True):
-                    nova_ordem = [eid for eid in ordem if eid != ex["id"]] + [ex["id"]]
-                    st.session_state.ordem_exercicios = nova_ordem
-                    st.rerun()
+                # Inicializa valores editáveis no session_state
+                pk = f"val_p_{idx}"; sk = f"val_s_{idx}"; rk = f"val_r_{idx}"
+                if pk not in st.session_state: st.session_state[pk] = int(ex["peso_kg"])
+                if sk not in st.session_state: st.session_state[sk] = int(ex["series"])
+                if rk not in st.session_state: st.session_state[rk] = int(ex["repeticoes"])
+                p = st.session_state[pk]
+                s = st.session_state[sk]
+                r = st.session_state[rk]
 
                 ult_det, ult_data = _ultima_carga(ex["id"])
-                if ult_det:
-                    st.caption(f"📌 Última vez ({ult_data}): {ult_det}")
 
-                # ── Peso / Séries / Reps em linha ─────────────────────────────
-                c1, c2, c3 = st.columns(3)
-                p = c1.number_input("Peso kg", value=int(ex["peso_kg"]),    step=1, key="p" + str(idx))
-                s = c2.number_input("Séries",  value=int(ex["series"]),     step=1, key="s" + str(idx))
-                r = c3.number_input("Reps",    value=int(ex["repeticoes"]), step=1, key="r" + str(idx))
+                # ── Card principal em HTML puro (sem limitações do Streamlit) ─
+                ult_txt = f"📌 {ult_data}: {ult_det}" if ult_det else ""
+                st.markdown(f"""
+<div style="background:#1a1a2e;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#888;margin-bottom:6px">
+    <span>SÉRIE {st.session_state.serie_atual} · {idx+1}/{total}</span>
+    <span>⏱ {m_e:02d}:{sg:02d}</span>
+  </div>
+  <div style="height:4px;background:#333;border-radius:2px;margin-bottom:10px">
+    <div style="height:4px;background:#7c3aed;border-radius:2px;width:{pct}%"></div>
+  </div>
+  <div style="font-size:1.15rem;font-weight:700;margin-bottom:4px">💪 {ex["nome"]}</div>
+  <div style="font-size:0.72rem;color:#aaa;margin-bottom:10px">{ult_txt}</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div style="flex:1;background:#0f0f1a;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:0.65rem;color:#888;margin-bottom:2px">PESO kg</div>
+      <div style="font-size:1.4rem;font-weight:bold">{p}</div>
+    </div>
+    <div style="flex:1;background:#0f0f1a;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:0.65rem;color:#888;margin-bottom:2px">SÉRIES</div>
+      <div style="font-size:1.4rem;font-weight:bold">{s}</div>
+    </div>
+    <div style="flex:1;background:#0f0f1a;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:0.65rem;color:#888;margin-bottom:2px">REPS</div>
+      <div style="font-size:1.4rem;font-weight:bold">{r}</div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
-                nota_ex = st.text_input("📝 Nota", placeholder="Observação...", key="nota_" + str(idx))
+                # ── Controles +/− por grupo (3 linhas: Peso | Séries | Reps) ──
+                for lbl, key_, cur, mn in [("🏋️ Peso (kg)", pk, p, 0), ("🔁 Séries", sk, s, 1), ("🎯 Reps", rk, r, 1)]:
+                    cm, cv, cp = st.columns([2, 3, 2])
+                    cm.markdown(f"<div style='font-size:0.7rem;color:#888;text-align:right;padding-top:10px'>{lbl}</div>", unsafe_allow_html=True)
+                    cv.markdown(f"<div style='font-size:1.6rem;font-weight:bold;text-align:center;line-height:2.2rem'>{cur}</div>", unsafe_allow_html=True)
+                    col_minus, col_plus = cp.columns(2)
+                    if col_minus.button("−", key=f"m_{key_}_{idx}", use_container_width=True):
+                        st.session_state[key_] = max(mn, cur - 1); st.rerun()
+                    if col_plus.button("+", key=f"p_{key_}_{idx}", use_container_width=True):
+                        st.session_state[key_] = cur + 1; st.rerun()
 
-                # ── Timer de descanso em linha ────────────────────────────────
+                nota_ex = st.text_input("📝 Nota", placeholder="Observação...", key="nota_" + str(idx), label_visibility="collapsed")
+
+                # ── Timer de descanso ─────────────────────────────────────────
                 st.caption("⏳ DESCANSO")
                 tc1, tc2, tc3, tc4 = st.columns(4)
                 for col, seg, label in [(tc1,30,"30s"),(tc2,60,"1min"),(tc3,90,"1:30"),(tc4,120,"2min")]:
@@ -506,18 +509,20 @@ with aba1:
                     if restante > 0:
                         mr, sr = divmod(restante, 60)
                         st.progress(1 - restante / st.session_state.timer_descanso)
-                        st.markdown(
-                            f"<div style='text-align:center;font-size:1.8rem;font-weight:bold;"
-                            f"color:#a78bfa;margin:4px 0'>⏳ {mr:02d}:{sr:02d}</div>",
-                            unsafe_allow_html=True
-                        )
+                        st.markdown(f"<div style='text-align:center;font-size:2rem;font-weight:bold;color:#a78bfa'>⏳ {mr:02d}:{sr:02d}</div>", unsafe_allow_html=True)
                     else:
                         st.session_state.timer_descanso_ativo = False
                         st.success("✅ Bora!")
 
-                st.write("")
+                # ── Pular + Próximo + Cancelar ────────────────────────────────
+                cb1, cb2, cb3 = st.columns([1, 3, 1])
+                if cb1.button("⏭", key=f"pular_{idx}", use_container_width=True, help="Pular para o final"):
+                    nova_ordem = [eid for eid in ordem if eid != ex["id"]] + [ex["id"]]
+                    st.session_state.ordem_exercicios = nova_ordem
+                    st.rerun()
+
                 with st.form(key=f"form_proximo_{idx}"):
-                    c_prox, c_cancel = st.columns([3, 1])
+                    c_prox, c_cancel = st.columns([4, 1])
                     prox_clicked   = c_prox.form_submit_button("✅ Próximo →", use_container_width=True)
                     cancel_clicked = c_cancel.form_submit_button("✕", use_container_width=True, help="Cancelar treino")
 
