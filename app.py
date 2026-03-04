@@ -247,13 +247,43 @@ elif treinos_mes < 5:  msg_treinos = str(treinos_mes) + " treino(s) este mês. C
 elif treinos_mes < 10: msg_treinos = str(treinos_mes) + " treinos este mês. Você está em chamas! 🚀"
 else:                  msg_treinos = str(treinos_mes) + " treinos este mês. Lendária! 🏆"
 
-col_titulo, col_sair = st.columns([5, 1])
-with col_titulo:
-    st.subheader(emoji_hora + " " + saudacao + ", " + nome_usuario + "!")
-    st.caption(msg_treinos)
-with col_sair:
-    if st.button("Sair", key="btn_sair", use_container_width=True):
-        fazer_logout(supabase, cookies, DEFAULTS)
+st.markdown("""
+<style>
+#MainMenu, header, footer { display: none !important; }
+.block-container { padding-top: 0.5rem !important; padding-bottom: 1rem !important; }
+section[data-testid="stSidebar"] { display: none; }
+</style>""", unsafe_allow_html=True)
+
+# Menu suspenso via query param
+_menu_acao = st.query_params.get("menu_acao", "")
+if _menu_acao == "sair":
+    st.query_params.clear()
+    fazer_logout(supabase, cookies, DEFAULTS)
+
+st.markdown(f"""
+<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 4px 0">
+  <div>
+    <div style="font-size:1.1rem;font-weight:700">{emoji_hora} {saudacao}, {nome_usuario}!</div>
+    <div style="font-size:0.72rem;color:#aaa;margin-top:1px">{msg_treinos}</div>
+  </div>
+  <div style="position:relative">
+    <details style="position:relative">
+      <summary style="list-style:none;cursor:pointer;background:#2a2a3e;border:1px solid #444;
+        border-radius:8px;padding:6px 12px;font-size:1.2rem;color:#fff">☰</summary>
+      <div style="position:absolute;right:0;top:36px;background:#1a1a2e;border:1px solid #444;
+        border-radius:10px;min-width:160px;z-index:999;box-shadow:0 4px 20px #0008">
+        <a href="?aba=treino"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">🚀 Treino</a>
+        <a href="?aba=cardio"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">🏃 Cardio</a>
+        <a href="?aba=painel"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">📊 Painel</a>
+        <a href="?aba=evolucao" style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">📈 Evolução</a>
+        <a href="?aba=conquistas" style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">🏆 Conquistas</a>
+        <a href="?aba=perfil"  style="display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:0.9rem">⚙️ Perfil</a>
+        <hr style="border-color:#333;margin:4px 0">
+        <a href="?menu_acao=sair" style="display:block;padding:10px 16px;color:#f87171;text-decoration:none;font-size:0.9rem">🚪 Sair</a>
+      </div>
+    </details>
+  </div>
+</div>""", unsafe_allow_html=True)
 
 aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
     "🚀 Treino", "🏃 Cardio", "📊 Painel", "📈 Evolução", "🏆 Conquistas", "⚙️ Perfil"
@@ -330,12 +360,11 @@ with aba1:
             exs   = supabase.table("exercicios").select("id,nome,series,repeticoes,peso_kg")\
                 .eq("serie_tipo", serie).eq("user_id", uid()).order("id").execute()
 
-            # Checa delete via query param
-            _qp = st.query_params
-            _del_id = _qp.get("del_ex", "")
-            if _del_id:
-                supabase.table("exercicios").delete().eq("id", _del_id).execute()
-                st.query_params.clear(); st.rerun()
+            # Delete via session_state (sem navegar pra nova URL)
+            if st.session_state.get("del_ex_pending"):
+                supabase.table("exercicios").delete().eq("id", st.session_state.del_ex_pending).execute()
+                st.session_state.del_ex_pending = None
+                st.rerun()
 
             if exs.data:
                 n_exs = len(exs.data)
@@ -356,13 +385,19 @@ with aba1:
                     for i, ex in enumerate(exs.data, 1):
                         ult_det, ult_data = _ultima_carga(ex["id"])
                         ult_txt = f"<div style='font-size:0.72rem;color:#a78bfa;margin-top:3px'>📌 {ult_data}: {ult_det}</div>" if ult_det else ""
-                        st.markdown(f"""
-<div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:10px 14px;margin-bottom:6px;position:relative">
-  <a href="?del_ex={ex['id']}" style="position:absolute;top:8px;right:10px;color:#555;font-size:0.9rem;text-decoration:none">✕</a>
-  <div style="font-size:0.9rem;font-weight:700;color:#90caf9;padding-right:20px">{i}. {ex['nome']}</div>
+                        c_card, c_del = st.columns([10, 1])
+                        with c_card:
+                            st.markdown(f"""
+<div style="background:#1a237e22;border:1px solid #3949ab55;border-radius:10px;padding:8px 12px;margin-bottom:2px">
+  <div style="font-size:0.9rem;font-weight:700;color:#90caf9">{i}. {ex['nome']}</div>
   <div style="font-size:0.78rem;color:#aaa;margin-top:1px">{ex['series']}×{ex['repeticoes']} · {ex['peso_kg']} kg</div>
   {ult_txt}
 </div>""", unsafe_allow_html=True)
+                        with c_del:
+                            st.write("")
+                            if st.button("✕", key=f"del_{ex['id']}", use_container_width=True):
+                                st.session_state.del_ex_pending = ex["id"]
+                                st.rerun()
                 pode_iniciar = True
             else:
                 st.caption("SÉRIE " + serie + "  ·  VAZIA")
