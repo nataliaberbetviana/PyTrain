@@ -530,13 +530,16 @@ with aba1:
                             if dup.data:
                                 st.warning("'" + r_nome + "' já existe na Série " + serie)
                             else:
-                                supabase.table("exercicios").insert({
-                                    "user_id": user_id(), "nome": r_nome.strip(),
-                                    "serie_tipo": serie, "peso_kg": r_peso,
-                                    "series": r_series, "repeticoes": r_reps,
-                                }).execute()
-                                st.success("✅ '" + r_nome + "' adicionado!")
-                                st.rerun()
+                                try:
+                                    supabase.table("exercicios").insert({
+                                        "user_id": user_id(), "nome": r_nome.strip(),
+                                        "serie_tipo": serie, "peso_kg": r_peso,
+                                        "series": r_series, "repeticoes": r_reps,
+                                    }).execute()
+                                    st.success("✅ '" + r_nome + "' adicionado!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error("Erro ao adicionar: " + str(e))
                         else:
                             st.warning("Digite o nome do exercício.")
 
