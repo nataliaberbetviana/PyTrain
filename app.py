@@ -150,6 +150,12 @@ div[data-testid="stSelectbox"] > div > div {
     padding: 4px 10px !important;
     font-size: 0.85rem !important;
     color: #e2e8f0 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+}
+div[data-testid="stSelectbox"] {
+    width: 100% !important;
 }
 
 button, a, [role="button"],
@@ -408,35 +414,39 @@ else:
 # ── Navegação ────────────────────────────────────────────────────────────────
 
 ABAS = [
-    ("🏠 Home",          "home"),
-    ("🚀 Treino",        "treino"),
-    ("🏃 Cardio",        "cardio"),
-    ("📊 Painel",        "painel"),
-    ("📈 Evolução",      "evolucao"),
-    ("🏆 Conquistas",    "conquistas"),
-    ("⚙️ Perfil",        "perfil"),
-    ("🚪 Sair",          "__sair__"),
+    ("🏠 Home",       "home"),
+    ("🚀 Treino",     "treino"),
+    ("🏃 Cardio",     "cardio"),
+    ("📊 Painel",     "painel"),
+    ("📈 Evolução",   "evolucao"),
+    ("🏆 Conquistas", "conquistas"),
+    ("⚙️ Perfil",     "perfil"),
+    ("🚪 Sair",       "__sair__"),
 ]
 _abas_labels = [l for l, _ in ABAS]
 _abas_keys   = [k for _, k in ABAS]
-_aba_atual   = st.session_state.aba_ativa
 
-col_header, col_nav = st.columns([3, 2])
-with col_header:
-    st.markdown(
-        f"<div style='font-size:1.1rem;font-weight:800;line-height:1.2;color:#f0f0f5'>"
-        f"{emoji_hora} {saudacao}, {nome_usuario}!</div>"
-        f"<div style='font-size:0.75rem;color:#a0a8b8;margin-top:2px'>{msg_treinos}</div>",
-        unsafe_allow_html=True,
-    )
-with col_nav:
-    idx_atual = _abas_keys.index(_aba_atual) if _aba_atual in _abas_keys else 0
-    escolha   = st.selectbox(
-        "Navegar", _abas_labels,
-        index=idx_atual,
-        label_visibility="collapsed",
-        key="nav_select",
-    )
+# Garante que aba_ativa seja sempre válida
+if st.session_state.aba_ativa not in _abas_keys:
+    st.session_state.aba_ativa = "home"
+_aba_atual = st.session_state.aba_ativa
+
+# Cabeçalho
+st.markdown(
+    f"<div style='font-size:1.1rem;font-weight:800;line-height:1.2;color:#f0f0f5'>"
+    f"{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+    f"<div style='font-size:0.75rem;color:#a0a8b8;margin-top:2px'>{msg_treinos}</div>",
+    unsafe_allow_html=True,
+)
+
+# Dropdown de navegação — largura total para não cortar o texto
+idx_atual = _abas_keys.index(_aba_atual) if _aba_atual in _abas_keys else 0
+escolha   = st.selectbox(
+    "Navegar", _abas_labels,
+    index=idx_atual,
+    label_visibility="collapsed",
+    key="nav_select",
+)
 
 _nav_key = dict(ABAS).get(escolha, "")
 if _nav_key == "__sair__":
