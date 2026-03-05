@@ -163,9 +163,6 @@ div[data-testid="stSelectbox"] > div > div {
     padding: 10px 14px !important;
     font-size: 0.95rem !important;
     color: #e2e8f0 !important;
-    white-space: nowrap !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
 }
 div[data-testid="stSelectbox"] {
     width: 100% !important;
