@@ -137,19 +137,20 @@ section[data-testid="stSidebar"] { display: none; }
     padding-right: 1rem !important;
 }
 
-p, span, label, div, li {
-    font-size: 0.95rem !important;
-    color: #e2e8f0 !important;
-}
+p, li { font-size: 0.95rem !important; color: #e2e8f0 !important; }
+span:not([data-baseweb]) { color: #e2e8f0 !important; }
+label { font-size: 0.95rem !important; color: #e2e8f0 !important; }
 .stCaption, [data-testid="stCaptionContainer"] p {
     font-size: 0.82rem !important;
     color: #b0b8c8 !important;
 }
 
-div[data-testid="stSelectbox"] > div { min-height: 52px !important; }
 div[data-testid="stSelectbox"] { width: 100% !important; }
-div[data-testid="stSelectbox"] * { color: #e2e8f0 !important; font-size: 0.95rem !important; }
-div[data-testid="stSelectbox"] > div > div { padding: 10px 14px !important; }
+div[data-testid="stSelectbox"] > div {
+    min-height: 56px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+}
 
 div[data-testid="stRadio"] > div {
     display: flex !important;
@@ -1277,18 +1278,37 @@ elif _aba_atual == "evolucao":
     if "sub_evolucao" not in st.session_state:
         st.session_state.sub_evolucao = "🏋️ Progressão"
 
-    _c1, _c2, _c3 = st.columns(3)
-    if _c1.button("🏋️ Progressão",  use_container_width=True,
-                  type="primary" if st.session_state.sub_evolucao == "🏋️ Progressão"  else "secondary"):
-        st.session_state.sub_evolucao = "🏋️ Progressão";  st.rerun()
-    if _c2.button("⚖️ Peso",         use_container_width=True,
-                  type="primary" if st.session_state.sub_evolucao == "⚖️ Peso corporal" else "secondary"):
-        st.session_state.sub_evolucao = "⚖️ Peso corporal"; st.rerun()
-    if _c3.button("📏 Medidas",      use_container_width=True,
-                  type="primary" if st.session_state.sub_evolucao == "📏 Medidas"       else "secondary"):
-        st.session_state.sub_evolucao = "📏 Medidas";       st.rerun()
+    # Processa clique dos botões via query param
+    _qp_sub = st.query_params.get("sub_ev", "")
+    if _qp_sub:
+        st.session_state.sub_evolucao = _qp_sub
+        st.query_params.clear()
+        st.rerun()
 
     _sub_evolucao = st.session_state.sub_evolucao
+
+    def _btn_sub(label, key):
+        ativo = _sub_evolucao == key
+        bg    = "#7c3aed" if ativo else "#1e1e3a"
+        borda = "#7c3aed" if ativo else "#3a3a5c"
+        cor   = "#fff"    if ativo else "#c8cdd5"
+        return (
+            f'<a href="?sub_ev={key}" style="'
+            f'display:flex;align-items:center;justify-content:center;'
+            f'height:56px;border-radius:12px;background:{bg};'
+            f'border:2px solid {borda};color:{cor};'
+            f'font-size:0.88rem;font-weight:600;text-decoration:none;'
+            f'text-align:center;padding:0 4px;line-height:1.2">{label}</a>'
+        )
+
+    st.markdown(
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
+        f'{_btn_sub("🏋️ Progressão", "🏋️ Progressão")}'
+        f'{_btn_sub("⚖️ Peso", "⚖️ Peso corporal")}'
+        f'{_btn_sub("📏 Medidas", "📏 Medidas")}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     if _sub_evolucao == "🏋️ Progressão":
         try:
