@@ -1375,11 +1375,26 @@ elif _aba_atual == "evolucao":
 
             if res_peso.data:
                 df_peso = pd.DataFrame(res_peso.data)
-                df_peso["data"] = pd.to_datetime(df_peso["data"])
+                df_peso["data"]    = pd.to_datetime(df_peso["data"])
+                df_peso["peso_kg"] = pd.to_numeric(df_peso["peso_kg"], errors="coerce")
+                df_peso = df_peso.dropna(subset=["peso_kg"]).sort_values("data")
 
                 df_peso_plot = df_peso.copy()
                 df_peso_plot.index = df_peso_plot["data"].dt.strftime("%d/%m/%y")
-                st.line_chart(df_peso_plot["peso_kg"], use_container_width=True)
+
+                if len(df_peso_plot) == 1:
+                    # Com 1 ponto, duplica para forçar a linha aparecer
+                    df_peso_plot = pd.concat([df_peso_plot, df_peso_plot])
+
+                _p_min = df_peso["peso_kg"].min()
+                _p_max = df_peso["peso_kg"].max()
+                _margem = max(2.0, (_p_max - _p_min) * 0.1)
+
+                st.line_chart(
+                    df_peso_plot["peso_kg"],
+                    use_container_width=True,
+                    y_label="kg",
+                )
 
                 primeiro = df_peso["peso_kg"].iloc[0]
                 ultimo   = df_peso["peso_kg"].iloc[-1]
