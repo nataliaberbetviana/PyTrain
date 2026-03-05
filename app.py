@@ -8,7 +8,6 @@ import pytz
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
-from streamlit_autorefresh import st_autorefresh
 
 # ── Biblioteca interna ─────────────────────────────────────────────────────────
 from pytrain import (
@@ -295,11 +294,11 @@ p, span, label, div, li {
     color: #b0b8c8 !important;
 }
 
-/* ── Selectbox (nav) ── */
-div[data-testid="stSelectbox"] > div { min-height: 44px !important; }
+/* ── Selectbox (nav) compacto ── */
+div[data-testid="stSelectbox"] > div { min-height: 38px !important; }
 div[data-testid="stSelectbox"] > div > div {
-    padding: 6px 12px !important;
-    font-size: 0.95rem !important;
+    padding: 4px 10px !important;
+    font-size: 0.85rem !important;
     color: #e2e8f0 !important;
 }
 
@@ -393,14 +392,16 @@ ABAS = [("🏠 Home","home"),("🚀 Treino","treino"),("🏃 Cardio","cardio"),
         ("📊 Painel","painel"),("📈 Evolução","evolucao"),
         ("🏆 Conquistas","conquistas"),("⚙️ Perfil","perfil"),("🚪 Sair","__sair__")]
 
-st.markdown(
-    f"<div style='font-size:1.3rem;font-weight:800;line-height:1.3;color:#f0f0f5'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
-    f"<div style='font-size:0.8rem;color:#a0a8b8;margin-top:2px'>{msg_treinos}</div>",
-    unsafe_allow_html=True)
-
-escolha = st.selectbox("Navegar", [l for l,_ in ABAS],
-    index=[k for _,k in ABAS].index(_a) if _a in [k for _,k in ABAS] else 0,
-    label_visibility="collapsed", key="nav_select")
+col_header, col_nav = st.columns([3, 2])
+with col_header:
+    st.markdown(
+        f"<div style='font-size:1.1rem;font-weight:800;line-height:1.2;color:#f0f0f5'>{emoji_hora} {saudacao}, {nome_usuario}!</div>"
+        f"<div style='font-size:0.75rem;color:#a0a8b8;margin-top:2px'>{msg_treinos}</div>",
+        unsafe_allow_html=True)
+with col_nav:
+    escolha = st.selectbox("Navegar", [l for l,_ in ABAS],
+        index=[k for _,k in ABAS].index(_a) if _a in [k for _,k in ABAS] else 0,
+        label_visibility="collapsed", key="nav_select")
 _nav_key = dict(ABAS).get(escolha, "")
 if _nav_key == "__sair__":
     fazer_logout(supabase, cookies, DEFAULTS)
@@ -451,17 +452,24 @@ if aba0.ativa:
         _n_hoje = 0
         _ult_data = ""
 
-    # Meta semanal
+    # Meta semanal — conta dias distintos com exercício
     try:
         _ini_sem = (hoje_agora - timedelta(days=hoje_agora.weekday())).replace(
             hour=0, minute=0, second=0, microsecond=0)
         _res_sem = supabase.table("historico_treinos").select("data_execucao")\
             .eq("user_id", uid()).gte("data_execucao", _ini_sem.isoformat()).execute()
-        _treinos_sem = len(_res_sem.data) if _res_sem.data else 0
+        if _res_sem.data:
+            _dias_sem = len(set(
+                pd.to_datetime(r["data_execucao"]).date() for r in _res_sem.data
+            ))
+        else:
+            _dias_sem = 0
     except Exception:
-        _treinos_sem = 0
-    _meta_sem = 5
-    _pct_meta = min(int((_treinos_sem / _meta_sem) * 100), 100)
+        _dias_sem = 0
+    if "meta_sem_dias" not in st.session_state:
+        st.session_state.meta_sem_dias = 5
+    _meta_sem = st.session_state.meta_sem_dias
+    _pct_meta = min(int((_dias_sem / _meta_sem) * 100), 100) if _meta_sem > 0 else 0
 
     streak_cor   = "#4ade80" if _streak >= 3 else "#facc15" if _streak >= 1 else "#888"
     hoje_txt     = f"✅ {_n_hoje} exercício(s) hoje" if _n_hoje > 0 else "Nenhum treino hoje ainda"
@@ -484,8 +492,8 @@ if aba0.ativa:
 
 <div style="background:#13132a;border-radius:14px;padding:14px;margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <div style="font-size:0.78rem;color:#b0b8c8;letter-spacing:1px">META DA SEMANA</div>
-    <div style="font-size:0.75rem;color:#a78bfa;font-weight:700">{_treinos_sem}/{_meta_sem}</div>
+    <div style="font-size:0.78rem;color:#b0b8c8;letter-spacing:1px">META DA SEMANA (dias)</div>
+    <div style="font-size:0.75rem;color:#a78bfa;font-weight:700">{_dias_sem}/{_meta_sem} dias</div>
   </div>
   <div style="height:8px;background:#1a1a3e;border-radius:4px">
     <div style="height:8px;background:{'#4ade80' if _pct_meta >= 100 else '#7c3aed'};border-radius:4px;width:{_pct_meta}%;transition:width .3s"></div>
@@ -496,6 +504,14 @@ if aba0.ativa:
 <div style="background:#13132a;border-radius:14px;padding:12px;margin-bottom:10px">
   <div style="font-size:0.8rem;color:#a78bfa;font-style:italic">✨ {_frase_home}</div>
 </div>""", unsafe_allow_html=True)
+
+    with st.expander("⚙️ Alterar meta semanal"):
+        nova_meta = st.number_input(
+            "Meta (dias por semana)", value=_meta_sem,
+            min_value=1, max_value=7, step=1, key="input_meta_sem")
+        if nova_meta != st.session_state.meta_sem_dias:
+            st.session_state.meta_sem_dias = nova_meta
+            st.rerun()
 
     c1, c2 = st.columns(2)
     if c1.button("🚀 Treino", use_container_width=True, type="primary"):
@@ -914,9 +930,7 @@ if aba2.ativa:
 
         km_est  = dist_ciclo_val * n_ciclos
         min_est = int(n_ciclos * (t_anda + t_corre))
-        st.info("📊  " + str(n_ciclos) + " ciclos  ·  ~" + str(round(km_est, 2)) + " km  ·  ~" + fmt_tempo(min_est))
-
-        st.write("")
+        st.caption(f"📊 {n_ciclos} ciclos · ~{round(km_est, 2)} km · ~{fmt_tempo(min_est)}")
         if st.button("🏃  Iniciar cardio", use_container_width=True):
             etapas = gerar_etapas(n_ciclos, t_anda, v_anda, t_corre, v_corre)
             st.session_state.update({
@@ -937,7 +951,15 @@ if aba2.ativa:
         p  = st.session_state.params_cardio
         da = p["dist_alvo"]
 
-        if st.button("⏹  Encerrar e salvar", use_container_width=True):
+        # Flag via callback — garante que o clique é capturado mesmo durante sleep
+        def _cb_encerrar():
+            st.session_state._encerrar_cardio = True
+
+        st.button("⏹  Encerrar e salvar", use_container_width=True,
+                  on_click=_cb_encerrar, key="btn_encerrar_cardio")
+
+        if st.session_state.get("_encerrar_cardio"):
+            st.session_state._encerrar_cardio = False
             if not st.session_state.cardio_salvo:
                 tf     = int((time.time() - st.session_state.t_cardio_start) / 60)
                 dist_r = round(st.session_state.dist_real, 2)
@@ -977,8 +999,8 @@ if aba2.ativa:
         c2.metric("📍 Distância", f"{round(estado['dist_real'], 2)} / {round(da, 2)} km")
         st.divider()
 
-        # Auto-refresh via client-side (não bloqueia o servidor)
-        st_autorefresh(interval=1000, key="cardio_refresh")
+        time.sleep(1)
+        st.rerun()
 
     rodape()
 
