@@ -146,6 +146,19 @@ p, span, label, div, li {
 }
 
 div[data-testid="stSelectbox"] > div { min-height: 38px !important; }
+
+div[data-testid="stRadio"] > div {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+    overflow-x: auto !important;
+}
+div[data-testid="stRadio"] label {
+    white-space: nowrap !important;
+    font-size: 0.9rem !important;
+    min-height: 36px !important;
+}
 div[data-testid="stSelectbox"] > div > div {
     padding: 4px 10px !important;
     font-size: 0.85rem !important;
@@ -561,10 +574,10 @@ if _aba_atual == "home":
 elif _aba_atual == "treino":
     st.info("✨ " + _frase("treino"))
 
-    modo_treino = st.selectbox(
+    modo_treino = st.radio(
         "Modo", ["Série", "Treino Livre"],
-        label_visibility="collapsed",
-        key="sel_modo_treino",
+        horizontal=True, label_visibility="collapsed",
+        key="radio_modo_treino",
     )
 
     # ── Treino Livre ──────────────────────────────────────────────────────────
@@ -635,10 +648,10 @@ elif _aba_atual == "treino":
     # ── Treino por Série ──────────────────────────────────────────────────────
     else:
         if not st.session_state.treino_ativo:
-            serie = st.selectbox(
+            serie = st.radio(
                 "Série", ["A", "B", "C", "D"],
-                label_visibility="collapsed",
-                key="sel_serie",
+                horizontal=True, label_visibility="collapsed",
+                key="radio_serie",
             )
             exs = supabase.table("exercicios")\
                 .select("id,nome,series,repeticoes,peso_kg")\
@@ -1268,19 +1281,14 @@ elif _aba_atual == "painel":
 elif _aba_atual == "evolucao":
     st.info("📈 " + _frase("evolucao"))
 
-    _sub_evolucao = st.selectbox(
+    _sub_evolucao = st.radio(
         "Seção",
-        ["🏋️ Progressão por exercício", "⚖️ Peso corporal", "📏 Medidas"],
-        format_func=lambda x: {
-            "🏋️ Progressão por exercício": "🏋️ Progressão",
-            "⚖️ Peso corporal":            "⚖️ Peso corporal",
-            "📏 Medidas":                  "📏 Medidas",
-        }.get(x, x),
-        label_visibility="collapsed",
-        key="sel_sub_evolucao",
+        ["🏋️ Progressão", "⚖️ Peso corporal", "📏 Medidas"],
+        horizontal=True, label_visibility="collapsed",
+        key="radio_sub_evolucao",
     )
 
-    if _sub_evolucao == "🏋️ Progressão por exercício":
+    if _sub_evolucao == "🏋️ Progressão":
         try:
             exs_todos = supabase.table("exercicios")\
                 .select("id,nome,serie_tipo").eq("user_id", uid()).order("nome").execute()
