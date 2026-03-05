@@ -454,13 +454,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Dropdown de navegação — sincroniza com aba_ativa
+# Dropdown de navegação — sempre reflete aba_ativa atual
 idx_atual = _abas_keys.index(_aba_atual) if _aba_atual in _abas_keys else 0
 escolha   = st.selectbox(
     "Navegar", _abas_labels,
     index=idx_atual,
     label_visibility="collapsed",
-    key="nav_select",
+    key=f"nav_select_{_aba_atual}",   # chave dinâmica — força re-render ao trocar aba
 )
 
 _nav_key = dict(ABAS).get(escolha, "")
@@ -468,11 +468,7 @@ if _nav_key == "__sair__":
     fazer_logout(supabase, cookies, DEFAULTS)
 elif _nav_key and _nav_key != _aba_atual:
     st.session_state.aba_ativa = _nav_key
-    # Limpa query params ao navegar para evitar conflito com ações anteriores
     st.query_params.clear()
-    st.rerun()
-elif _nav_key and _nav_key != _aba_atual:
-    st.session_state.aba_ativa = _nav_key
     st.rerun()
 
 # ─────────────────────────────────────────────────────────
@@ -1377,24 +1373,31 @@ elif _aba_atual == "evolucao":
                 df_peso = pd.DataFrame(res_peso.data)
                 df_peso["data"]    = pd.to_datetime(df_peso["data"])
                 df_peso["peso_kg"] = pd.to_numeric(df_peso["peso_kg"], errors="coerce")
-                df_peso = df_peso.dropna(subset=["peso_kg"]).sort_values("data")
+                df_peso = df_peso.dropna(subset=["peso_kg"]).sort_values("data").reset_index(drop=True)
 
-                df_peso_plot = df_peso.copy()
-                df_peso_plot.index = df_peso_plot["data"].dt.strftime("%d/%m/%y")
+                # Gráfico com eixo Y fixo próximo dos valores reais
+                _p_min   = float(df_peso["peso_kg"].min())
+                _p_max   = float(df_peso["peso_kg"].max())
+                _margem  = max(3.0, (_p_max - _p_min + 0.1) * 0.15)
+                _y_min   = _p_min - _margem
+                _y_max   = _p_max + _margem
 
-                if len(df_peso_plot) == 1:
-                    # Com 1 ponto, duplica para forçar a linha aparecer
-                    df_peso_plot = pd.concat([df_peso_plot, df_peso_plot])
+                df_plot = df_peso[["data", "peso_kg"]].copy()
+                df_plot["data_str"] = df_plot["data"].dt.strftime("%d/%m/%y")
 
-                _p_min = df_peso["peso_kg"].min()
-                _p_max = df_peso["peso_kg"].max()
-                _margem = max(2.0, (_p_max - _p_min) * 0.1)
-
-                st.line_chart(
-                    df_peso_plot["peso_kg"],
-                    use_container_width=True,
-                    y_label="kg",
+                import altair as alt
+                _chart = (
+                    alt.Chart(df_plot)
+                    .mark_line(point=True, color="#a78bfa", strokeWidth=2)
+                    .encode(
+                        x=alt.X("data_str:O", title="Data", sort=None),
+                        y=alt.Y("peso_kg:Q", title="kg",
+                                scale=alt.Scale(domain=[_y_min, _y_max])),
+                        tooltip=["data_str:O", "peso_kg:Q"],
+                    )
+                    .properties(height=200)
                 )
+                st.altair_chart(_chart, use_container_width=True)
 
                 primeiro = df_peso["peso_kg"].iloc[0]
                 ultimo   = df_peso["peso_kg"].iloc[-1]
