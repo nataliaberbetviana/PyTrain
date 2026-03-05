@@ -87,6 +87,7 @@ DEFAULTS: dict = {
     "meta_sem_dias":         5,
     "del_ex_pending":        None,
     "_encerrar_cardio":      False,
+    "sub_evolucao":          "🏋️ Progressão",
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -146,6 +147,9 @@ p, span, label, div, li {
 }
 
 div[data-testid="stSelectbox"] > div { min-height: 52px !important; }
+div[data-testid="stSelectbox"] { width: 100% !important; }
+div[data-testid="stSelectbox"] * { color: #e2e8f0 !important; font-size: 0.95rem !important; }
+div[data-testid="stSelectbox"] > div > div { padding: 10px 14px !important; }
 
 div[data-testid="stRadio"] > div {
     display: flex !important;
@@ -158,14 +162,6 @@ div[data-testid="stRadio"] label {
     white-space: nowrap !important;
     font-size: 0.9rem !important;
     min-height: 36px !important;
-}
-div[data-testid="stSelectbox"] > div > div {
-    padding: 10px 14px !important;
-    font-size: 0.95rem !important;
-    color: #e2e8f0 !important;
-}
-div[data-testid="stSelectbox"] {
-    width: 100% !important;
 }
 
 button, a, [role="button"],
@@ -1278,12 +1274,21 @@ elif _aba_atual == "painel":
 elif _aba_atual == "evolucao":
     st.info("📈 " + _frase("evolucao"))
 
-    _sub_evolucao = st.radio(
-        "Seção",
-        ["🏋️ Progressão", "⚖️ Peso corporal", "📏 Medidas"],
-        horizontal=True, label_visibility="collapsed",
-        key="radio_sub_evolucao",
-    )
+    if "sub_evolucao" not in st.session_state:
+        st.session_state.sub_evolucao = "🏋️ Progressão"
+
+    _c1, _c2, _c3 = st.columns(3)
+    if _c1.button("🏋️ Progressão",  use_container_width=True,
+                  type="primary" if st.session_state.sub_evolucao == "🏋️ Progressão"  else "secondary"):
+        st.session_state.sub_evolucao = "🏋️ Progressão";  st.rerun()
+    if _c2.button("⚖️ Peso",         use_container_width=True,
+                  type="primary" if st.session_state.sub_evolucao == "⚖️ Peso corporal" else "secondary"):
+        st.session_state.sub_evolucao = "⚖️ Peso corporal"; st.rerun()
+    if _c3.button("📏 Medidas",      use_container_width=True,
+                  type="primary" if st.session_state.sub_evolucao == "📏 Medidas"       else "secondary"):
+        st.session_state.sub_evolucao = "📏 Medidas";       st.rerun()
+
+    _sub_evolucao = st.session_state.sub_evolucao
 
     if _sub_evolucao == "🏋️ Progressão":
         try:
