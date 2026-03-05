@@ -1266,17 +1266,22 @@ elif _aba_atual == "painel":
 elif _aba_atual == "evolucao":
     st.info("📈 " + _frase("evolucao"))
 
-    sub1, sub2, sub3 = st.tabs(["🏋️ Progressão por exercício", "⚖️ Peso corporal", "📏 Medidas"])
+    _sub_evolucao = st.selectbox(
+        "Seção",
+        ["🏋️ Progressão por exercício", "⚖️ Peso corporal", "📏 Medidas"],
+        label_visibility="collapsed",
+        key="sel_sub_evolucao",
+    )
 
-    with sub1:
+    if _sub_evolucao == "🏋️ Progressão por exercício":
         try:
             exs_todos = supabase.table("exercicios")\
                 .select("id,nome,serie_tipo").eq("user_id", uid()).order("nome").execute()
             if not exs_todos.data:
                 st.info("Nenhum exercício cadastrado ainda.")
             else:
-                nomes_ex  = [f"{e['nome']} (Série {e['serie_tipo']})" for e in exs_todos.data]
-                sel       = st.selectbox("Escolha o exercício", nomes_ex)
+                nomes_ex  = [f"{e['nome']}  —  Série {e['serie_tipo']}" for e in exs_todos.data]
+                sel       = st.selectbox("Exercício", nomes_ex, label_visibility="collapsed")
                 ex_id_sel = exs_todos.data[nomes_ex.index(sel)]["id"]
 
                 hist_ex = supabase.table("historico_treinos")\
@@ -1305,7 +1310,7 @@ elif _aba_atual == "evolucao":
         except Exception as e:
             st.error("Erro: " + str(e))
 
-    with sub2:
+    elif _sub_evolucao == "⚖️ Peso corporal":
         try:
             with st.form("form_peso"):
                 c1, c2    = st.columns(2)
@@ -1357,7 +1362,7 @@ elif _aba_atual == "evolucao":
         except Exception as e:
             st.error("Erro: " + str(e))
 
-    with sub3:
+    elif _sub_evolucao == "📏 Medidas":
         MEDIDAS = [
             ("cintura_cm",     "Cintura (cm)"),
             ("quadril_cm",     "Quadril (cm)"),
