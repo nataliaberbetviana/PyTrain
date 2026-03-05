@@ -165,6 +165,14 @@ div[data-testid="stRadio"] label {
     min-height: 36px !important;
 }
 
+/* Botões em colunas — altura igual */
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
+    height: 56px !important;
+    min-height: 56px !important;
+    white-space: normal !important;
+    line-height: 1.2 !important;
+}
+
 button, a, [role="button"],
 div[data-testid="stButton"] > button {
     min-height: 44px !important;
@@ -446,7 +454,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Dropdown de navegação — largura total para não cortar o texto
+# Dropdown de navegação — sincroniza com aba_ativa
 idx_atual = _abas_keys.index(_aba_atual) if _aba_atual in _abas_keys else 0
 escolha   = st.selectbox(
     "Navegar", _abas_labels,
@@ -458,6 +466,11 @@ escolha   = st.selectbox(
 _nav_key = dict(ABAS).get(escolha, "")
 if _nav_key == "__sair__":
     fazer_logout(supabase, cookies, DEFAULTS)
+elif _nav_key and _nav_key != _aba_atual:
+    st.session_state.aba_ativa = _nav_key
+    # Limpa query params ao navegar para evitar conflito com ações anteriores
+    st.query_params.clear()
+    st.rerun()
 elif _nav_key and _nav_key != _aba_atual:
     st.session_state.aba_ativa = _nav_key
     st.rerun()
@@ -1278,37 +1291,25 @@ elif _aba_atual == "evolucao":
     if "sub_evolucao" not in st.session_state:
         st.session_state.sub_evolucao = "🏋️ Progressão"
 
-    # Processa clique dos botões via query param
-    _qp_sub = st.query_params.get("sub_ev", "")
-    if _qp_sub:
-        st.session_state.sub_evolucao = _qp_sub
-        st.query_params.clear()
+    _sub_evolucao = st.session_state.sub_evolucao
+    _c1, _c2, _c3 = st.columns(3)
+    if _c1.button("🏋️ Progressão",
+                  use_container_width=True,
+                  type="primary" if _sub_evolucao == "🏋️ Progressão" else "secondary"):
+        st.session_state.sub_evolucao = "🏋️ Progressão"
+        st.rerun()
+    if _c2.button("⚖️ Peso",
+                  use_container_width=True,
+                  type="primary" if _sub_evolucao == "⚖️ Peso corporal" else "secondary"):
+        st.session_state.sub_evolucao = "⚖️ Peso corporal"
+        st.rerun()
+    if _c3.button("📏 Medidas",
+                  use_container_width=True,
+                  type="primary" if _sub_evolucao == "📏 Medidas" else "secondary"):
+        st.session_state.sub_evolucao = "📏 Medidas"
         st.rerun()
 
     _sub_evolucao = st.session_state.sub_evolucao
-
-    def _btn_sub(label, key):
-        ativo = _sub_evolucao == key
-        bg    = "#7c3aed" if ativo else "#1e1e3a"
-        borda = "#7c3aed" if ativo else "#3a3a5c"
-        cor   = "#fff"    if ativo else "#c8cdd5"
-        return (
-            f'<a href="?sub_ev={key}" style="'
-            f'display:flex;align-items:center;justify-content:center;'
-            f'height:56px;border-radius:12px;background:{bg};'
-            f'border:2px solid {borda};color:{cor};'
-            f'font-size:0.88rem;font-weight:600;text-decoration:none;'
-            f'text-align:center;padding:0 4px;line-height:1.2">{label}</a>'
-        )
-
-    st.markdown(
-        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
-        f'{_btn_sub("🏋️ Progressão", "🏋️ Progressão")}'
-        f'{_btn_sub("⚖️ Peso", "⚖️ Peso corporal")}'
-        f'{_btn_sub("📏 Medidas", "📏 Medidas")}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
 
     if _sub_evolucao == "🏋️ Progressão":
         try:
