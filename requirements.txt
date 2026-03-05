@@ -4,4 +4,3 @@ python-dotenv
 pandas
 pytz
 streamlit-cookies-manager
-streamlit-autorefresh
