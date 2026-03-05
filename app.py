@@ -561,9 +561,10 @@ if _aba_atual == "home":
 elif _aba_atual == "treino":
     st.info("✨ " + _frase("treino"))
 
-    modo_treino = st.radio(
+    modo_treino = st.selectbox(
         "Modo", ["Série", "Treino Livre"],
-        horizontal=True, label_visibility="collapsed",
+        label_visibility="collapsed",
+        key="sel_modo_treino",
     )
 
     # ── Treino Livre ──────────────────────────────────────────────────────────
@@ -634,9 +635,10 @@ elif _aba_atual == "treino":
     # ── Treino por Série ──────────────────────────────────────────────────────
     else:
         if not st.session_state.treino_ativo:
-            serie = st.radio(
+            serie = st.selectbox(
                 "Série", ["A", "B", "C", "D"],
-                horizontal=True, label_visibility="collapsed",
+                label_visibility="collapsed",
+                key="sel_serie",
             )
             exs = supabase.table("exercicios")\
                 .select("id,nome,series,repeticoes,peso_kg")\
@@ -1269,6 +1271,11 @@ elif _aba_atual == "evolucao":
     _sub_evolucao = st.selectbox(
         "Seção",
         ["🏋️ Progressão por exercício", "⚖️ Peso corporal", "📏 Medidas"],
+        format_func=lambda x: {
+            "🏋️ Progressão por exercício": "🏋️ Progressão",
+            "⚖️ Peso corporal":            "⚖️ Peso corporal",
+            "📏 Medidas":                  "📏 Medidas",
+        }.get(x, x),
         label_visibility="collapsed",
         key="sel_sub_evolucao",
     )
@@ -1280,7 +1287,11 @@ elif _aba_atual == "evolucao":
             if not exs_todos.data:
                 st.info("Nenhum exercício cadastrado ainda.")
             else:
-                nomes_ex  = [f"{e['nome']}  —  Série {e['serie_tipo']}" for e in exs_todos.data]
+                nomes_ex  = [
+                    (f"{e['nome'][:28]}…" if len(e['nome']) > 28 else e['nome'])
+                    + f"  —  S.{e['serie_tipo']}"
+                    for e in exs_todos.data
+                ]
                 sel       = st.selectbox("Exercício", nomes_ex, label_visibility="collapsed")
                 ex_id_sel = exs_todos.data[nomes_ex.index(sel)]["id"]
 
